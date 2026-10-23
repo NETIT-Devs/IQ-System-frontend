@@ -1,0 +1,10 @@
+.login-intro {
+    background-color: #08264f;
+    background-image:
+        linear-gradient(135deg, rgba(4, 25, 62, 0.65), rgba(5, 35, 82, 0.55)),
+        /* Login panel background image */
+        url("/background.png");
+    background-position: center, left center;
+    background-repeat: no-repeat;
+    background-size: cover, 190% 100%;
+}

@@ -1,0 +1,12 @@
+
+/* Reuse the shared responsive dashboard styles. */
+@import "./SuperAdminDashboard.css";
+
+/* Admin-specific adjustments. */
+.sa-sidebar-profile {
+  margin-top: 0;
+}
+
+.sa-sidebar-profile .sa-user-info strong {
+  color: #ffffff;
+}

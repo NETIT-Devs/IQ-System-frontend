@@ -65,6 +65,11 @@ export default function Login() {
             }
 
             // Store the authentication details for the active session.
+            if (role === "admin") {
+                localStorage.removeItem("authToken");
+                localStorage.removeItem("authUser");
+            }
+
             const storage = rememberMe ? localStorage : sessionStorage;
 
             storage.setItem("authToken", data.token);

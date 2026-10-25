@@ -1,10 +1,618 @@
+
+/* Set the page background and default colors. */
+.login-page {
+    --navy: #071a38;
+    --blue: #1558d6;
+    --text-primary: #10213e;
+    --text-secondary: #71819c;
+
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    background: #edf2fa;
+    color: var(--text-primary);
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+
+/* Keep the login layout at a normal desktop card size. */
+.login-layout {
+    display: grid;
+    grid-template-columns: 0.92fr 1.08fr;
+    width: 100%;
+    max-width: 1000px;
+    min-height: 610px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #dce5f2;
+    box-shadow: 0 18px 55px rgba(10, 35, 75, 0.12);
+}
+
+/* Style the navy branding panel. */
 .login-intro {
-    background-color: #08264f;
-    background-image:
-        linear-gradient(135deg, rgba(4, 25, 62, 0.65), rgba(5, 35, 82, 0.55)),
-        /* Login panel background image */
-        url("/background.png");
-    background-position: center, left center;
-    background-repeat: no-repeat;
-    background-size: cover, 190% 100%;
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    min-width: 0;
+    overflow: hidden;
+    background: linear-gradient(145deg, #06142e, #0b2b5b);
+    color: #ffffff;
+}
+
+.intro-background {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image: url("/login-bg.jpg");
+    background-size: cover;
+    background-position: center;
+    opacity: 0.15;
+    filter: saturate(0.65);
+}
+
+.intro-shade {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(
+        145deg,
+        rgba(4, 17, 42, 0.94),
+        rgba(7, 30, 66, 0.88),
+        rgba(6, 20, 46, 0.97)
+    );
+}
+
+.intro-content {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 34px 30px 25px;
+}
+
+/* Display the logo and product name. */
+.brand-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-logo {
+    width: 43px;
+    height: 43px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.brand-name {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.4;
+}
+
+.brand-name span:last-child {
+    color: #c5d8f8;
+    font-size: 11px;
+    font-weight: 400;
+}
+
+/* Style the introduction heading and description. */
+.intro-copy {
+    margin-top: 68px;
+}
+
+.intro-eyebrow {
+    display: inline-block;
+    margin-bottom: 15px;
+    color: #a7caff;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+}
+
+.intro-copy h1 {
+    margin: 0;
+    color: #ffffff;
+    font-size: clamp(27px, 3vw, 35px);
+    font-weight: 750;
+    letter-spacing: -0.8px;
+    line-height: 1.2;
+}
+
+.intro-description {
+    max-width: 340px;
+    margin-top: 16px;
+    color: #c4d3eb;
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+.intro-accent {
+    width: 38px;
+    height: 3px;
+    margin-top: 20px;
+    background: #4b91ff;
+}
+
+/* Arrange the finance features in two columns. */
+.feature-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin-top: 35px;
+    border-top: 1px solid rgba(180, 208, 255, 0.17);
+    border-bottom: 1px solid rgba(180, 208, 255, 0.17);
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 15px 8px 15px 0;
+    color: #dce8fb;
+    font-size: 11px;
+}
+
+.feature-item + .feature-item {
+    padding-left: 10px;
+}
+
+.feature-item:nth-child(3) {
+    padding-left: 0;
+}
+
+.feature-icon {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    color: #78b4ff;
+    stroke-width: 1.7;
+}
+
+/* Position the branding footer at the bottom. */
+.intro-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 25px;
+    color: #91acd4;
+    font-size: 8px;
+    font-weight: 650;
+    letter-spacing: 1.2px;
+}
+
+/* Style the white login panel. */
+.login-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding: 52px 42px 42px;
+    background: #ffffff;
+}
+
+.secure-label {
+    position: absolute;
+    top: 20px;
+    right: 22px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #71819c;
+    font-size: 10px;
+}
+
+.secure-label svg {
+    color: #5878a8;
+}
+
+/* Center the login form and welcome heading. */
+.login-form-container {
+    width: 100%;
+    max-width: 360px;
+    margin: 0 auto;
+}
+
+.login-heading {
+    margin-bottom: 29px;
+    text-align: center;
+}
+
+.login-heading h2 {
+    margin: 0;
+    color: #0b1e3e;
+    font-size: 29px;
+    font-weight: 750;
+    letter-spacing: -0.7px;
+    line-height: 1.25;
+}
+
+.login-heading p {
+    margin: 9px 0 0;
+    color: #7b8eae;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+/* Arrange the form fields with consistent spacing. */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 17px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.form-field label {
+    color: #182b49;
+    font-size: 11px;
+    font-weight: 650;
+}
+
+/* Style the email and password input fields. */
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 45px;
+    border: 1px solid #cbdaf1;
+    background: #ffffff;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.input-wrapper:focus-within {
+    border-color: #286be2;
+    box-shadow: 0 0 0 3px rgba(40, 107, 226, 0.1);
+}
+
+.input-icon {
+    flex-shrink: 0;
+    margin-left: 12px;
+    color: #7890b3;
+}
+
+.input-wrapper input {
+    width: 100%;
+    min-width: 0;
+    height: 43px;
+    padding: 0 11px;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: #10213e;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.input-wrapper input::placeholder {
+    color: #9aa9c0;
+    opacity: 1;
+}
+
+/* Align the password visibility control. */
+.password-toggle {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 39px;
+    height: 43px;
+    border: 0;
+    background: transparent;
+    color: #7b8eae;
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    color: #1558d6;
+}
+
+/* Align the remember-me and forgot-password controls. */
+.login-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: -1px;
+}
+
+.remember-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #566b8d;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.remember-option input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: #1558d6;
+    cursor: pointer;
+}
+
+.forgot-link {
+    color: #1558d6;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.forgot-link:hover {
+    color: #073da5;
+    text-decoration: underline;
+}
+
+/* Display authentication errors. */
+.login-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid #fecaca;
+    background: #fff5f5;
+    color: #b42318;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.login-error svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Style the primary sign-in button. */
+.sign-in-button {
+    width: 100%;
+    min-height: 46px;
+    margin-top: 1px;
+    padding: 12px 16px;
+    border: 1px solid #124bc1;
+    background: linear-gradient(105deg, #155ee8, #1047c2);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.sign-in-button:hover:not(:disabled) {
+    background: linear-gradient(105deg, #0e50d1, #0a389f);
+    box-shadow: 0 5px 14px rgba(16, 71, 194, 0.18);
+}
+
+.sign-in-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Highlight the restricted-access notice. */
+.access-notice {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-top: 3px;
+    padding: 13px 11px;
+    border-left: 3px solid #286be2;
+    background: #f0f5fd;
+}
+
+.notice-icon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 29px;
+    height: 29px;
+    color: #5276aa;
+}
+
+.notice-content p {
+    margin: 0;
+    color: #365782;
+    font-size: 10px;
+    font-weight: 650;
+    line-height: 1.5;
+}
+
+.notice-content span {
+    display: block;
+    margin-top: 3px;
+    color: #7b8eae;
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+/* Add a small label below the login form. */
+.login-bottom-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 26px;
+}
+
+.login-bottom-label span {
+    width: 22px;
+    height: 1px;
+    background: #c8d8f2;
+}
+
+.login-bottom-label p {
+    margin: 0;
+    color: #8295b5;
+    font-size: 7px;
+    font-weight: 650;
+    letter-spacing: 0.8px;
+    text-align: center;
+}
+
+/* Position the small security footer. */
+.login-panel-footer {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    color: #a1aec1;
+    font-size: 8px;
+}
+
+/* Adapt the card to tablet-sized screens. */
+@media (max-width: 850px) {
+    .login-page {
+        padding: 24px 16px;
+    }
+
+    .login-layout {
+        max-width: 700px;
+        grid-template-columns: 0.85fr 1.15fr;
+        min-height: 560px;
+    }
+
+    .intro-content {
+        padding: 26px 20px;
+    }
+
+    .intro-copy {
+        margin-top: 55px;
+    }
+
+    .intro-copy h1 {
+        font-size: 28px;
+    }
+
+    .intro-description {
+        font-size: 11px;
+    }
+
+    .login-panel {
+        padding: 48px 25px 35px;
+    }
+
+    .secure-label {
+        right: 16px;
+    }
+}
+
+/* Stack the panels on mobile devices. */
+@media (max-width: 620px) {
+    .login-page {
+        align-items: flex-start;
+        padding: 16px;
+    }
+
+    .login-layout {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 420px;
+        min-height: auto;
+        margin: auto;
+    }
+
+    .intro-content {
+        min-height: 260px;
+        padding: 23px;
+    }
+
+    .brand-logo {
+        width: 38px;
+        height: 38px;
+    }
+
+    .brand-name {
+        font-size: 13px;
+    }
+
+    .intro-copy {
+        margin-top: 30px;
+    }
+
+    .intro-copy h1 {
+        font-size: 28px;
+    }
+
+    .intro-description {
+        max-width: 320px;
+        margin-top: 10px;
+        font-size: 11px;
+    }
+
+    .intro-accent {
+        margin-top: 13px;
+    }
+
+    .feature-list {
+        margin-top: 20px;
+    }
+
+    .feature-item {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        font-size: 10px;
+    }
+
+    .intro-footer {
+        padding-top: 20px;
+    }
+
+    .login-panel {
+        min-height: 440px;
+        padding: 57px 25px 36px;
+    }
+
+    .secure-label {
+        top: 18px;
+        right: 18px;
+    }
+
+    .login-heading {
+        margin-bottom: 24px;
+    }
+
+    .login-heading h2 {
+        font-size: 27px;
+    }
+
+    .login-form {
+        gap: 16px;
+    }
+
+    .login-panel-footer {
+        display: none;
+    }
+}
+
+/* Fine-tune spacing on very small screens. */
+@media (max-width: 360px) {
+    .login-page {
+        padding: 10px;
+    }
+
+    .intro-content {
+        padding: 20px 17px;
+    }
+
+    .login-panel {
+        padding-right: 18px;
+        padding-left: 18px;
+    }
+
+    .intro-copy h1 {
+        font-size: 25px;
+    }
+
+    .login-options {
+        gap: 8px;
+    }
 }

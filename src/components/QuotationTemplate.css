@@ -1,0 +1,445 @@
+/* Quotation PDF Template Stylesheet */
+/* Colors: Deep Navy Blue (#0f172a, #1e293b), Professional Blue (#1d4ed8, #2563eb), Pure White (#ffffff) */
+
+.quotation-template-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #1e293b;
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 32px 36px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+/* Header Section */
+.qt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 24px;
+  border-bottom: 2px solid #e2e8f0;
+  gap: 20px;
+}
+
+.qt-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 450px;
+}
+
+.qt-logo {
+  max-height: 64px;
+  max-width: 140px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.qt-company-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  margin: 0 0 4px 0;
+}
+
+.qt-company-info {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.qt-doc-title-block {
+  text-align: right;
+  min-width: 180px;
+}
+
+.qt-doc-title {
+  font-size: 26px;
+  font-weight: 900;
+  color: #1d4ed8;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px 0;
+  text-transform: uppercase;
+}
+
+.qt-meta-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+
+.qt-meta-table td {
+  padding: 2px 0;
+}
+
+.qt-meta-label {
+  color: #64748b;
+  text-align: right;
+  padding-right: 8px !important;
+  font-weight: 500;
+}
+
+.qt-meta-value {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+}
+
+.qt-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.qt-status-draft {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.qt-status-sent {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.qt-status-approved {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.qt-status-rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Two-column info area: Bill To & Project Info */
+.qt-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 24px 0;
+}
+
+.qt-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.qt-card-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #1d4ed8;
+  margin: 0 0 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.qt-customer-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+}
+
+.qt-customer-company {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 6px 0;
+}
+
+.qt-detail-line {
+  font-size: 12px;
+  color: #475569;
+  margin: 2px 0;
+}
+
+.qt-project-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+
+.qt-project-label {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.qt-project-value {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+/* Services Table */
+.qt-table-section {
+  margin: 24px 0;
+}
+
+.qt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.qt-table th {
+  background-color: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.qt-table th.text-right {
+  text-align: right;
+}
+
+.qt-table th.text-center {
+  text-align: center;
+}
+
+.qt-table-row {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.qt-table-row:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.qt-table td {
+  padding: 10px 12px;
+  vertical-align: top;
+  color: #334155;
+}
+
+.qt-item-title {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+  margin: 0 0 4px 0;
+}
+
+.qt-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 6px 0;
+}
+
+.qt-item-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.qt-item-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+/* Financial Summary & Notes Area */
+.qt-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  margin: 24px 0;
+  align-items: start;
+}
+
+.qt-notes-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.qt-notes-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #1d4ed8;
+  margin: 0 0 6px 0;
+}
+
+.qt-notes-content {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 10px 0;
+  white-space: pre-wrap;
+}
+
+.qt-notes-content:last-child {
+  margin-bottom: 0;
+}
+
+/* Financial Summary Box */
+.qt-summary-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.qt-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.qt-summary-table td {
+  padding: 8px 14px;
+}
+
+.qt-summary-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.qt-summary-value {
+  color: #0f172a;
+  font-weight: 700;
+  text-align: right;
+}
+
+.qt-summary-total-row {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+.qt-summary-total-label {
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.qt-summary-total-value {
+  color: #60a5fa;
+  font-size: 17px;
+  font-weight: 900;
+  text-align: right;
+}
+
+/* Signatures Section */
+.qt-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.qt-sig-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.qt-sig-space {
+  min-height: 50px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding-bottom: 4px;
+}
+
+.qt-signature-img {
+  max-height: 48px;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
+}
+
+.qt-bank-card {
+  margin-top: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.qt-bank-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  font-size: 11px;
+  color: #334155;
+}
+
+.qt-bank-label {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.qt-sig-line {
+  border-top: 1px solid #475569;
+  margin-bottom: 6px;
+}
+
+.qt-sig-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.qt-sig-subtitle {
+  font-size: 11px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+/* Footer Section */
+.qt-footer {
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.qt-footer-text {
+  font-weight: 600;
+  color: #1d4ed8;
+  margin-bottom: 2px;
+}
+
+/* Page break control for print/PDF */
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  .quotation-template-container {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+  .pdf-no-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

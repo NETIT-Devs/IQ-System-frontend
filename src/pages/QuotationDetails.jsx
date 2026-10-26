@@ -1,288 +1,482 @@
-// Quotation details walata use karana icons.
-import { X, CalendarDays, UserRound, FileText } from "lucide-react";
+// Quotation Details Component
+// Displays comprehensive quotation information retrieved from backend database.
+// Supports downloading real business PDF documents via QuotationTemplate.
 
-// Backend eken ena quotation data display karana component eka.
-export default function QuotationDetails({
-  quotation,
-  onClose,
-}) {
-  // Quotation ekak select karala nathnam details display karanne na.
-  if (!quotation) return null;
+import { useEffect, useRef, useState } from "react";
+import {
+  FileText,
+  Calendar,
+  User,
+  Download,
+  X,
+  Clock,
+  Layers,
+  Edit,
+  AlertCircle,
+} from "lucide-react";
+import {
+  getQuotationById,
+  getCompanyDetails,
+} from "../services/quotationService";
+import { downloadQuotationPdf } from "../utils/pdfGenerator";
+import QuotationTemplate from "../components/QuotationTemplate";
+import "./QuotationDetails.css";
 
-  // Amounts currency ekath ekka format karanawa.
-  const money = (amount) =>
-    `${quotation.currency || "LKR"} ${Number(amount || 0).toLocaleString(
-      "en-LK",
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )}`;
-
-  // Date values readable format ekakata convert karanawa.
-  const formatDate = (value) => {
-    if (!value) return "Not specified";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      return String(value).slice(0, 10);
-    }
-
+// Format date into human-readable representation
+function formatDate(dateString) {
+  if (!dateString) return "Not specified";
+  try {
+    const date = new Date(dateString.includes("T") ? dateString : `${dateString}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateString;
     return date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
+  } catch {
+    return dateString;
+  }
+}
+
+// Format financial values with currency
+function formatMoney(amount, currency = "LKR") {
+  return `${currency} ${Number(amount || 0).toLocaleString("en-LK", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+export default function QuotationDetails({
+  quotation: propQuotation = null,
+  quotationId = null,
+  onClose,
+  onEdit,
+}) {
+  const [quotation, setQuotation] = useState(propQuotation);
+  const [companyDetails, setCompanyDetails] = useState({});
+  const [loading, setLoading] = useState(!propQuotation && Boolean(quotationId));
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [error, setError] = useState("");
+
+  const pdfTemplateRef = useRef(null);
+
+  const activeId = propQuotation?.quotation_id || quotationId;
+
+  // Load fresh quotation and company details from backend
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      try {
+        setError("");
+        const companyPromise = getCompanyDetails().catch(() => ({}));
+
+        if (activeId && (!propQuotation || !propQuotation.items)) {
+          setLoading(true);
+          const [fetchedQuotation, company] = await Promise.all([
+            getQuotationById(activeId),
+            companyPromise,
+          ]);
+
+          if (isMounted) {
+            if (fetchedQuotation) {
+              setQuotation(fetchedQuotation);
+            }
+            setCompanyDetails(company);
+          }
+        } else {
+          const company = await companyPromise;
+          if (isMounted) {
+            setCompanyDetails(company);
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err?.message || "Failed to load quotation details.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeId, propQuotation]);
+
+  // Handle direct PDF export
+  const handleDownloadPdf = async () => {
+    if (!quotation) return;
+
+    try {
+      setDownloadingPdf(true);
+      const filename = `${quotation.quotation_number || "Quotation"}.pdf`;
+      await downloadQuotationPdf(pdfTemplateRef.current, filename);
+    } catch (err) {
+      console.error("PDF download failed:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
-  // Status ekata adala badge color eka return karanawa.
-  const statusStyle = {
-    Draft: "bg-slate-100 text-slate-700",
-    Sent: "bg-blue-100 text-blue-700",
-    Accepted: "bg-emerald-100 text-emerald-700",
-    Rejected: "bg-red-100 text-red-700",
-    Expired: "bg-amber-100 text-amber-800",
-    Converted: "bg-purple-100 text-purple-700",
-    Cancelled: "bg-rose-100 text-rose-700",
-  };
+  if (!quotation && !loading) return null;
+
+  const currency = quotation?.currency || "LKR";
+  const items = Array.isArray(quotation?.items) ? quotation.items : [];
 
   return (
-    // Details modal background.
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-3 sm:p-6">
-      <div className="mx-auto my-4 max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="qd-overlay">
+      <div className="qd-card">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-5 sm:px-7">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-blue-700">
-              <FileText size={20} />
-              <span className="text-sm font-semibold">
-                Quotation Details
-              </span>
+        <div className="qd-header">
+          <div className="qd-header-left">
+            <div className="qd-icon-badge">
+              <FileText size={24} />
             </div>
-
-            <h2 className="text-2xl font-bold text-slate-900">
-              {quotation.quotation_number}
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Created on {formatDate(quotation.created_at)}
-            </p>
+            <div className="qd-header-title">
+              <h2>{quotation?.quotation_number || "Quotation Details"}</h2>
+              <p className="qd-header-subtitle">
+                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)}
+              </p>
+            </div>
           </div>
 
-          {/* Close details modal */}
           <button
             type="button"
+            className="qd-close-btn"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-200"
-            aria-label="Close quotation details"
+            aria-label="Close"
           >
-            <X size={20} />
+            <X size={22} />
           </button>
         </div>
 
-        <div className="space-y-6 p-5 sm:p-7">
-          {/* Quotation status saha dates */}
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-slate-200 p-4">
-              <p className="text-sm text-slate-500">Status</p>
-
-              <span
-                className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                  statusStyle[quotation.status] ||
-                  "bg-slate-100 text-slate-700"
-                }`}
-              >
-                {quotation.status || "Draft"}
-              </span>
+        {/* Content Body */}
+        <div className="qd-body">
+          {error && (
+            <div className="qf-alert-error" role="alert">
+              <AlertCircle size={18} />
+              <span>{error}</span>
             </div>
+          )}
 
-            <div className="rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-slate-500">
-                <CalendarDays size={16} />
-                <p className="text-sm">Quotation Date</p>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
+              Loading quotation details from database...
+            </div>
+          ) : quotation ? (
+            <>
+              {/* Overview Metrics Bar */}
+              <div className="qd-overview-bar">
+                <div className="qd-overview-card">
+                  <div className="qd-overview-label">Quotation Date</div>
+                  <div className="qd-overview-value">
+                    {formatDate(quotation.quotation_date)}
+                  </div>
+                </div>
+
+                <div className="qd-overview-card">
+                  <div className="qd-overview-label">Valid Until</div>
+                  <div className="qd-overview-value">
+                    {formatDate(quotation.valid_until)}
+                  </div>
+                </div>
+
+                <div className="qd-overview-card">
+                  <div className="qd-overview-label">Project Duration</div>
+                  <div className="qd-overview-value">
+                    {quotation.estimated_duration
+                      ? `${quotation.estimated_duration} ${quotation.duration_unit || "Days"}`
+                      : "Not specified"}
+                  </div>
+                </div>
+
+                <div className="qd-overview-card">
+                  <div className="qd-overview-label">Grand Total</div>
+                  <div className="qd-overview-value" style={{ color: "#1d4ed8" }}>
+                    {formatMoney(quotation.total_amount, currency)}
+                  </div>
+                </div>
               </div>
 
-              <p className="mt-2 font-semibold text-slate-900">
-                {formatDate(quotation.quotation_date)}
-              </p>
-            </div>
+              {/* Customer & Project Info Grid */}
+              <div className="qd-info-columns">
+                {/* Customer Information Card */}
+                <div className="qd-info-card">
+                  <div className="qd-card-title">
+                    <User size={16} />
+                    <span>Customer Information</span>
+                  </div>
 
-            <div className="rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2 text-slate-500">
-                <CalendarDays size={16} />
-                <p className="text-sm">Valid Until</p>
-              </div>
-
-              <p className="mt-2 font-semibold text-slate-900">
-                {formatDate(quotation.valid_until)}
-              </p>
-            </div>
-          </section>
-
-          {/* Customer information */}
-          <section>
-            <h3 className="mb-3 font-semibold text-slate-900">
-              Customer Information
-            </h3>
-
-            <div className="flex items-start gap-3 rounded-xl border border-slate-200 p-4">
-              <div className="rounded-lg bg-blue-50 p-3 text-blue-700">
-                <UserRound size={20} />
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-900">
-                  {quotation.customer_name || "Customer"}
-                </p>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Customer ID: {quotation.customer_id}
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* Item details table */}
-          <section>
-            <h3 className="mb-3 font-semibold text-slate-900">
-              Quotation Items
-            </h3>
-
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full min-w-[700px] text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Item</th>
-                    <th className="px-4 py-3 font-semibold">Quantity</th>
-                    <th className="px-4 py-3 font-semibold">Unit Price</th>
-                    <th className="px-4 py-3 font-semibold">Tax (%)</th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      Line Total
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {quotation.items?.length > 0 ? (
-                    quotation.items.map((item) => (
-                      <tr
-                        key={item.quotation_item_id}
-                        className="text-slate-700"
-                      >
-                        <td className="px-4 py-4">
-                          <p className="font-medium text-slate-900">
-                            {item.item_name}
-                          </p>
-
-                          {item.description && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              {item.description}
-                            </p>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {Number(item.quantity).toLocaleString()}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {money(item.unit_price)}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          {Number(item.tax_rate || 0)}%
-                        </td>
-
-                        <td className="px-4 py-4 text-right font-medium">
-                          {money(item.line_total)}
+                  <table className="qd-data-table">
+                    <tbody>
+                      <tr>
+                        <td className="qd-data-label">Customer Name:</td>
+                        <td className="qd-data-val">
+                          {quotation.customer_name || "—"}
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan="5"
-                        className="px-4 py-8 text-center text-slate-500"
-                      >
-                        No quotation items available.
-                      </td>
-                    </tr>
+                      {(quotation.customer_company || quotation.company_name) && (
+                        <tr>
+                          <td className="qd-data-label">Company:</td>
+                          <td className="qd-data-val">
+                            {quotation.customer_company || quotation.company_name}
+                          </td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td className="qd-data-label">Customer ID:</td>
+                        <td className="qd-data-val">{quotation.customer_id}</td>
+                      </tr>
+                      {(quotation.customer_email || quotation.email) && (
+                        <tr>
+                          <td className="qd-data-label">Email:</td>
+                          <td className="qd-data-val">
+                            {quotation.customer_email || quotation.email}
+                          </td>
+                        </tr>
+                      )}
+                      {(quotation.customer_phone || quotation.phone) && (
+                        <tr>
+                          <td className="qd-data-label">Phone:</td>
+                          <td className="qd-data-val">
+                            {quotation.customer_phone || quotation.phone}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Software Project Details */}
+                <div className="qd-info-card">
+                  <div className="qd-card-title">
+                    <Calendar size={16} />
+                    <span>Project &amp; Timeline Details</span>
+                  </div>
+
+                  <table className="qd-data-table">
+                    <tbody>
+                      <tr>
+                        <td className="qd-data-label">Start Date:</td>
+                        <td className="qd-data-val">
+                          {formatDate(quotation.project_start_date)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="qd-data-label">Duration:</td>
+                        <td className="qd-data-val">
+                          {quotation.estimated_duration
+                            ? `${quotation.estimated_duration} ${quotation.duration_unit || "Days"}`
+                            : "Flexible / As agreed"}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="qd-data-label">Estimated Completion:</td>
+                        <td className="qd-data-val">
+                          {formatDate(quotation.estimated_completion_date)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="qd-data-label">Currency:</td>
+                        <td className="qd-data-val">{currency}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="qd-items-section">
+                <div className="qd-items-header-bar">
+                  <Layers size={16} />
+                  <span>Quotation Items &amp; Services ({items.length})</span>
+                </div>
+
+                <div style={{ overflowX: "auto" }}>
+                  <table className="qd-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "4%" }}>#</th>
+                        <th style={{ width: "48%" }}>Service / Scope</th>
+                        <th style={{ width: "16%" }} className="text-right">
+                          Price
+                        </th>
+                        <th style={{ width: "12%" }} className="text-right">
+                          Tax Rate
+                        </th>
+                        <th style={{ width: "20%" }} className="text-right">
+                          Line Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => {
+                        const unitPrice = Number(item.unit_price ?? item.Price ?? 0);
+                        const taxRate = Number(item.tax_rate ?? 0);
+                        const lineTotal =
+                          item.line_total != null
+                            ? Number(item.line_total)
+                            : unitPrice + (unitPrice * taxRate) / 100;
+
+                        return (
+                          <tr key={item.quotation_item_id || idx}>
+                            <td>{idx + 1}</td>
+                            <td>
+                              <div className="qd-item-name">{item.item_name}</div>
+
+                              {(item.technology ||
+                                item.website_type ||
+                                item.hosting_domain) && (
+                                <div className="qd-tags-row">
+                                  {item.technology && (
+                                    <span className="qd-tag">
+                                      Tech: {item.technology}
+                                    </span>
+                                  )}
+                                  {item.website_type && (
+                                    <span className="qd-tag">
+                                      Type: {item.website_type}
+                                    </span>
+                                  )}
+                                  {item.hosting_domain && (
+                                    <span className="qd-tag">
+                                      Hosting: {item.hosting_domain}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              {item.description && (
+                                <p className="qd-item-desc">{item.description}</p>
+                              )}
+                            </td>
+                            <td className="text-right">
+                              {formatMoney(unitPrice, currency)}
+                            </td>
+                            <td className="text-right">{taxRate}%</td>
+                            <td className="text-right" style={{ fontWeight: 700 }}>
+                              {formatMoney(lineTotal, currency)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Bottom Row: Terms & Financial Summary */}
+              <div className="qd-bottom-row">
+                <div className="qd-terms-card">
+                  <div className="qd-terms-title">Terms &amp; Conditions</div>
+                  <div className="qd-terms-text">
+                    {quotation.terms_and_conditions ||
+                      "Standard terms and conditions apply as per service agreement."}
+                  </div>
+
+                  {quotation.notes && (
+                    <>
+                      <div className="qd-terms-title" style={{ marginTop: "12px" }}>
+                        Additional Notes
+                      </div>
+                      <div className="qd-terms-text">{quotation.notes}</div>
+                    </>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                </div>
 
-          {/* Totals summary */}
-          <section className="ml-auto max-w-md space-y-3 rounded-xl bg-slate-50 p-5">
-            <div className="flex justify-between gap-4 text-sm text-slate-600">
-              <span>Subtotal</span>
-              <span>{money(quotation.subtotal)}</span>
-            </div>
+                <div className="qd-totals-card">
+                  <table className="qd-totals-table">
+                    <tbody>
+                      <tr>
+                        <td className="qd-totals-label">Subtotal:</td>
+                        <td className="qd-totals-value">
+                          {formatMoney(quotation.subtotal, currency)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="qd-totals-label">Discount:</td>
+                        <td className="qd-totals-value" style={{ color: "#dc2626" }}>
+                          - {formatMoney(quotation.discount_amount, currency)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="qd-totals-label">Tax:</td>
+                        <td className="qd-totals-value">
+                          + {formatMoney(quotation.tax_amount, currency)}
+                        </td>
+                      </tr>
+                      <tr className="qd-grand-total-row">
+                        <td className="qd-grand-total-label">Grand Total:</td>
+                        <td className="qd-grand-total-value">
+                          {formatMoney(quotation.total_amount, currency)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
 
-            <div className="flex justify-between gap-4 text-sm text-slate-600">
-              <span>Tax Amount</span>
-              <span>{money(quotation.tax_amount)}</span>
-            </div>
+        {/* Footer Actions */}
+        <div className="qd-footer">
+          <button
+            type="button"
+            className="qd-btn qd-btn-close"
+            onClick={onClose}
+          >
+            Close
+          </button>
 
-            <div className="flex justify-between gap-4 text-sm text-slate-600">
-              <span>Discount</span>
-              <span>- {money(quotation.discount_amount)}</span>
-            </div>
+          <div className="qd-footer-right">
+            {onEdit && quotation && (
+              <button
+                type="button"
+                className="qd-btn qd-btn-close"
+                onClick={() => onEdit(quotation)}
+              >
+                <Edit size={16} />
+                Edit Quotation
+              </button>
+            )}
 
-            <div className="flex justify-between gap-4 border-t border-slate-200 pt-3 text-lg font-bold text-slate-900">
-              <span>Total Amount</span>
-              <span>{money(quotation.total_amount)}</span>
-            </div>
-          </section>
-
-          {/* Optional notes */}
-          {quotation.notes && (
-            <section>
-              <h3 className="mb-2 font-semibold text-slate-900">
-                Notes
-              </h3>
-
-              <p className="whitespace-pre-wrap rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-600">
-                {quotation.notes}
-              </p>
-            </section>
-          )}
-
-          {/* Optional terms and conditions */}
-          {quotation.terms_and_conditions && (
-            <section>
-              <h3 className="mb-2 font-semibold text-slate-900">
-                Terms and Conditions
-              </h3>
-
-              <p className="whitespace-pre-wrap rounded-xl border border-slate-200 p-4 text-sm leading-6 text-slate-600">
-                {quotation.terms_and_conditions}
-              </p>
-            </section>
-          )}
-
-          {/* Record metadata */}
-          <section className="grid grid-cols-1 gap-3 border-t border-slate-200 pt-4 text-xs text-slate-500 sm:grid-cols-2">
-            <p>Created by user ID: {quotation.created_by ?? "N/A"}</p>
-            <p>
-              Last updated: {formatDate(quotation.updated_at)}
-            </p>
-          </section>
-
-          {/* Close button */}
-          <div className="flex justify-end border-t border-slate-200 pt-4">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+              className="qd-btn qd-btn-pdf"
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || !quotation}
             >
-              Close
+              <Download size={16} />
+              {downloadingPdf ? "Generating PDF..." : "Download PDF"}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Hidden container for rendering QuotationTemplate for PDF export */}
+      {quotation && (
+        <div className="qd-pdf-export-host">
+          <QuotationTemplate
+            ref={pdfTemplateRef}
+            quotation={quotation}
+            customer={{
+              customer_name: quotation.customer_name,
+              company_name: quotation.customer_company || quotation.company_name || "",
+              email: quotation.customer_email || quotation.email || "",
+              phone: quotation.customer_phone || quotation.phone || "",
+              address: quotation.customer_address || quotation.address || "",
+            }}
+            company={companyDetails}
+          />
+        </div>
+      )}
     </div>
   );
 }

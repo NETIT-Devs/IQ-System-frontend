@@ -1,5 +1,7 @@
+// Quotations List Page Component
+// Connected with backend Quotation API, Customer API, QuotationForm, and QuotationDetails.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   FileText,
@@ -13,32 +15,28 @@ import {
   Pencil,
   Copy,
   Trash2,
-  FilePlus2,
   Clock3,
   Send,
   CheckCircle2,
   XCircle,
   FileEdit,
   SlidersHorizontal,
+  Eye,
 } from "lucide-react";
+import QuotationForm from "./QuotationForm";
+import QuotationDetails from "./QuotationDetails";
+import {
+  getQuotations,
+  deleteQuotation,
+} from "../services/quotationService";
 import "./Quotations.css";
-
-const initialForm = {
-  clientName: "",
-  project: "",
-  issuedDate: new Date().toISOString().slice(0, 10),
-  validUntil: "",
-  total: "",
-  status: "Draft",
-};
 
 const statusOptions = [
   "All Statuses",
   "Draft",
   "Sent",
-  "Accepted",
+  "Approved",
   "Rejected",
-  "Expired",
 ];
 
 const dateOptions = [
@@ -49,34 +47,38 @@ const dateOptions = [
   { label: "Last 2 years", value: "twoYears" },
 ];
 
-function createQuotationId() {
-  // Generate a client-side ID until the backend assigns permanent IDs.
-  return `QUO-${Date.now().toString().slice(-8)}`;
-}
-
-function formatCurrency(amount) {
+// Format amounts using Sri Lankan Rupees or quotation currency
+function formatCurrency(amount, currency = "LKR") {
   return new Intl.NumberFormat("en-LK", {
     style: "currency",
-    currency: "LKR",
+    currency: currency || "LKR",
     maximumFractionDigits: 2,
   }).format(Number(amount) || 0);
 }
 
+// Format dates for display in the quotation table
 function formatDate(value) {
   if (!value) return "—";
 
-  return new Date(`${value}T00:00:00`).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  try {
+    const date = new Date(value.includes("T") ? value : `${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return value;
+  }
 }
 
+// Return an icon based on the quotation status
 function getStatusIcon(status) {
   switch (status) {
     case "Sent":
       return Send;
-    case "Accepted":
+    case "Approved":
       return CheckCircle2;
     case "Rejected":
       return XCircle;
@@ -87,6 +89,7 @@ function getStatusIcon(status) {
   }
 }
 
+// Calculate the starting date for the selected date filter
 function getDateCutoff(range) {
   if (range === "all") return null;
 
@@ -103,39 +106,73 @@ function getDateCutoff(range) {
 
 export default function Quotations() {
   const { openSidebar } = useOutletContext();
+
   const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(initialForm);
-  const [formError, setFormError] = useState("");
+  // Modal controls
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
 
-  const stats = useMemo(() => {
-    return {
+  // Fetch quotations from backend
+  async function loadQuotations() {
+    try {
+      setLoading(true);
+      const data = await getQuotations();
+
+      // Normalize backend records for table display
+      const normalized = (data || []).map((q) => ({
+        ...q,
+        id: q.quotation_number,
+        clientName: q.customer_name || "Customer",
+        project: q.items?.[0]?.item_name || "Software Solution",
+        issuedDate: String(q.quotation_date || "").slice(0, 10),
+        validUntil: String(q.valid_until || "").slice(0, 10),
+        total: Number(q.total_amount) || 0,
+        status: q.status || "Draft",
+      }));
+
+      setQuotations(normalized);
+    } catch (err) {
+      console.error("Failed to load quotations:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadQuotations();
+  }, []);
+
+  // Calculate the quotation summary card values
+  const stats = useMemo(
+    () => ({
       total: quotations.length,
       draft: quotations.filter((item) => item.status === "Draft").length,
       sent: quotations.filter((item) => item.status === "Sent").length,
-      accepted: quotations.filter((item) => item.status === "Accepted").length,
-    };
-  }, [quotations]);
+      approved: quotations.filter((item) => item.status === "Approved").length,
+    }),
+    [quotations]
+  );
 
+  // Filter quotations using the search term, date range, and status
   const filteredQuotations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const cutoff = getDateCutoff(dateRange);
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+
+    today.setHours(23, 59, 59, 999);
 
     return quotations.filter((quotation) => {
       const matchesSearch =
         !term ||
-        [
-          quotation.id,
-          quotation.clientName,
-          quotation.project,
-        ].some((value) => value?.toLowerCase().includes(term));
+        [quotation.id, quotation.clientName, quotation.project].some(
+          (value) => value?.toLowerCase().includes(term)
+        );
 
       const quotationDate = new Date(
         `${quotation.issuedDate}T00:00:00`
@@ -144,8 +181,7 @@ export default function Quotations() {
       const matchesDate =
         !cutoff ||
         (!Number.isNaN(quotationDate.getTime()) &&
-          quotationDate >= cutoff &&
-          quotationDate <= today);
+          quotationDate >= cutoff);
 
       const matchesStatus =
         statusFilter === "All Statuses" ||
@@ -155,251 +191,187 @@ export default function Quotations() {
     });
   }, [quotations, searchTerm, dateRange, statusFilter]);
 
+  // Open creation modal
   function openCreateModal() {
-    setEditingId(null);
-    setForm({
-      ...initialForm,
-      issuedDate: new Date().toISOString().slice(0, 10),
-    });
-    setFormError("");
-    setShowModal(true);
+    setSelectedQuotation(null);
+    setShowFormModal(true);
   }
 
+  // Open edit modal
   function openEditModal(quotation) {
-    setEditingId(quotation.id);
-    setForm({
-      clientName: quotation.clientName,
-      project: quotation.project,
-      issuedDate: quotation.issuedDate,
-      validUntil: quotation.validUntil,
-      total: String(quotation.total),
-      status: quotation.status,
-    });
-    setFormError("");
-    setShowModal(true);
+    setSelectedQuotation(quotation);
+    setShowFormModal(true);
   }
 
-  function handleFormChange(event) {
-    const { name, value } = event.target;
-    setForm((previous) => ({ ...previous, [name]: value }));
+  // Open view details modal
+  function openDetailsModal(quotation) {
+    setSelectedQuotation(quotation);
+    setShowDetailsModal(true);
   }
 
-  function handleSaveQuotation(event) {
-    event.preventDefault();
-    setFormError("");
-
-    if (
-      !form.clientName.trim() ||
-      !form.project.trim() ||
-      !form.issuedDate ||
-      !form.validUntil ||
-      form.total === ""
-    ) {
-      setFormError("Please complete all required fields.");
-      return;
-    }
-
-    if (form.validUntil < form.issuedDate) {
-      setFormError("Valid until date must be on or after the issue date.");
-      return;
-    }
-
-    if (!Number.isFinite(Number(form.total)) || Number(form.total) < 0) {
-      setFormError("Please enter a valid quotation amount.");
-      return;
-    }
-
-    const quotationData = {
-      clientName: form.clientName.trim(),
-      project: form.project.trim(),
-      issuedDate: form.issuedDate,
-      validUntil: form.validUntil,
-      total: Number(form.total),
-      status: form.status,
-    };
-
-    if (editingId) {
-      // Editing updates the existing quotation without creating a new row.
-      setQuotations((previous) =>
-        previous.map((item) =>
-          item.id === editingId ? { ...item, ...quotationData } : item
-        )
-      );
-    } else {
-      // New quotations receive a separate ID.
-      setQuotations((previous) => [
-        { id: createQuotationId(), ...quotationData },
-        ...previous,
-      ]);
-    }
-
-    setShowModal(false);
-    setEditingId(null);
-    setForm(initialForm);
-  }
-
+  // Duplicate quotation
   function handleDuplicate(quotation) {
-    // Copy the details into a new quotation with a new ID and Draft status.
     const duplicated = {
       ...quotation,
-      id: createQuotationId(),
+      quotation_id: undefined,
+      quotation_number: `QUO-${Date.now().toString().slice(-6)}`,
       status: "Draft",
-      issuedDate: new Date().toISOString().slice(0, 10),
+      quotation_date: new Date().toISOString().slice(0, 10),
     };
 
-    setQuotations((previous) => [duplicated, ...previous]);
+    setSelectedQuotation(duplicated);
+    setShowFormModal(true);
   }
 
-  function handleDelete(quotation) {
+  // Delete a quotation with confirmation and backend integration
+  async function handleDelete(quotation) {
+    const targetId = quotation.quotation_id || quotation.id;
     const confirmed = window.confirm(
       `Delete quotation ${quotation.id}? This cannot be undone.`
     );
 
     if (!confirmed) return;
 
-    setQuotations((previous) =>
-      previous.filter((item) => item.id !== quotation.id)
-    );
+    try {
+      await deleteQuotation(targetId);
+      await loadQuotations();
+    } catch (err) {
+      alert(err?.message || "Failed to delete quotation from backend.");
+    }
   }
 
+  // Quotation summary cards
   const statCards = [
     {
       label: "Total Quotations",
       value: stats.total,
       icon: FileText,
-      className: "stat-total",
+      color: "blue",
       note: "All quotations",
     },
     {
       label: "Draft",
       value: stats.draft,
       icon: FileEdit,
-      className: "stat-draft",
+      color: "purple",
       note: "Work in progress",
     },
     {
       label: "Sent",
       value: stats.sent,
       icon: Send,
-      className: "stat-sent",
+      color: "cyan",
       note: "Awaiting response",
     },
     {
-      label: "Accepted",
-      value: stats.accepted,
+      label: "Approved",
+      value: stats.approved,
       icon: CheckCircle2,
-      className: "stat-accepted",
+      color: "orange",
       note: "Approved quotations",
     },
   ];
 
   return (
     <div className="quotation-app">
-      {/* Main content */}
       <div className="quotation-main">
+        {/* Top bar header */}
         <header className="quotation-topbar">
-          <button
-            type="button"
-            className="mobile-menu-button"
-            aria-label="Open navigation"
-            onClick={openSidebar}
-          >
-            <Menu size={23} />
-          </button>
-
-          <div className="topbar-breadcrumb">
-            <span>Workspace</span>
-            <span className="breadcrumb-divider">/</span>
-            <strong>Quotations</strong>
-          </div>
-
-          <div className="topbar-right">
-            <span className="topbar-date">
-              {new Date().toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
+          <div className="quotation-topbar-left">
             <button
               type="button"
-              className="topbar-notification"
+              className="quotation-menu-button"
+              aria-label="Open navigation menu"
+              onClick={openSidebar}
+            >
+              <Menu size={21} />
+            </button>
+
+            <div>
+              <p className="quotation-breadcrumb">Dashboard / Quotations</p>
+              <h1>Quotations</h1>
+              <p className="quotation-subtitle">
+                Create, organize, and track your business quotations.
+              </p>
+            </div>
+          </div>
+
+          <div className="quotation-header-actions">
+            <div className="quotation-date-badge">
+              <CalendarDays size={15} />
+              <span>
+                {new Date().toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="quotation-notification-button"
               aria-label="Notifications"
               title="Notifications"
             >
               <Bell size={19} />
-              <span />
+              <span className="quotation-notification-dot" />
+            </button>
+
+            <button
+              type="button"
+              className="quotation-create-button"
+              onClick={openCreateModal}
+            >
+              <Plus size={16} />
+              <span>Create Quotation</span>
             </button>
           </div>
         </header>
 
         <div className="quotation-content">
-          {/* Page heading and primary action */}
-          <section className="quotation-page-heading">
-            <div className="quotation-heading-text">
-              <div className="quotation-eyebrow">
-                <span className="eyebrow-line" />
-                DOCUMENT MANAGEMENT
-              </div>
-              <h1>Quotations</h1>
-              <p>
-                Create, organize, and track your business quotations.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="create-quotation-button"
-              onClick={openCreateModal}
-            >
-              <Plus size={19} />
-              <span>Create Quotation</span>
-            </button>
-          </section>
-
-          {/* Summary cards */}
+          {/* Summary Cards */}
           <section className="quotation-stats-grid">
-            {statCards.map(({ label, value, icon: Icon, className, note }) => (
-              <article
-                key={label}
-                className={`quotation-stat-card ${className}`}
-              >
-                <div className="quotation-stat-top">
-                  <div className="quotation-stat-icon">
-                    <Icon size={21} />
-                  </div>
-                  <span className="stat-indicator" />
+            {statCards.map(({ label, value, icon: Icon, color, note }) => (
+              <article key={label} className="quotation-stat-card">
+                <div className={`quotation-stat-icon ${color}`}>
+                  <Icon size={21} strokeWidth={1.8} />
                 </div>
-                <p className="quotation-stat-label">{label}</p>
-                <div className="quotation-stat-bottom">
-                  <h2>{value}</h2>
-                  <span>{note}</span>
+
+                <div className="quotation-stat-content">
+                  <p>{label}</p>
+                  <h3>{value}</h3>
+                  <span className="quotation-stat-note">{note}</span>
                 </div>
               </article>
             ))}
           </section>
 
-          {/* Search and filters */}
+          {/* Table, Search, and Filters */}
           <section className="quotation-list-section">
             <div className="quotation-list-heading">
               <div>
                 <h2>All Quotations</h2>
                 <p>View and manage your quotation records.</p>
               </div>
+
               <span className="quotation-record-count">
                 {filteredQuotations.length} records
               </span>
             </div>
 
             <div className="quotation-filters">
+              {/* Search */}
               <label className="quotation-search">
                 <Search size={19} />
+
                 <input
                   type="search"
                   placeholder="Search ID, client or project..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                 />
+
                 {searchTerm && (
                   <button
                     type="button"
@@ -412,8 +384,26 @@ export default function Quotations() {
                 )}
               </label>
 
-              <label className="quotation-filter-select">
+              {/* Date Filter */}
+              <label
+                className="quotation-filter-select"
+                onClick={(e) => {
+                  const select = e.currentTarget.querySelector("select");
+                  if (
+                    select &&
+                    typeof select.showPicker === "function" &&
+                    e.target !== select
+                  ) {
+                    try {
+                      select.showPicker();
+                    } catch {
+                      select.focus();
+                    }
+                  }
+                }}
+              >
                 <CalendarDays size={17} />
+
                 <select
                   value={dateRange}
                   onChange={(event) => setDateRange(event.target.value)}
@@ -425,11 +415,30 @@ export default function Quotations() {
                     </option>
                   ))}
                 </select>
+
                 <ChevronDown size={15} />
               </label>
 
-              <label className="quotation-filter-select">
+              {/* Status Filter */}
+              <label
+                className="quotation-filter-select"
+                onClick={(e) => {
+                  const select = e.currentTarget.querySelector("select");
+                  if (
+                    select &&
+                    typeof select.showPicker === "function" &&
+                    e.target !== select
+                  ) {
+                    try {
+                      select.showPicker();
+                    } catch {
+                      select.focus();
+                    }
+                  }
+                }}
+              >
                 <SlidersHorizontal size={17} />
+
                 <select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
@@ -441,11 +450,12 @@ export default function Quotations() {
                     </option>
                   ))}
                 </select>
+
                 <ChevronDown size={15} />
               </label>
             </div>
 
-            {/* Quotations table */}
+            {/* Table */}
             <div className="quotation-table-wrapper">
               <table className="quotation-table">
                 <thead>
@@ -466,28 +476,55 @@ export default function Quotations() {
                     const StatusIcon = getStatusIcon(quotation.status);
 
                     return (
-                      <tr key={quotation.id}>
+                      <tr key={quotation.id || quotation.quotation_id}>
                         <td>
-                          <span className="quotation-id">{quotation.id}</span>
+                          <button
+                            type="button"
+                            className="quotation-id"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              padding: 0,
+                            }}
+                            title="Click to view quotation details and download PDF"
+                            onClick={() => openDetailsModal(quotation)}
+                          >
+                            {quotation.id}
+                          </button>
                         </td>
+
                         <td>
-                          <div className="quotation-client">
+                          <div
+                            className="quotation-client"
+                            style={{ cursor: "pointer" }}
+                            onClick={() => openDetailsModal(quotation)}
+                          >
                             <div className="client-avatar">
-                              {quotation.clientName.charAt(0).toUpperCase()}
+                              {quotation.clientName
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
+
                             <span>{quotation.clientName}</span>
                           </div>
                         </td>
+
                         <td>
                           <span className="quotation-project">
                             {quotation.project}
                           </span>
                         </td>
+
                         <td>{formatDate(quotation.issuedDate)}</td>
+
                         <td>{formatDate(quotation.validUntil)}</td>
+
                         <td className="amount-column quotation-amount">
-                          {formatCurrency(quotation.total)}
+                          {formatCurrency(quotation.total, quotation.currency)}
                         </td>
+
                         <td>
                           <span
                             className={`quotation-status status-${quotation.status.toLowerCase()}`}
@@ -496,8 +533,22 @@ export default function Quotations() {
                             {quotation.status}
                           </span>
                         </td>
+
                         <td className="actions-column">
                           <div className="quotation-row-actions">
+                            {/* View details & download PDF */}
+                            <button
+                              type="button"
+                              className="row-action-button"
+                              style={{ color: "#2563eb" }}
+                              title="View details & Download PDF"
+                              aria-label={`View ${quotation.id}`}
+                              onClick={() => openDetailsModal(quotation)}
+                            >
+                              <Eye size={16} />
+                            </button>
+
+                            {/* Edit */}
                             <button
                               type="button"
                               className="row-action-button edit-action"
@@ -508,6 +559,7 @@ export default function Quotations() {
                               <Pencil size={16} />
                             </button>
 
+                            {/* Duplicate */}
                             <button
                               type="button"
                               className="row-action-button duplicate-action"
@@ -518,6 +570,7 @@ export default function Quotations() {
                               <Copy size={16} />
                             </button>
 
+                            {/* Delete */}
                             <div className="quotation-more-wrapper">
                               <button
                                 type="button"
@@ -535,6 +588,7 @@ export default function Quotations() {
                     );
                   })}
 
+                  {/* Empty state */}
                   {filteredQuotations.length === 0 && (
                     <tr>
                       <td colSpan={8} className="quotation-empty-cell">
@@ -542,17 +596,24 @@ export default function Quotations() {
                           <div className="empty-state-icon">
                             <FileText size={29} />
                           </div>
+
                           <h3>
-                            {quotations.length === 0
+                            {loading
+                              ? "Loading quotations..."
+                              : quotations.length === 0
                               ? "No quotations yet"
                               : "No matching quotations"}
                           </h3>
+
                           <p>
-                            {quotations.length === 0
+                            {loading
+                              ? "Retrieving records from backend database..."
+                              : quotations.length === 0
                               ? "Create your first quotation to get started."
                               : "Try another search term or change your filters."}
                           </p>
-                          {quotations.length === 0 && (
+
+                          {!loading && quotations.length === 0 && (
                             <button
                               type="button"
                               className="empty-create-button"
@@ -562,7 +623,8 @@ export default function Quotations() {
                               Create your first quotation
                             </button>
                           )}
-                          {quotations.length > 0 && (
+
+                          {!loading && quotations.length > 0 && (
                             <button
                               type="button"
                               className="empty-create-button"
@@ -583,170 +645,53 @@ export default function Quotations() {
               </table>
             </div>
 
+            {/* Table Footer */}
             <div className="quotation-table-footer">
               <span>
                 Showing {filteredQuotations.length} of {quotations.length}{" "}
                 quotations
               </span>
+
               <span className="table-footer-note">
                 <span className="footer-dot" />
-                Quotation Management
+                Quotation Management System
               </span>
             </div>
           </section>
         </div>
       </div>
 
-      {/* Create and edit modal */}
-      {showModal && (
-        <div
-          className="quotation-modal-overlay"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowModal(false);
-            }
+      {/* Quotation Creation & Editing Modal */}
+      {showFormModal && (
+        <QuotationForm
+          initialData={selectedQuotation}
+          onSave={async () => {
+            setShowFormModal(false);
+            setSelectedQuotation(null);
+            await loadQuotations();
           }}
-        >
-          <section
-            className="quotation-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="quotation-modal-title"
-          >
-            <div className="quotation-modal-header">
-              <div className="modal-heading-icon">
-                {editingId ? <Pencil size={21} /> : <FilePlus2 size={22} />}
-              </div>
-              <div>
-                <h2 id="quotation-modal-title">
-                  {editingId ? "Edit Quotation" : "Create Quotation"}
-                </h2>
-                <p>
-                  {editingId
-                    ? `Update details for ${editingId}.`
-                    : "Enter the basic details for your quotation."}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="modal-close-button"
-                onClick={() => setShowModal(false)}
-                aria-label="Close dialog"
-              >
-                <X size={21} />
-              </button>
-            </div>
+          onClose={() => {
+            setShowFormModal(false);
+            setSelectedQuotation(null);
+          }}
+        />
+      )}
 
-            <form onSubmit={handleSaveQuotation}>
-              <div className="quotation-modal-body">
-                {formError && (
-                  <div className="quotation-form-error" role="alert">
-                    {formError}
-                  </div>
-                )}
-
-                {editingId && (
-                  <div className="quotation-edit-notice">
-                    Editing <strong>{editingId}</strong> will update the
-                    existing quotation. To create a separate quotation, use
-                    Duplicate from the table.
-                  </div>
-                )}
-
-                <div className="quotation-form-grid">
-                  <label className="quotation-form-field">
-                    <span>Client Name <b>*</b></span>
-                    <input
-                      name="clientName"
-                      value={form.clientName}
-                      onChange={handleFormChange}
-                      placeholder="Enter client or company name"
-                      required
-                    />
-                  </label>
-
-                  <label className="quotation-form-field">
-                    <span>Project Name <b>*</b></span>
-                    <input
-                      name="project"
-                      value={form.project}
-                      onChange={handleFormChange}
-                      placeholder="Enter project name"
-                      required
-                    />
-                  </label>
-
-                  <label className="quotation-form-field">
-                    <span>Issued Date <b>*</b></span>
-                    <input
-                      type="date"
-                      name="issuedDate"
-                      value={form.issuedDate}
-                      onChange={handleFormChange}
-                      required
-                    />
-                  </label>
-
-                  <label className="quotation-form-field">
-                    <span>Valid Until <b>*</b></span>
-                    <input
-                      type="date"
-                      name="validUntil"
-                      value={form.validUntil}
-                      min={form.issuedDate}
-                      onChange={handleFormChange}
-                      required
-                    />
-                  </label>
-
-                  <label className="quotation-form-field">
-                    <span>Total Amount (LKR) <b>*</b></span>
-                    <input
-                      type="number"
-                      name="total"
-                      value={form.total}
-                      onChange={handleFormChange}
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      required
-                    />
-                  </label>
-
-                  <label className="quotation-form-field">
-                    <span>Status</span>
-                    <select
-                      name="status"
-                      value={form.status}
-                      onChange={handleFormChange}
-                    >
-                      {statusOptions
-                        .filter((status) => status !== "All Statuses")
-                        .map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className="quotation-modal-footer">
-                <button
-                  type="button"
-                  className="modal-cancel-button"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="modal-save-button">
-                  {editingId ? "Save Changes" : "Create Quotation"}
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
+      {/* Quotation Details Modal */}
+      {showDetailsModal && selectedQuotation && (
+        <QuotationDetails
+          quotation={selectedQuotation}
+          quotationId={selectedQuotation.quotation_id}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedQuotation(null);
+          }}
+          onEdit={(q) => {
+            setShowDetailsModal(false);
+            setSelectedQuotation(q);
+            setShowFormModal(true);
+          }}
+        />
       )}
     </div>
   );

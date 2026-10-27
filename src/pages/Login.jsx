@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
     Mail,
     LockKeyhole,
@@ -19,6 +19,7 @@ import "./login.css";
 
 export default function Login() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     // Store the login form values.
     const [email, setEmail] = useState("");
@@ -28,7 +29,11 @@ export default function Login() {
     // Control the password visibility and submission state.
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [error, setError] = useState(() =>
+        searchParams.get("session") === "expired"
+            ? "Your session expired. Please sign in again to continue."
+            : ""
+    );
 
     // Handle form submission and authenticate the user.
     async function handleSubmit(event) {
@@ -64,10 +69,10 @@ export default function Login() {
                 );
             }
 
-            // Store the authentication details for the active session.
-            if (role === "admin") {
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("authUser");
+            // Remove stale credentials so requests cannot reuse a previous session token.
+            for (const storage of [localStorage, sessionStorage]) {
+                storage.removeItem("authToken");
+                storage.removeItem("authUser");
             }
 
             const storage = rememberMe ? localStorage : sessionStorage;

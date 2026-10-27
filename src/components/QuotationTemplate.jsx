@@ -1,407 +1,356 @@
-// Professional Quotation PDF Template Component
-// Styled in deep navy blue, professional blue, and pure white.
-// Designed for software and web development company quotations.
-
-import { forwardRef } from "react";
 import "./QuotationTemplate.css";
 
-// Format date into human-readable string (e.g. 24 Oct 2026)
-function formatDate(dateString) {
-  if (!dateString) return "—";
-  try {
-    const date = new Date(dateString.includes("T") ? dateString : `${dateString}T00:00:00`);
-    if (Number.isNaN(date.getTime())) return dateString;
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return dateString;
-  }
-}
+// Format dates safely without changing the original data.
+const formatDate = (value) => {
+  if (!value) return "—";
 
-// Format money with 2 decimals
-function formatMoney(amount, currency = "LKR") {
-  const num = Number(amount) || 0;
-  return `${currency} ${num.toLocaleString("en-LK", {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+// Format monetary values using the selected currency.
+const formatMoney = (value, currency = "LKR") => {
+  const amount = Number(value ?? 0);
+
+  return `${currency} ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-}
+};
 
-const QuotationTemplate = forwardRef(function QuotationTemplate(
-  {
-    quotation = {},
-    customer = {},
-    company = {},
-  },
-  ref
-) {
+// Safely display optional values.
+const displayValue = (value) =>
+  value !== undefined && value !== null && value !== ""
+    ? value
+    : "—";
+
+export default function QuotationTemplate({
+  quotation = {},
+  company = {},
+  signature = null,
+}) {
+  const items = Array.isArray(quotation.items)
+    ? quotation.items
+    : Array.isArray(quotation.services)
+      ? quotation.services
+      : [];
+
   const currency = quotation.currency || "LKR";
 
-  // Customer display details
-  const customerName =
-    customer.customer_name ||
-    customer.name ||
-    quotation.customer_name ||
-    "Customer";
+  const subtotal =
+    quotation.subtotal ??
+    items.reduce(
+      (total, item) =>
+        total + Number(item.line_total ?? item.total ?? item.price ?? 0),
+      0
+    );
 
-  const customerCompany = customer.company_name || quotation.company_name || "";
-  const customerEmail = customer.email || quotation.customer_email || "";
-  const customerPhone = customer.phone || quotation.customer_phone || "";
-  const customerAddress =
-    customer.address ||
-    [customer.city, customer.country].filter(Boolean).join(", ") ||
+  const taxAmount = Number(quotation.tax_amount ?? quotation.taxAmount ?? 0);
+  const discount = Number(quotation.discount ?? 0);
+
+  const grandTotal = Number(
+    quotation.grand_total ??
+      quotation.grandTotal ??
+      subtotal + taxAmount - discount
+  );
+
+  const companyLogo =
+    company.logo_url ||
+    company.logo ||
+    company.company_logo ||
     "";
 
-  // Company display details from backend database
-  const companyName = company.company_name || "";
-  const companyLogo = company.company_logo || company.logo_url || "/logo.jpg";
-  const companyAddress = company.company_address || company.address || "";
-  const companyPhone = company.contact_number || company.phone || "";
-  const companyEmail = company.email_address || company.email || "";
-  const companySignature = company.company_signature || "";
-  const companyTax = company.tax_number || "";
-
-  // Project details
-  const hasProjectDetails =
-    quotation.project_start_date ||
-    quotation.estimated_duration ||
-    quotation.estimated_completion_date;
-
-  const items = Array.isArray(quotation.items) ? quotation.items : [];
+  const signatureImage =
+    signature ||
+    company.signature_url ||
+    company.signature ||
+    "";
 
   return (
-    <div ref={ref} className="quotation-template-container" id="quotation-print-document">
-      {/* Company & Document Header */}
-      <header className="qt-header pdf-no-break">
-        <div className="qt-brand">
-          {companyLogo && (
-            <img
-              src={companyLogo}
-              alt={companyName}
-              className="qt-logo"
-              crossOrigin="anonymous"
-              onError={(e) => {
-                if (e.currentTarget.src !== window.location.origin + "/logo.jpg") {
-                  e.currentTarget.src = "/logo.jpg";
-                }
-              }}
-            />
-          )}
-          <div>
-            <h1 className="qt-company-name">{companyName}</h1>
-            {companyAddress && <p className="qt-company-info">{companyAddress}</p>}
-            {(companyPhone || companyEmail) && (
-              <p className="qt-company-info">
-                {[companyPhone && `Tel: ${companyPhone}`, companyEmail && `Email: ${companyEmail}`]
-                  .filter(Boolean)
-                  .join(" | ")}
-              </p>
+    <article className="quotation-document">
+      {/* Company header */}
+      <header className="quotation-header">
+        <div className="quotation-header-main">
+          <div className="quotation-company-brand">
+            {companyLogo && (
+              <img
+                className="quotation-company-logo"
+                src={companyLogo}
+                alt={`${company.name || "Company"} logo`}
+              />
             )}
-            {companyTax && (
-              <p className="qt-company-info">Tax/Reg No: {companyTax}</p>
-            )}
+
+            <div className="quotation-company-details">
+              <h2>{displayValue(company.name || company.company_name)}</h2>
+
+              {company.address && <p>{company.address}</p>}
+              {company.phone && <p>Phone: {company.phone}</p>}
+              {company.email && <p>Email: {company.email}</p>}
+              {company.website && <p>{company.website}</p>}
+            </div>
+          </div>
+
+          <div className="quotation-heading">
+            <span className="quotation-heading-label">BUSINESS DOCUMENT</span>
+            <h1>QUOTATION</h1>
+            <p>Professional Services Proposal</p>
           </div>
         </div>
 
-        <div className="qt-doc-title-block">
-          <div className="qt-doc-title">QUOTATION</div>
-          <table className="qt-meta-table">
-            <tbody>
-              <tr>
-                <td className="qt-meta-label">Quotation No:</td>
-                <td className="qt-meta-value">
-                  {quotation.quotation_number || "Draft"}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-meta-label">Date:</td>
-                <td className="qt-meta-value">
-                  {formatDate(quotation.quotation_date)}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-meta-label">Valid Until:</td>
-                <td className="qt-meta-value">
-                  {formatDate(quotation.valid_until)}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-meta-label">Prepared By:</td>
-                <td className="qt-meta-value">
-                  {company.prepared_by || "Admin"}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-meta-label">Status:</td>
-                <td>
-                  <span
-                    className={`qt-status-badge qt-status-${(
-                      quotation.status || "Draft"
-                    ).toLowerCase()}`}
-                  >
-                    {quotation.status || "Draft"}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <div className="quotation-header-line" />
       </header>
 
-      {/* Bill To and Project Scope Details */}
-      <section className="qt-info-grid pdf-no-break">
-        <div className="qt-card">
-          <div className="qt-card-title">Bill To (Client Information)</div>
-          <div className="qt-customer-name">{customerName}</div>
-          {customerCompany && (
-            <div className="qt-customer-company">{customerCompany}</div>
-          )}
-          {customerAddress && (
-            <div className="qt-detail-line">{customerAddress}</div>
-          )}
-          {customerPhone && (
-            <div className="qt-detail-line">Phone: {customerPhone}</div>
-          )}
-          {customerEmail && (
-            <div className="qt-detail-line">Email: {customerEmail}</div>
-          )}
+      {/* Quotation reference information */}
+      <section className="quotation-reference-grid">
+        <div className="quotation-reference-item">
+          <span>QUOTATION NUMBER</span>
+          <strong>
+            {displayValue(
+              quotation.quotation_number || quotation.quotationNumber
+            )}
+          </strong>
         </div>
 
-        <div className="qt-card">
-          <div className="qt-card-title">Project & Timeline Details</div>
-          {hasProjectDetails ? (
-            <div className="qt-project-grid">
-              {quotation.project_start_date && (
-                <>
-                  <span className="qt-project-label">Start Date:</span>
-                  <span className="qt-project-value">
-                    {formatDate(quotation.project_start_date)}
-                  </span>
-                </>
-              )}
+        <div className="quotation-reference-item">
+          <span>QUOTATION DATE</span>
+          <strong>{formatDate(quotation.quotation_date || quotation.date)}</strong>
+        </div>
 
-              {quotation.estimated_duration && (
-                <>
-                  <span className="qt-project-label">Estimated Duration:</span>
-                  <span className="qt-project-value">
-                    {quotation.estimated_duration}{" "}
-                    {quotation.duration_unit || "Days"}
-                  </span>
-                </>
-              )}
-
-              {quotation.estimated_completion_date && (
-                <>
-                  <span className="qt-project-label">Estimated Completion:</span>
-                  <span className="qt-project-value">
-                    {formatDate(quotation.estimated_completion_date)}
-                  </span>
-                </>
-              )}
-
-              <span className="qt-project-label">Billing Currency:</span>
-              <span className="qt-project-value">{currency}</span>
-            </div>
-          ) : (
-            <div className="qt-detail-line">
-              Custom web & software development services as specified in the
-              deliverables below.
-            </div>
-          )}
+        <div className="quotation-reference-item">
+          <span>VALID UNTIL</span>
+          <strong>{formatDate(quotation.valid_until)}</strong>
         </div>
       </section>
 
-      {/* Items & Services Table */}
-      <section className="qt-table-section">
-        <table className="qt-table">
+      {/* Client and project details */}
+      <section className="quotation-details-grid">
+        <div className="quotation-section">
+          <h3 className="quotation-section-title">PREPARED FOR</h3>
+
+          <div className="quotation-client-name">
+            {displayValue(
+              quotation.customer_name ||
+                quotation.client_name ||
+                quotation.customer?.name ||
+                quotation.client?.name
+            )}
+          </div>
+
+          {(quotation.customer?.address || quotation.client?.address) && (
+            <p>
+              {quotation.customer?.address || quotation.client?.address}
+            </p>
+          )}
+
+          {(quotation.customer?.email || quotation.client?.email) && (
+            <p>
+              {quotation.customer?.email || quotation.client?.email}
+            </p>
+          )}
+
+          {(quotation.customer?.phone || quotation.client?.phone) && (
+            <p>
+              {quotation.customer?.phone || quotation.client?.phone}
+            </p>
+          )}
+        </div>
+
+        <div className="quotation-section quotation-project-details">
+          <h3 className="quotation-section-title">PROJECT DETAILS</h3>
+
+          <div className="quotation-detail-row">
+            <span>Start Date</span>
+            <strong>{formatDate(quotation.project_start_date)}</strong>
+          </div>
+
+          <div className="quotation-detail-row">
+            <span>Duration</span>
+            <strong>
+              {quotation.project_duration
+                ? `${quotation.project_duration} ${
+                    quotation.project_duration_unit || ""
+                  }`
+                : "—"}
+            </strong>
+          </div>
+
+          <div className="quotation-detail-row">
+            <span>Estimated Completion</span>
+            <strong>{formatDate(quotation.estimated_completion)}</strong>
+          </div>
+        </div>
+      </section>
+
+      {/* Services and scope of work */}
+      <section className="quotation-services-section">
+        <div className="quotation-section-heading">
+          <div>
+            <span className="quotation-eyebrow">SCOPE OF WORK</span>
+            <h2>Services & Deliverables</h2>
+          </div>
+
+          <span className="quotation-item-count">
+            {items.length} {items.length === 1 ? "ITEM" : "ITEMS"}
+          </span>
+        </div>
+
+        <table className="quotation-services-table">
           <thead>
             <tr>
-              <th style={{ width: "4%" }}>#</th>
-              <th style={{ width: "46%" }}>Description / Deliverables</th>
-              <th style={{ width: "16%" }} className="text-right">
-                Unit Price
-              </th>
-              <th style={{ width: "12%" }} className="text-right">
-                Tax Rate
-              </th>
-              <th style={{ width: "22%" }} className="text-right">
-                Line Total
-              </th>
+              <th className="quotation-col-number">#</th>
+              <th className="quotation-col-service">SERVICE DETAILS</th>
+              <th className="quotation-col-price">PRICE</th>
+              <th className="quotation-col-tax">TAX</th>
+              <th className="quotation-col-total">LINE TOTAL</th>
             </tr>
           </thead>
+
           <tbody>
-            {items.map((item, index) => {
-              const unitPrice = Number(item.unit_price ?? item.Price ?? 0);
-              const taxRate = Number(item.tax_rate ?? 0);
-              const lineTotal =
-                item.line_total != null
-                  ? Number(item.line_total)
-                  : unitPrice + (unitPrice * taxRate) / 100;
+            {items.length > 0 ? (
+              items.map((item, index) => (
+                <tr key={item.id || item.quotation_item_id || index}>
+                  <td>{index + 1}</td>
 
-              return (
-                <tr key={item.quotation_item_id || index} className="qt-table-row pdf-table-row">
-                  <td className="text-center">{index + 1}</td>
                   <td>
-                    <div className="qt-item-title">{item.item_name}</div>
+                    <div className="quotation-service-name">
+                      {displayValue(item.service_name || item.name)}
+                    </div>
 
-                    {/* Software tags: Technology, Website Type, Hosting & Domain */}
-                    {(item.technology ||
-                      item.website_type ||
-                      item.hosting_domain) && (
-                      <div className="qt-item-tags">
-                        {item.technology && (
-                          <span className="qt-item-tag">
-                            Tech: {item.technology}
-                          </span>
-                        )}
-                        {item.website_type && (
-                          <span className="qt-item-tag">
-                            Type: {item.website_type}
-                          </span>
-                        )}
-                        {item.hosting_domain && (
-                          <span className="qt-item-tag">
-                            Hosting: {item.hosting_domain}
-                          </span>
-                        )}
+                    {(item.technology || item.website_type) && (
+                      <div className="quotation-service-meta">
+                        {[item.technology, item.website_type]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     )}
 
+                    {item.hosting_domain && (
+                      <p className="quotation-service-description">
+                        Hosting & Domain: {item.hosting_domain}
+                      </p>
+                    )}
+
                     {item.description && (
-                      <p className="qt-item-desc">{item.description}</p>
+                      <p className="quotation-service-description">
+                        {item.description}
+                      </p>
+                    )}
+
+                    {item.deliverables && (
+                      <p className="quotation-service-description">
+                        <strong>Deliverables:</strong> {item.deliverables}
+                      </p>
                     )}
                   </td>
-                  <td className="text-right">{formatMoney(unitPrice, currency)}</td>
-                  <td className="text-right">{taxRate}%</td>
-                  <td className="text-right" style={{ fontWeight: 700 }}>
-                    {formatMoney(lineTotal, currency)}
+
+                  <td className="quotation-money-cell">
+                    {formatMoney(item.price, currency)}
+                  </td>
+
+                  <td className="quotation-money-cell">
+                    {Number(item.tax_rate ?? item.taxRate ?? 0)}%
+                  </td>
+
+                  <td className="quotation-money-cell quotation-line-total">
+                    {formatMoney(
+                      item.line_total ?? item.total ?? item.price,
+                      currency
+                    )}
                   </td>
                 </tr>
-              );
-            })}
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="quotation-empty-items">
+                  No service items available.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </section>
 
-      {/* Notes / Terms & Financial Summary */}
-      <section className="qt-bottom-grid pdf-no-break">
-        <div className="qt-notes-card">
-          <div className="qt-notes-title">Terms &amp; Conditions</div>
-          <div className="qt-notes-content">
-            {quotation.terms_and_conditions ||
-              company.default_terms_and_conditions ||
-              "1. Payment terms as agreed.\n2. This quotation is valid until the stated expiry date."}
-          </div>
-
-          {/* Bank & Payment Details from Database */}
-          {(company.bank_name || company.bank_account_number) && (
-            <div className="qt-bank-card">
-              <div className="qt-notes-title" style={{ color: "#0f172a", marginBottom: "6px" }}>
-                Bank &amp; Payment Details
-              </div>
-              <div className="qt-bank-grid">
-                {company.bank_name && (
-                  <div><span className="qt-bank-label">Bank:</span> {company.bank_name}</div>
-                )}
-                {company.bank_branch && (
-                  <div><span className="qt-bank-label">Branch:</span> {company.bank_branch}</div>
-                )}
-                {company.bank_account_name && (
-                  <div><span className="qt-bank-label">Account Name:</span> {company.bank_account_name}</div>
-                )}
-                {company.bank_account_number && (
-                  <div><span className="qt-bank-label">Account No:</span> {company.bank_account_number}</div>
-                )}
-                {company.bank_swift_code && (
-                  <div><span className="qt-bank-label">SWIFT Code:</span> {company.bank_swift_code}</div>
-                )}
-              </div>
+      {/* Notes and financial summary */}
+      <section className="quotation-bottom-grid">
+        <div className="quotation-notes-column">
+          {quotation.notes && (
+            <div className="quotation-text-section">
+              <h3>Special Notes</h3>
+              <p>{quotation.notes}</p>
             </div>
           )}
 
-          {quotation.notes && (
-            <>
-              <div className="qt-notes-title" style={{ marginTop: "10px" }}>
-                Special Notes
-              </div>
-              <div className="qt-notes-content">{quotation.notes}</div>
-            </>
+          {quotation.terms_and_conditions && (
+            <div className="quotation-text-section">
+              <h3>Terms & Conditions</h3>
+              <p>{quotation.terms_and_conditions}</p>
+            </div>
+          )}
+
+          {quotation.terms && !quotation.terms_and_conditions && (
+            <div className="quotation-text-section">
+              <h3>Terms & Conditions</h3>
+              <p>{quotation.terms}</p>
+            </div>
           )}
         </div>
 
-        <div className="qt-summary-card pdf-summary-box">
-          <table className="qt-summary-table">
-            <tbody>
-              <tr>
-                <td className="qt-summary-label">Subtotal:</td>
-                <td className="qt-summary-value">
-                  {formatMoney(quotation.subtotal, currency)}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-summary-label">Discount:</td>
-                <td className="qt-summary-value" style={{ color: "#dc2626" }}>
-                  - {formatMoney(quotation.discount_amount, currency)}
-                </td>
-              </tr>
-              <tr>
-                <td className="qt-summary-label">Tax / VAT:</td>
-                <td className="qt-summary-value">
-                  + {formatMoney(quotation.tax_amount, currency)}
-                </td>
-              </tr>
-              <tr className="qt-summary-total-row">
-                <td className="qt-summary-total-label">Grand Total:</td>
-                <td className="qt-summary-total-value">
-                  {formatMoney(quotation.total_amount, currency)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+        <div className="quotation-summary">
+          <h3>Financial Summary</h3>
 
-      {/* Signatures */}
-      <section className="qt-signatures pdf-no-break pdf-signature-section">
-        <div className="qt-sig-box">
-          <div className="qt-sig-space" />
-          <div className="qt-sig-line" />
-          <p className="qt-sig-title">Client Acceptance Signature</p>
-          <p className="qt-sig-subtitle">Date: ________________________</p>
-        </div>
-
-        <div className="qt-sig-box">
-          <div className="qt-sig-space">
-            {companySignature && (
-              <img
-                src={companySignature}
-                alt="Authorized Signature"
-                className="qt-signature-img"
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            )}
+          <div className="quotation-summary-row">
+            <span>Subtotal</span>
+            <span>{formatMoney(subtotal, currency)}</span>
           </div>
-          <div className="qt-sig-line" />
-          <p className="qt-sig-title">Authorized Company Representative</p>
-          <p className="qt-sig-subtitle">{companyName}</p>
+
+          <div className="quotation-summary-row">
+            <span>Tax Amount</span>
+            <span>{formatMoney(taxAmount, currency)}</span>
+          </div>
+
+          <div className="quotation-summary-row">
+            <span>Discount</span>
+            <span>{formatMoney(discount, currency)}</span>
+          </div>
+
+          <div className="quotation-grand-total">
+            <span>GRAND TOTAL</span>
+            <strong>{formatMoney(grandTotal, currency)}</strong>
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="qt-footer pdf-no-break">
-        <p className="qt-footer-text">Thank you for your business.</p>
-        <p style={{ margin: 0 }}>
-          This quotation is valid until {formatDate(quotation.valid_until)}. If you have any questions, contact us at {companyEmail || "our office"}.
-        </p>
-      </footer>
-    </div>
-  );
-});
+      {/* Signature and closing footer */}
+      <footer className="quotation-footer">
+        <div className="quotation-footer-message">
+          <h3>Thank You for Your Consideration</h3>
+          <p>
+            We appreciate the opportunity to work with you. Please contact us
+            if you have any questions regarding this quotation.
+          </p>
+        </div>
 
-export default QuotationTemplate;
+        {signatureImage && (
+          <div className="quotation-signature">
+            <img src={signatureImage} alt="Authorized signature" />
+            <div className="quotation-signature-line" />
+            <strong>{company.authorized_person || company.contact_person || "Authorized Representative"}</strong>
+            <span>{company.designation || ""}</span>
+          </div>
+        )}
+
+        <div className="quotation-footer-bottom">
+          <span>{company.name || company.company_name || "Quotation Document"}</span>
+          <span>Quotation · {displayValue(quotation.quotation_number)}</span>
+        </div>
+      </footer>
+    </article>
+  );
+}

@@ -1,8 +1,6 @@
-// Quotation Creation & Editing Form Component
-// Professional, compact square layout with Client Name text input,
-// clean "Select Service" preset dropdown, and instant PDF download.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   FileText,
   User,
@@ -18,6 +16,7 @@ import {
   Code,
   Globe,
   Server,
+  Send,
 } from "lucide-react";
 import {
   createQuotation,
@@ -28,7 +27,6 @@ import {
   getCompanyDetails,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
-import QuotationTemplate from "../components/QuotationTemplate";
 import "./QuotationForm.css";
 
 // Calculate estimated project completion date using the exact backend algorithm
@@ -36,7 +34,7 @@ function calculateEstimatedCompletionDate(startDate, duration, unit) {
   if (!startDate || !duration || !unit) return "";
 
   const dur = Number(duration);
-  if (!dur || dur <= 0) return "";
+  if (!Number.isFinite(dur) || dur < 0) return "";
 
   const date = new Date(`${startDate}T00:00:00Z`);
   if (Number.isNaN(date.getTime())) return "";
@@ -46,15 +44,7 @@ function calculateEstimatedCompletionDate(startDate, duration, unit) {
   } else if (unit === "Weeks") {
     date.setUTCDate(date.getUTCDate() + dur * 7);
   } else if (unit === "Months") {
-    const originalDay = date.getUTCDate();
-    date.setUTCDate(1);
     date.setUTCMonth(date.getUTCMonth() + dur);
-
-    const lastDay = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)
-    ).getUTCDate();
-
-    date.setUTCDate(Math.min(originalDay, lastDay));
   }
 
   return date.toISOString().slice(0, 10);
@@ -71,17 +61,36 @@ const initialItem = {
   tax_rate: "0",
 };
 
+function getServiceOptionValue(serviceCatalog, itemName) {
+  const service = serviceCatalog.find((item) => item.item_name === itemName);
+  return service ? String(service.service_id ?? service.item_name) : "";
+}
+
 export default function QuotationForm({
   initialData = null,
+  quotationNumber = "",
   onSave,
   onClose,
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const pdfTemplateRef = useRef(null);
+  const customerListId = useId();
+  const hasInitialTerms = Boolean(initialData?.terms_and_conditions);
+
+  // Authenticated user role detection
+  const authUser = useMemo(() => {
+    try {
+      const raw =
+        localStorage.getItem("authUser") || sessionStorage.getItem("authUser");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const isSuperAdmin = authUser?.role === "Super Admin";
 
   // Form state
   const [formData, setFormData] = useState({
-    quotation_number: initialData?.quotation_number || `QUO-${Date.now().toString().slice(-6)}`,
+    quotation_number: initialData?.quotation_number || quotationNumber,
     client_name: initialData?.customer_name || initialData?.clientName || "",
     customer_id: initialData?.customer_id ? String(initialData.customer_id) : "",
     quotation_date: initialData?.quotation_date ? String(initialData.quotation_date).slice(0, 10) : today,
@@ -115,6 +124,10 @@ export default function QuotationForm({
   const [customers, setCustomers] = useState([]);
   const [serviceCatalog, setServiceCatalog] = useState([]);
   const [companyDetails, setCompanyDetails] = useState({});
+  const [customerLoadError, setCustomerLoadError] = useState("");
+  const [serviceLoadError, setServiceLoadError] = useState("");
+  const [companyLoadError, setCompanyLoadError] = useState("");
+  const [dependenciesLoading, setDependenciesLoading] = useState(true);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -127,41 +140,48 @@ export default function QuotationForm({
     let isMounted = true;
 
     async function loadData() {
-      try {
-        const [customerList, services, company] = await Promise.all([
-          getCustomers().catch(() => []),
-          getQuotationItemOptions().catch(() => []),
-          getCompanyDetails().catch(() => ({})),
+      const [customerResult, servicesResult, companyResult] =
+        await Promise.allSettled([
+          getCustomers(),
+          getQuotationItemOptions(),
+          getCompanyDetails(),
         ]);
 
-        if (isMounted) {
-          setCustomers(customerList);
-          setServiceCatalog(services);
-          setCompanyDetails(company);
+      if (!isMounted) return;
 
-          // Populate default terms and conditions from backend database if not already provided
-          if (company?.default_terms_and_conditions && !initialData?.terms_and_conditions) {
-            setFormData((prev) => ({
-              ...prev,
-              terms_and_conditions: prev.terms_and_conditions || company.default_terms_and_conditions,
-            }));
-          }
+      const customerList =
+        customerResult.status === "fulfilled" ? customerResult.value : [];
+      const services =
+        servicesResult.status === "fulfilled" ? servicesResult.value : [];
+      const company =
+        companyResult.status === "fulfilled" ? companyResult.value : {};
 
-          // If editing or have an ID, resolve matching client name if empty
-          if (formData.customer_id && !formData.client_name) {
-            const match = customerList.find(
-              (c) => String(c.customer_id) === String(formData.customer_id)
-            );
-            if (match) {
-              setFormData((prev) => ({
-                ...prev,
-                client_name: match.customer_name,
-              }));
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error loading form dependencies:", err);
+      setCustomers(customerList);
+      setServiceCatalog(services);
+      setCompanyDetails(company);
+      setCustomerLoadError(
+        customerResult.status === "rejected"
+          ? "Customer records could not be loaded. Please retry before saving to prevent duplicate customers."
+          : ""
+      );
+      setServiceLoadError(
+        servicesResult.status === "rejected"
+          ? "Service options could not be loaded. You can still enter a service manually."
+          : ""
+      );
+      setCompanyLoadError(
+        companyResult.status === "rejected"
+          ? "Company details could not be loaded. The PDF may not include company branding."
+          : ""
+      );
+      setDependenciesLoading(false);
+
+      if (company?.default_terms_and_conditions && !hasInitialTerms) {
+        setFormData((prev) => ({
+          ...prev,
+          terms_and_conditions:
+            prev.terms_and_conditions || company.default_terms_and_conditions,
+        }));
       }
     }
 
@@ -170,7 +190,37 @@ export default function QuotationForm({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hasInitialTerms]);
+
+  async function retryCustomerLoad() {
+    try {
+      const customerList = await getCustomers();
+      setCustomers(customerList);
+      setCustomerLoadError("");
+    } catch (error) {
+      setCustomerLoadError(
+        error?.message || "Customer records could not be loaded."
+      );
+    }
+  }
+
+  async function retryServiceLoad() {
+    try {
+      setServiceCatalog(await getQuotationItemOptions());
+      setServiceLoadError("");
+    } catch (error) {
+      setServiceLoadError(error?.message || "Service options could not be loaded.");
+    }
+  }
+
+  async function retryCompanyLoad() {
+    try {
+      setCompanyDetails(await getCompanyDetails());
+      setCompanyLoadError("");
+    } catch (error) {
+      setCompanyLoadError(error?.message || "Company details could not be loaded.");
+    }
+  }
 
   // Update top-level form field
   const updateField = (field, value) => {
@@ -216,77 +266,53 @@ export default function QuotationForm({
     );
   };
 
-  // Auto-fill item fields when user picks a service from the clean "Select Service" dropdown
-  const handleSelectServicePreset = (index, serviceName) => {
-    if (!serviceName) return;
-
-    // Find service from backend service_catalog
+  // Populate only fields returned by the backend service catalogue.
+  const handleSelectServicePreset = (index, serviceKey) => {
     const selectedService = serviceCatalog.find(
-      (s) => s.item_name.toLowerCase() === serviceName.toLowerCase()
+      (service) =>
+        String(service.service_id ?? service.item_name) === String(serviceKey)
     );
+    if (!selectedService) return;
 
     let defaultTech = "";
-    let defaultType = "";
-    let defaultHosting = selectedService?.hosting_domain || "Domain and hosting setup assistance included";
-    let defaultPrice = "";
-    let defaultDescription = "";
-
+    const serviceName = selectedService.item_name || "";
     if (serviceName.includes("WordPress")) {
       defaultTech = "WordPress CMS / PHP";
-      defaultType = "Corporate / Business Website";
-      defaultDescription =
-        selectedService?.description ||
-        "Professional responsive WordPress website with content management, custom page layouts, and inquiry forms.";
     } else if (serviceName.includes("React")) {
       defaultTech = "React.js / Node.js";
-      defaultType = "Modern Web Application";
-      defaultDescription =
-        selectedService?.description ||
-        "High-performance modern web application built with React, interactive UI components, and API integration.";
     } else if (serviceName.includes("Custom")) {
       defaultTech = "Custom Full Stack";
-      defaultType = "Custom Tailored Solution";
-      defaultDescription =
-        selectedService?.description ||
-        "Custom web solution engineered according to detailed business specifications and workflows.";
     } else if (serviceName.includes("Maintenance")) {
       defaultTech = "WordPress / Custom CMS";
-      defaultType = "Technical Support & Maintenance";
-      defaultDescription =
-        selectedService?.description ||
-        "Routine website maintenance, security updates, regular database backups, and technical support.";
-    } else if (serviceName.includes("Optional") || serviceName.includes("Add-on")) {
-      defaultTech = "Custom / Add-on";
-      defaultType = "Optional Add-on Service";
-      defaultHosting = "Included as needed";
-      defaultDescription = "Optional extra service or add-on feature.";
     }
 
-    if (selectedService?.core_features) {
-      defaultDescription += `\nCore Features: ${selectedService.core_features}`;
-    }
-    if (selectedService?.maintenance_support) {
-      defaultDescription += `\nSupport: ${selectedService.maintenance_support}`;
-    }
-    if (selectedService?.content_seo) {
-      defaultDescription += `\nSEO: ${selectedService.content_seo}`;
-    }
-
-    if (selectedService && Number(selectedService.default_price) > 0) {
-      defaultPrice = String(selectedService.default_price);
-    }
+    const description = [
+      ["Description", selectedService.description],
+      ["Core features", selectedService.core_features],
+      ["Maintenance support", selectedService.maintenance_support],
+      ["Content and SEO", selectedService.content_seo],
+    ]
+      .filter(([, value]) => value)
+      .map(([label, value]) => `${label}: ${value}`)
+      .join("\n");
 
     setItems((prev) =>
       prev.map((item, idx) =>
         idx === index
           ? {
               ...item,
-              item_name: serviceName,
-              technology: defaultTech,
-              website_type: defaultType,
-              hosting_domain: defaultHosting,
-              description: defaultDescription,
-              unit_price: defaultPrice || item.unit_price,
+              item_name: selectedService.item_name,
+              technology: defaultTech || item.technology || "",
+              // Website type is intentionally NOT auto-filled; user types it manually
+              website_type: item.website_type || "",
+              description,
+              hosting_domain: selectedService.hosting_domain || item.hosting_domain || "",
+              unit_price:
+                selectedService.default_price !== null &&
+                selectedService.default_price !== undefined
+                  ? String(selectedService.default_price)
+                  : item.unit_price || "",
+              tax_rate: item.tax_rate || "0",
             }
           : item
       )
@@ -359,7 +385,7 @@ export default function QuotationForm({
   };
 
   // Prepare full quotation payload
-  const buildPayload = (assignedCustomerId) => {
+  const buildPayload = (assignedCustomerId, statusToSave) => {
     return {
       quotation_number: formData.quotation_number.trim(),
       customer_id: assignedCustomerId,
@@ -372,6 +398,7 @@ export default function QuotationForm({
       discount_amount: totals.discount,
       notes: formData.notes?.trim() || null,
       terms_and_conditions: formData.terms_and_conditions?.trim() || null,
+      status: statusToSave || initialData?.status || "Draft",
       items: items.map((item) => ({
         item_name: item.item_name.trim(),
         description: item.description?.trim() || null,
@@ -404,10 +431,10 @@ export default function QuotationForm({
 
     if (
       formData.estimated_duration &&
-      (!Number.isInteger(Number(formData.estimated_duration)) ||
-        Number(formData.estimated_duration) <= 0)
+      (!Number.isFinite(Number(formData.estimated_duration)) ||
+        Number(formData.estimated_duration) < 0)
     ) {
-      return "Project duration must be a positive integer.";
+      return "Project duration must be a non-negative number.";
     }
 
     if (items.length === 0) {
@@ -438,8 +465,8 @@ export default function QuotationForm({
   };
 
   // Handle Save / Submit
-  const handleSaveQuotation = async (e) => {
-    e.preventDefault();
+  const handleSaveQuotation = async (e, desiredStatus) => {
+    if (e && e.preventDefault) e.preventDefault();
     setFormError("");
     setFormSuccess("");
 
@@ -449,6 +476,10 @@ export default function QuotationForm({
       return;
     }
 
+    const statusToSave =
+      desiredStatus ||
+      (isSuperAdmin ? "Approved" : "Pending Approval");
+
     try {
       setSaving(true);
 
@@ -456,6 +487,12 @@ export default function QuotationForm({
       let targetCustomerId = Number(formData.customer_id);
 
       if (!targetCustomerId || Number.isNaN(targetCustomerId)) {
+        if (customerLoadError) {
+          throw new Error(
+            "Customer records are unavailable. Retry loading customers before saving this quotation."
+          );
+        }
+
         const existing = customers.find(
           (c) =>
             c.customer_name?.toLowerCase() ===
@@ -465,20 +502,18 @@ export default function QuotationForm({
         if (existing) {
           targetCustomerId = existing.customer_id;
         } else {
-          try {
-            // Auto-create customer record in backend database
-            const created = await createCustomer({
-              customer_name: formData.client_name.trim(),
-            });
-            targetCustomerId = created?.customer_id;
-          } catch {
-            // Fallback to first available customer in database
-            targetCustomerId = customers[0]?.customer_id || 1;
-          }
+          const created = await createCustomer({
+            customer_name: formData.client_name.trim(),
+          });
+          targetCustomerId = created?.customer_id;
         }
       }
 
-      const payload = buildPayload(targetCustomerId);
+      if (!Number.isInteger(Number(targetCustomerId)) || Number(targetCustomerId) <= 0) {
+        throw new Error("A valid customer record could not be selected or created.");
+      }
+
+      const payload = buildPayload(targetCustomerId, statusToSave);
       let response;
 
       if (initialData?.quotation_id) {
@@ -487,8 +522,17 @@ export default function QuotationForm({
         response = await createQuotation(payload);
       }
 
+      const successMsg =
+        statusToSave === "Draft"
+          ? "Quotation saved as Draft."
+          : statusToSave === "Pending Approval"
+          ? "Quotation submitted for Super Admin approval!"
+          : isSuperAdmin
+          ? "Quotation finalized and approved!"
+          : "Quotation saved successfully!";
+
       setFormSuccess(
-        response?.message || "Quotation saved successfully in the database!"
+        response?.message || successMsg
       );
 
       if (onSave) {
@@ -499,6 +543,7 @@ export default function QuotationForm({
           tax_amount: totals.taxAmount,
           total_amount: totals.total,
           customer_name: formData.client_name.trim(),
+          status: statusToSave,
         });
       }
     } catch (err) {
@@ -529,19 +574,40 @@ export default function QuotationForm({
 
     try {
       setDownloadingPdf(true);
+      let activeCompany = companyDetails;
+      if (!activeCompany?.bank_name) {
+        try {
+          activeCompany = await getCompanyDetails();
+          setCompanyDetails(activeCompany);
+        } catch (fetchErr) {
+          console.warn("Could not refetch company details:", fetchErr);
+        }
+      }
       const filename = `${formData.quotation_number.trim()}.pdf`;
-      await downloadQuotationPdf(pdfTemplateRef.current, filename);
+      await downloadQuotationPdf(
+        liveQuotationData,
+        activeCompany,
+        {
+          ...selectedCustomer,
+          customer_name: formData.client_name,
+          address: selectedCustomer?.address || "",
+          email: selectedCustomer?.email || "",
+          phone: selectedCustomer?.phone || "",
+        },
+        filename
+      );
     } catch (err) {
       console.error("PDF generation failed:", err);
-      setFormError("Failed to generate PDF. Please try again.");
+      setFormError(
+        "Could not generate the quotation PDF. Please check your connection and try again."
+      );
     } finally {
       setDownloadingPdf(false);
     }
   };
 
   // In-memory quotation object for the PDF template preview
-  const liveQuotationData = useMemo(() => {
-    return {
+  const liveQuotationData = {
       quotation_number: formData.quotation_number,
       customer_name: formData.client_name,
       quotation_date: formData.quotation_date,
@@ -558,8 +624,13 @@ export default function QuotationForm({
       notes: formData.notes,
       terms_and_conditions: formData.terms_and_conditions,
       status: initialData?.status || "Draft",
+      bank_name: companyDetails?.bank_name || "",
+      bank_account_name: companyDetails?.bank_account_name || "",
+      bank_account_number: companyDetails?.bank_account_number || "",
+      bank_branch: companyDetails?.bank_branch || "",
+      bank_swift_code: companyDetails?.bank_swift_code || "",
       items: items.map((it) => ({
-        item_name: it.item_name || "Service",
+        item_name: it.item_name,
         technology: it.technology,
         website_type: it.website_type,
         hosting_domain: it.hosting_domain,
@@ -569,7 +640,6 @@ export default function QuotationForm({
         line_total: (Number(it.unit_price) || 0) * (1 + (Number(it.tax_rate) || 0) / 100),
       })),
     };
-  }, [formData, estimatedCompletionDate, totals, items, initialData]);
 
   return (
     <div className="qf-modal-overlay">
@@ -581,7 +651,7 @@ export default function QuotationForm({
               <FileText size={18} />
             </div>
             <div>
-              <h2>{initialData ? "Edit Quotation" : "Create Quotation"}</h2>
+              <h2>Quotation Form</h2>
               <p>Configure project details, software scope, and download PDF.</p>
             </div>
           </div>
@@ -599,10 +669,52 @@ export default function QuotationForm({
         {/* Main Form */}
         <form onSubmit={handleSaveQuotation}>
           <div className="qf-body">
+            {initialData?.status === "Rejected" && (
+              <div className="qf-rejection-banner" role="alert">
+                <div className="qf-rejection-title">
+                  <AlertCircle size={15} />
+                  <span>Quotation Rejected by Super Admin</span>
+                </div>
+                <div>
+                  <strong>Feedback / Reason:</strong>{" "}
+                  {initialData.rejection_reason ||
+                    "Please review the feedback, update the quotation, and resubmit for approval."}
+                </div>
+              </div>
+            )}
+
             {formError && (
               <div className="qf-alert-error" role="alert">
                 <AlertCircle size={16} />
                 <span>{formError}</span>
+              </div>
+            )}
+
+            {customerLoadError && (
+              <div className="qf-alert-error" role="status">
+                <AlertCircle size={16} />
+                <span>{customerLoadError}</span>
+                <button
+                  type="button"
+                  className="qf-retry-button"
+                  onClick={retryCustomerLoad}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {companyLoadError && (
+              <div className="qf-alert-error" role="status">
+                <AlertCircle size={16} />
+                <span>{companyLoadError}</span>
+                <button
+                  type="button"
+                  className="qf-retry-button"
+                  onClick={retryCompanyLoad}
+                >
+                  Retry
+                </button>
               </div>
             )}
 
@@ -629,6 +741,7 @@ export default function QuotationForm({
                     type="text"
                     className="qf-input"
                     placeholder="Enter client name"
+                    list={customerListId}
                     value={formData.client_name}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -638,13 +751,22 @@ export default function QuotationForm({
                           c.customer_name?.toLowerCase() ===
                           val.trim().toLowerCase()
                       );
-                      if (match) {
-                        updateField("customer_id", String(match.customer_id));
-                      }
+                      updateField(
+                        "customer_id",
+                        match ? String(match.customer_id) : ""
+                      );
                     }}
                     autoComplete="off"
                     required
                   />
+                  <datalist id={customerListId}>
+                    {customers.map((customer) => (
+                      <option
+                        key={customer.customer_id}
+                        value={customer.customer_name}
+                      />
+                    ))}
+                  </datalist>
                 </div>
               </div>
             </section>
@@ -710,7 +832,8 @@ export default function QuotationForm({
                   <div style={{ display: "flex", gap: "6px" }}>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
+                      step="any"
                       className="qf-input"
                       placeholder="e.g. 4"
                       value={formData.estimated_duration}
@@ -774,34 +897,11 @@ export default function QuotationForm({
                   <div
                     key={index}
                     className="qf-item-card qf-additional-item-card"
-                    style={{
-                      background: "#f0fdf4",
-                      border: "1.5px solid #86efac",
-                      borderRadius: "8px",
-                      padding: "12px 16px",
-                      marginBottom: "12px",
-                    }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "10px",
-                      }}
-                    >
+                    <div className="qf-item-card-header">
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <span className="qf-item-num">Item #{index + 1}</span>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            background: "#dcfce7",
-                            color: "#15803d",
-                            padding: "2px 8px",
-                            borderRadius: "4px",
-                          }}
-                        >
+                        <span className="qf-additional-badge">
                           Additional Item
                         </span>
                       </div>
@@ -817,14 +917,7 @@ export default function QuotationForm({
                       </button>
                     </div>
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "2fr 1fr",
-                        gap: "14px",
-                        alignItems: "flex-end",
-                      }}
-                    >
+                    <div className="qf-additional-item-fields">
                       <div className="qf-field">
                         <label className="qf-label">
                           Item Name (ex: Logo) <span className="qf-required">*</span>
@@ -881,24 +974,37 @@ export default function QuotationForm({
                     </div>
 
                     <div className="qf-grid-3">
-                      {/* Select Service Dropdown - Clean 4 options as requested */}
+                      {/* Service options are populated from the backend catalogue. */}
                       <div className="qf-field col-span-3">
                         <label className="qf-label">Select Service</label>
                         <select
                           className="qf-select"
-                          value={
-                            ["WordPress Website", "React Website", "Custom Website", "Website Maintenance"].includes(item.item_name)
-                              ? item.item_name
-                              : ""
-                          }
+                          value={getServiceOptionValue(serviceCatalog, item.item_name)}
                           onChange={(e) => handleSelectServicePreset(index, e.target.value)}
+                          disabled={serviceCatalog.length === 0}
                         >
                           <option value="">-- Select Service --</option>
-                          <option value="WordPress Website">WordPress Website</option>
-                          <option value="React Website">React Website</option>
-                          <option value="Custom Website">Custom Website</option>
-                          <option value="Website Maintenance">Website Maintenance</option>
+                          {serviceCatalog.map((service) => (
+                            <option
+                              key={service.service_id || service.item_name}
+                              value={String(service.service_id ?? service.item_name)}
+                            >
+                              {service.item_name}
+                            </option>
+                          ))}
                         </select>
+                        {serviceLoadError && (
+                          <div className="qf-field-help" role="status">
+                            <span>{serviceLoadError}</span>
+                            <button
+                              type="button"
+                              className="qf-retry-button"
+                              onClick={retryServiceLoad}
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Service Name */}
@@ -1023,25 +1129,11 @@ export default function QuotationForm({
                 <button
                   type="button"
                   className="qf-btn-add-additional"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "9px 18px",
-                    background: "#ecfdf5",
-                    color: "#059669",
-                    border: "1.5px dashed #10b981",
-                    borderRadius: "8px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: "13px",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                  }}
                   onClick={addAdditionalItem}
                   title="Add an additional item with just Name and Amount"
                 >
-                  <Plus size={16} />
-                  <span>+ Add Additional Item (e.g. Logo)</span>
+                  <Plus size={15} />
+                  <span>Add Additional Item</span>
                 </button>
               </div>
             </section>
@@ -1136,7 +1228,7 @@ export default function QuotationForm({
                 type="button"
                 className="qf-btn qf-btn-pdf"
                 onClick={handleDownloadPdf}
-                disabled={downloadingPdf || saving}
+                disabled={downloadingPdf || saving || dependenciesLoading}
                 title="Download formatted business PDF using current form details"
               >
                 <Download size={15} />
@@ -1144,37 +1236,54 @@ export default function QuotationForm({
               </button>
 
               <button
-                type="submit"
-                className="qf-btn qf-btn-primary"
-                disabled={saving || downloadingPdf}
+                type="button"
+                className="qf-btn qf-btn-draft"
+                onClick={(e) => handleSaveQuotation(e, "Draft")}
+                disabled={saving || downloadingPdf || dependenciesLoading}
+                title="Save quotation as draft without requesting approval"
               >
                 <Save size={15} />
-                {saving
-                  ? "Saving..."
-                  : initialData
-                  ? "Update Quotation"
-                  : "Save Quotation"}
+                {saving ? "Saving..." : "Save as Draft"}
               </button>
+
+              {isSuperAdmin ? (
+                <button
+                  type="button"
+                  className="qf-btn qf-btn-primary"
+                  onClick={(e) => handleSaveQuotation(e, "Approved")}
+                  disabled={saving || downloadingPdf || dependenciesLoading}
+                  title="Finalize quotation as approved"
+                >
+                  <CheckCircle size={15} />
+                  {dependenciesLoading
+                    ? "Loading..."
+                    : saving
+                    ? "Finalizing..."
+                    : "Finalize Quotation"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="qf-btn qf-btn-primary"
+                  onClick={(e) => handleSaveQuotation(e, "Pending Approval")}
+                  disabled={saving || downloadingPdf || dependenciesLoading}
+                  title="Submit quotation for Super Admin review and approval"
+                >
+                  <Send size={15} />
+                  {dependenciesLoading
+                    ? "Loading..."
+                    : saving
+                    ? "Submitting..."
+                    : initialData?.status === "Rejected"
+                    ? "Resubmit for Approval"
+                    : "Submit for Approval"}
+                </button>
+              )}
             </div>
           </div>
         </form>
       </div>
 
-      {/* Hidden container for rendering QuotationTemplate for PDF export */}
-      <div className="qf-pdf-export-host">
-        <QuotationTemplate
-          ref={pdfTemplateRef}
-          quotation={liveQuotationData}
-          customer={{
-            customer_name: formData.client_name,
-            company_name: selectedCustomer?.company_name || "",
-            email: selectedCustomer?.email || "",
-            phone: selectedCustomer?.phone || "",
-            address: selectedCustomer?.address || "",
-          }}
-          company={companyDetails}
-        />
-      </div>
     </div>
   );
 }

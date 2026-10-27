@@ -16,34 +16,38 @@ import {
 import { NavLink } from "react-router-dom";
 
 const mainNavigation = [
-  { label: "Overview", icon: LayoutDashboard, path: "/super-admin-dashboard" },
-  { label: "Customers", icon: UserRound, path: "/super-admin/customers" },
-  { label: "Quotations", icon: FileText, path: "/quotations" },
-  { label: "Invoices", icon: Receipt, path: "/super-admin/invoices" },
-  { label: "Payments", icon: CreditCard, path: "/super-admin/payments" },
+  { label: "Overview", icon: LayoutDashboard, path: "/super-admin-dashboard", isBuilt: true },
+  { label: "Customers", icon: UserRound, path: "/super-admin/customers", isBuilt: false },
+  { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
+  { label: "Invoices", icon: Receipt, path: "/super-admin/invoices", isBuilt: false },
+  { label: "Payments", icon: CreditCard, path: "/super-admin/payments", isBuilt: false },
   {
     label: "Reports & Analytics",
     icon: BarChart3,
-    path: "/super-admin/reports",
+    path: "/reports",
+    isBuilt: true,
   },
 ];
 
 const adminNavigation = [
-  { label: "User Management", icon: Users, path: "/super-admin/users" },
+  { label: "User Management", icon: Users, path: "/super-admin/users", isBuilt: false },
   {
     label: "Approvals",
     icon: CheckCircle2,
     path: "/super-admin/approvals",
+    isBuilt: true,
   },
   {
     label: "Company Settings",
     icon: Settings,
     path: "/super-admin/settings",
+    isBuilt: false,
   },
   {
     label: "Audit Logs",
     icon: ClipboardList,
     path: "/super-admin/audit-logs",
+    isBuilt: true,
   },
 ];
 
@@ -59,27 +63,47 @@ export default function SuperAdminSidebar({ isOpen, onClose }) {
   }
 
   function renderNavigation(items) {
-    return items.map(({ label, icon: Icon, path }) => (
-      <NavLink
-        key={path}
-        to={path}
-        end={path === "/super-admin-dashboard"}
-        onClick={onClose}
-        className={({ isActive }) =>
-          `sa-nav-item ${isActive ? "active" : ""}`
-        }
-      >
-        {({ isActive }) => (
-          <>
+    return items.map(({ label, icon: Icon, path, isBuilt }) => {
+      if (!isBuilt) {
+        return (
+          <div
+            key={label}
+            className="sa-nav-item"
+            style={{ cursor: "default", opacity: 0.65 }}
+            title={`${label} (Not available yet)`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
             <Icon size={18} strokeWidth={1.8} />
             <span>{label}</span>
-            {isActive && (
-              <span className="sa-active-indicator" aria-hidden="true" />
-            )}
-          </>
-        )}
-      </NavLink>
-    ));
+          </div>
+        );
+      }
+
+      return (
+        <NavLink
+          key={path}
+          to={path}
+          end={path === "/super-admin-dashboard"}
+          onClick={onClose}
+          className={({ isActive }) =>
+            `sa-nav-item ${isActive ? "active" : ""}`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <Icon size={18} strokeWidth={1.8} />
+              <span>{label}</span>
+              {isActive && (
+                <span className="sa-active-indicator" aria-hidden="true" />
+              )}
+            </>
+          )}
+        </NavLink>
+      );
+    });
   }
 
   return (

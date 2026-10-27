@@ -20,7 +20,7 @@
   border-radius: 0;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
   width: 100%;
-  max-width: 840px;
+  max-width: 680px;
   max-height: calc(100vh - 36px);
   margin: 18px auto;
   overflow-y: auto;
@@ -39,51 +39,52 @@
   }
 }
 
-/* Modal Header - Compact & Square */
+/* Modal Header - Clean Normal Header with Deep Navy, Professional Blue & White Theme */
 .qf-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 22px;
-  background: #0f172a;
-  color: #ffffff;
-  border-bottom: 2px solid #2563eb;
+  padding: 16px 22px;
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .qf-header-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .qf-header-icon {
-  background: #1e293b;
-  color: #60a5fa;
+  background: #eff6ff;
+  color: #1d4ed8;
   padding: 8px;
   border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #334155;
+  border: 1px solid #bfdbfe;
 }
 
 .qf-header h2 {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 850;
+  color: #0f172a;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
 }
 
 .qf-header p {
   font-size: 11.5px;
-  color: #94a3b8;
-  margin: 1px 0 0 0;
+  color: #64748b;
+  margin: 2px 0 0 0;
 }
 
 .qf-close-btn {
-  background: transparent;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
   cursor: pointer;
   padding: 6px;
   border-radius: 0;
@@ -94,9 +95,9 @@
 }
 
 .qf-close-btn:hover {
-  background: #1e293b;
-  color: #ffffff;
-  border-color: #475569;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 /* Body & Sections */
@@ -275,6 +276,13 @@
   position: relative;
 }
 
+.qf-additional-item-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: flex-end;
+}
+
 .qf-item-card:hover {
   border-color: #cbd5e1;
 }
@@ -305,6 +313,36 @@
   border-radius: 0;
   font-weight: 700;
   margin-left: 8px;
+}
+
+.qf-additional-badge {
+  font-size: 10.5px;
+  background: #e2e8f0;
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 0;
+  font-weight: 700;
+}
+
+.qf-btn-add-additional {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px dashed #94a3b8;
+  border-radius: 0;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 11.5px;
+  transition: all 0.15s;
+}
+
+.qf-btn-add-additional:hover {
+  background-color: #f8fafc;
+  border-color: #1d4ed8;
+  color: #1d4ed8;
 }
 
 .qf-delete-item-btn {
@@ -397,6 +435,28 @@
   gap: 8px;
 }
 
+.qf-retry-button {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 4px 9px;
+  border: 1px solid currentColor;
+  background: #ffffff;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qf-field-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 5px;
+  color: #b91c1c;
+  font-size: 11px;
+}
+
 .qf-alert-success {
   background-color: #f0fdf4;
   border: 1px solid #bbf7d0;
@@ -473,18 +533,39 @@
   background-color: #1e40af;
 }
 
+.qf-btn-draft {
+  background-color: #ffffff;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+.qf-btn-draft:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #64748b;
+  color: #0f172a;
+}
+
+.qf-rejection-banner {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  padding: 10px 14px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qf-rejection-title {
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .qf-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Hidden PDF render host */
-.qf-pdf-export-host {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 800px;
-  background: #ffffff;
 }
 
 /* Responsive */
@@ -505,6 +586,9 @@
   }
   .qf-grid-2,
   .qf-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .qf-additional-item-fields {
     grid-template-columns: 1fr;
   }
   .qf-field.col-span-2,

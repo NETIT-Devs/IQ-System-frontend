@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   Users,
   FileText,
@@ -18,48 +18,27 @@ import {
   Wallet,
   TrendingUp,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
+import NotificationBell from "../components/NotificationBell";
+import { getQuotations } from "../services/quotationService";
 import "./SuperAdminDashboard.css";
 
-// Summary cards remain at zero until real backend data is available.
-const statistics = [
-  {
-    title: "Total Customers",
-    value: "0",
-    description: "Registered customers",
-    icon: Users,
-    color: "blue",
-  },
-  {
-    title: "Total Quotations",
-    value: "0",
-    description: "All quotations",
-    icon: FileText,
-    color: "purple",
-  },
-  {
-    title: "Total Invoices",
-    value: "0",
-    description: "All invoices",
-    icon: Receipt,
-    color: "cyan",
-  },
-  {
-    title: "Outstanding Balance",
-    value: "Rs. 0.00",
-    description: "Remaining unpaid amount",
-    icon: Wallet,
-    color: "orange",
-  },
-];
+const BUILT_PATHS = new Set([
+  "/super-admin-dashboard",
+  "/quotations",
+  "/reports",
+  "/super-admin/approvals",
+  "/super-admin/audit-logs",
+]);
 
 // Quick links to commonly used administration pages.
 const quickLinks = [
   {
-    label: "User Management",
-    description: "Manage administrator accounts",
-    icon: Users,
-    path: "/super-admin/users",
+    label: "Approvals",
+    description: "Review pending submissions",
+    icon: Eye,
+    path: "/super-admin/approvals",
   },
   {
     label: "Company Settings",
@@ -71,7 +50,7 @@ const quickLinks = [
     label: "Reports & Analytics",
     description: "Review financial reports",
     icon: BarChart3,
-    path: "/super-admin/reports",
+    path: "/reports",
   },
   {
     label: "Audit Logs",
@@ -80,11 +59,6 @@ const quickLinks = [
     path: "/super-admin/audit-logs",
   },
 ];
-
-// Navigate to the selected page.
-function navigateTo(path) {
-  window.location.href = path;
-}
 
 // Render an individual summary card.
 function StatCard({ item }) {
@@ -243,7 +217,64 @@ function EmptyState({ icon: Icon, title, description }) {
 // Main Super Admin Dashboard component.
 export default function SuperAdminDashboard() {
   const { openSidebar } = useOutletContext();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [quotations, setQuotations] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const records = await getQuotations();
+        if (isMounted) {
+          setQuotations(Array.isArray(records) ? records : []);
+        }
+      } catch (err) {
+        console.warn("Failed to load dashboard quotation counts:", err);
+      }
+    }
+    loadData();
+    const timer = setInterval(loadData, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const pendingApprovalsCount = quotations.filter(
+    (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
+  ).length;
+
+  const dynamicStats = [
+    {
+      title: "Total Customers",
+      value: "0",
+      description: "Registered customers",
+      icon: Users,
+      color: "blue",
+    },
+    {
+      title: "Total Quotations",
+      value: String(quotations.length),
+      description: "All quotations",
+      icon: FileText,
+      color: "purple",
+    },
+    {
+      title: "Total Invoices",
+      value: "0",
+      description: "All invoices",
+      icon: Receipt,
+      color: "cyan",
+    },
+    {
+      title: "Outstanding Balance",
+      value: "Rs. 0.00",
+      description: "Remaining unpaid amount",
+      icon: Wallet,
+      color: "orange",
+    },
+  ];
 
   return (
     <>
@@ -290,35 +321,39 @@ export default function SuperAdminDashboard() {
               )}
             </label>
 
-            <button
-              type="button"
-              className="sa-notification-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={19} />
-              <span className="sa-notification-dot" />
-            </button>
+            <NotificationBell />
 
             <button
               type="button"
               className="sa-primary-button sa-approval-button"
-              onClick={() => navigateTo("/super-admin/approvals")}
+              onClick={() => navigate("/super-admin/approvals")}
+              title="Review pending submissions"
             >
               <Eye size={17} />
               <span>Review Approvals</span>
+              {pendingApprovalsCount > 0 && (
+                <span
+                  style={{
+                    background: "#ef4444",
+                    color: "#fff",
+                    borderRadius: "10px",
+                    padding: "1px 6px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {pendingApprovalsCount}
+                </span>
+              )}
               <ChevronRight size={16} />
             </button>
           </div>
       </header>
 
         <div className="sa-dashboard-content">
-          
-         
-
           {/* Summary cards */}
           <section className="sa-stats-grid" aria-label="Business summary">
-            {statistics.map((item) => (
+            {dynamicStats.map((item) => (
               <StatCard key={item.title} item={item} />
             ))}
           </section>
@@ -338,7 +373,9 @@ export default function SuperAdminDashboard() {
                   <p>Invoices and quotations awaiting your review</p>
                 </div>
 
-                <span className="sa-neutral-badge">0 Pending</span>
+                <span className="sa-neutral-badge">
+                  {pendingApprovalsCount} Pending
+                </span>
               </div>
 
               <div className="sa-approval-items">
@@ -361,19 +398,34 @@ export default function SuperAdminDashboard() {
                     <strong>Quotations</strong>
                     <span>Waiting for approval</span>
                   </div>
-                  <strong className="sa-approval-count">0</strong>
+                  <strong className="sa-approval-count">
+                    {pendingApprovalsCount}
+                  </strong>
                 </div>
               </div>
 
-              <div className="sa-approval-message">
-                <CheckCircle2 size={17} />
-                <span>No pending approvals to display.</span>
-              </div>
+              {pendingApprovalsCount > 0 ? (
+                <div
+                  className="sa-approval-message"
+                  style={{ color: "#b45309", background: "#fef3c7" }}
+                >
+                  <Clock size={17} />
+                  <span>
+                    {pendingApprovalsCount} quotation(s) waiting for your review.
+                  </span>
+                </div>
+              ) : (
+                <div className="sa-approval-message">
+                  <CheckCircle2 size={17} />
+                  <span>No pending approvals to display.</span>
+                </div>
+              )}
 
               <button
                 type="button"
                 className="sa-secondary-button sa-full-button"
-                onClick={() => navigateTo("/super-admin/approvals")}
+                onClick={() => navigate("/super-admin/approvals")}
+                title="View Approval Queue"
               >
                 View Approval Queue
                 <ChevronRight size={16} />
@@ -391,6 +443,7 @@ export default function SuperAdminDashboard() {
               <div className="sa-quick-links">
                 {quickLinks.map((item) => {
                   const Icon = item.icon;
+                  const isBuilt = BUILT_PATHS.has(item.path);
 
                   return (
                     <button
@@ -398,6 +451,8 @@ export default function SuperAdminDashboard() {
                       key={item.path}
                       className="sa-quick-link"
                       onClick={() => navigateTo(item.path)}
+                      style={!isBuilt ? { cursor: "default", opacity: 0.65 } : {}}
+                      title={!isBuilt ? "Not available yet" : undefined}
                     >
                       <span className="sa-quick-icon">
                         <Icon size={19} />
@@ -429,6 +484,8 @@ export default function SuperAdminDashboard() {
                   type="button"
                   className="sa-text-button"
                   onClick={() => navigateTo("/super-admin/invoices")}
+                  style={{ cursor: "default", opacity: 0.7 }}
+                  title="Not available yet"
                 >
                   View All <ChevronRight size={15} />
                 </button>
@@ -470,6 +527,8 @@ export default function SuperAdminDashboard() {
                   type="button"
                   className="sa-text-button"
                   onClick={() => navigateTo("/super-admin/audit-logs")}
+                  style={{ cursor: "default", opacity: 0.7 }}
+                  title="Not available yet"
                 >
                   View Logs <ChevronRight size={15} />
                 </button>
@@ -495,6 +554,8 @@ export default function SuperAdminDashboard() {
                 type="button"
                 className="sa-text-button"
                 onClick={() => navigateTo("/super-admin/payments")}
+                style={{ cursor: "default", opacity: 0.7 }}
+                title="Not available yet"
               >
                 View Payments <ChevronRight size={15} />
               </button>

@@ -1,445 +1,627 @@
-/* Quotation PDF Template Stylesheet */
-/* Colors: Deep Navy Blue (#0f172a, #1e293b), Professional Blue (#1d4ed8, #2563eb), Pure White (#ffffff) */
-
-.quotation-template-container {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #1e293b;
-  background-color: #ffffff;
+/* Main quotation document */
+.quotation-document {
   width: 100%;
-  max-width: 800px;
+  max-width: 850px;
   margin: 0 auto;
+  padding: 42px 46px;
+  background: #ffffff;
+  color: #243447;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  line-height: 1.55;
   box-sizing: border-box;
-  padding: 32px 36px;
-  line-height: 1.5;
-  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
-/* Header Section */
-.qt-header {
+.quotation-document *,
+.quotation-document *::before,
+.quotation-document *::after {
+  box-sizing: border-box;
+}
+
+.quotation-document p {
+  margin: 3px 0;
+  white-space: pre-line;
+}
+
+/* Company header */
+.quotation-header {
+  margin-bottom: 25px;
+}
+
+.quotation-header-main {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding-bottom: 24px;
-  border-bottom: 2px solid #e2e8f0;
-  gap: 20px;
+  gap: 24px;
 }
 
-.qt-brand {
+.quotation-company-brand {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  max-width: 450px;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
 }
 
-.qt-logo {
-  max-height: 64px;
-  max-width: 140px;
+.quotation-company-logo {
+  display: block;
+  width: 76px;
+  height: 76px;
   object-fit: contain;
-  border-radius: 6px;
+  flex-shrink: 0;
 }
 
-.qt-company-name {
-  font-size: 18px;
+.quotation-company-details {
+  min-width: 0;
+}
+
+.quotation-company-details h2 {
+  margin: 0 0 7px;
+  color: #102a43;
+  font-size: 19px;
   font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.02em;
-  margin: 0 0 4px 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
-.qt-company-info {
-  font-size: 12px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.qt-doc-title-block {
-  text-align: right;
-  min-width: 180px;
-}
-
-.qt-doc-title {
-  font-size: 26px;
-  font-weight: 900;
-  color: #1d4ed8;
-  letter-spacing: 0.05em;
-  margin: 0 0 6px 0;
-  text-transform: uppercase;
-}
-
-.qt-meta-table {
-  width: 100%;
-  font-size: 12px;
-  border-collapse: collapse;
-}
-
-.qt-meta-table td {
-  padding: 2px 0;
-}
-
-.qt-meta-label {
-  color: #64748b;
-  text-align: right;
-  padding-right: 8px !important;
-  font-weight: 500;
-}
-
-.qt-meta-value {
-  color: #0f172a;
-  font-weight: 700;
-  text-align: right;
-}
-
-.qt-status-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.qt-status-draft {
-  background-color: #f1f5f9;
-  color: #475569;
-}
-
-.qt-status-sent {
-  background-color: #dbeafe;
-  color: #1e40af;
-}
-
-.qt-status-approved {
-  background-color: #dcfce7;
-  color: #166534;
-}
-
-.qt-status-rejected {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-/* Two-column info area: Bill To & Project Info */
-.qt-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin: 24px 0;
-}
-
-.qt-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.qt-card-title {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #1d4ed8;
-  margin: 0 0 8px 0;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 6px;
-}
-
-.qt-customer-name {
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 2px 0;
-}
-
-.qt-customer-company {
-  font-size: 13px;
-  font-weight: 600;
-  color: #334155;
-  margin: 0 0 6px 0;
-}
-
-.qt-detail-line {
-  font-size: 12px;
-  color: #475569;
-  margin: 2px 0;
-}
-
-.qt-project-grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  font-size: 12px;
-}
-
-.qt-project-label {
-  color: #64748b;
-  font-weight: 500;
-}
-
-.qt-project-value {
-  color: #0f172a;
-  font-weight: 700;
-}
-
-/* Services Table */
-.qt-table-section {
-  margin: 24px 0;
-}
-
-.qt-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.qt-table th {
-  background-color: #0f172a;
-  color: #ffffff;
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  padding: 10px 12px;
-  text-align: left;
-}
-
-.qt-table th.text-right {
-  text-align: right;
-}
-
-.qt-table th.text-center {
-  text-align: center;
-}
-
-.qt-table-row {
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.qt-table-row:nth-child(even) {
-  background-color: #f8fafc;
-}
-
-.qt-table td {
-  padding: 10px 12px;
-  vertical-align: top;
-  color: #334155;
-}
-
-.qt-item-title {
-  font-weight: 700;
-  color: #0f172a;
-  font-size: 13px;
-  margin: 0 0 4px 0;
-}
-
-.qt-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 4px 0 6px 0;
-}
-
-.qt-item-tag {
-  display: inline-block;
+.quotation-company-details p {
+  color: #62748a;
   font-size: 10px;
-  font-weight: 600;
-  background-color: #e0e7ff;
-  color: #3730a3;
-  padding: 1px 6px;
-  border-radius: 4px;
 }
 
-.qt-item-desc {
-  font-size: 11px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.4;
-  white-space: pre-wrap;
+.quotation-heading {
+  text-align: right;
+  flex-shrink: 0;
 }
 
-/* Financial Summary & Notes Area */
-.qt-bottom-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 24px;
-  margin: 24px 0;
-  align-items: start;
-}
-
-.qt-notes-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 14px;
-}
-
-.qt-notes-title {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #1d4ed8;
-  margin: 0 0 6px 0;
-}
-
-.qt-notes-content {
-  font-size: 11px;
-  color: #475569;
-  line-height: 1.5;
-  margin: 0 0 10px 0;
-  white-space: pre-wrap;
-}
-
-.qt-notes-content:last-child {
-  margin-bottom: 0;
-}
-
-/* Financial Summary Box */
-.qt-summary-card {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.qt-summary-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.qt-summary-table td {
-  padding: 8px 14px;
-}
-
-.qt-summary-label {
-  color: #64748b;
-  font-weight: 600;
-}
-
-.qt-summary-value {
-  color: #0f172a;
+.quotation-heading-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #2563eb;
+  font-size: 9px;
   font-weight: 700;
-  text-align: right;
+  letter-spacing: 1.5px;
 }
 
-.qt-summary-total-row {
-  background-color: #0f172a;
-  color: #ffffff;
-}
-
-.qt-summary-total-label {
-  color: #ffffff;
+.quotation-heading h1 {
+  margin: 0;
+  color: #102a43;
+  font-size: 30px;
   font-weight: 800;
-  font-size: 14px;
-  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1.2;
 }
 
-.qt-summary-total-value {
-  color: #60a5fa;
-  font-size: 17px;
-  font-weight: 900;
-  text-align: right;
+.quotation-heading p {
+  margin-top: 5px;
+  color: #718096;
+  font-size: 10px;
 }
 
-/* Signatures Section */
-.qt-signatures {
+.quotation-header-line {
+  height: 4px;
+  margin-top: 23px;
+  background: #102a43;
+  border-bottom: 2px solid #2563eb;
+}
+
+/* Quotation reference information */
+.quotation-reference-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 36px;
-  margin-top: 36px;
-  padding-top: 20px;
-  border-top: 1px dashed #cbd5e1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 28px;
+  border: 1px solid #dce5ef;
 }
 
-.qt-sig-box {
+.quotation-reference-item {
   display: flex;
   flex-direction: column;
+  gap: 5px;
+  padding: 13px 15px;
+  min-width: 0;
 }
 
-.qt-sig-space {
-  min-height: 50px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  padding-bottom: 4px;
+.quotation-reference-item + .quotation-reference-item {
+  border-left: 1px solid #dce5ef;
 }
 
-.qt-signature-img {
-  max-height: 48px;
-  max-width: 140px;
-  object-fit: contain;
-  display: block;
+.quotation-reference-item span {
+  color: #718096;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
 }
 
-.qt-bank-card {
-  margin-top: 10px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 8px 12px;
+.quotation-reference-item strong {
+  color: #102a43;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
-.qt-bank-grid {
+/* Client and project information */
+.quotation-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 10px;
-  font-size: 11px;
-  color: #334155;
+  gap: 32px;
+  margin-bottom: 32px;
 }
 
-.qt-bank-label {
+.quotation-section {
+  min-width: 0;
+}
+
+.quotation-section-title {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  border-bottom: 1px solid #dce5ef;
+}
+
+.quotation-client-name {
+  margin-bottom: 5px;
+  color: #102a43;
+  font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  overflow-wrap: anywhere;
 }
 
-.qt-sig-line {
-  border-top: 1px solid #475569;
-  margin-bottom: 6px;
+.quotation-section > p {
+  color: #62748a;
+  font-size: 11px;
 }
 
-.qt-sig-title {
+.quotation-project-details {
+  padding-left: 18px;
+  border-left: 2px solid #e7eef7;
+}
+
+.quotation-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 5px 0;
+}
+
+.quotation-detail-row span {
+  color: #718096;
+  flex-shrink: 0;
+}
+
+.quotation-detail-row strong {
+  color: #243447;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Services table */
+.quotation-services-section {
+  margin-bottom: 28px;
+}
+
+.quotation-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 15px;
+  margin-bottom: 14px;
+}
+
+.quotation-eyebrow {
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+}
+
+.quotation-section-heading h2 {
+  margin: 4px 0 0;
+  color: #102a43;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.quotation-item-count {
+  padding: 5px 9px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.quotation-services-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 10px;
+}
+
+.quotation-services-table thead {
+  display: table-header-group;
+}
+
+.quotation-services-table thead th {
+  padding: 12px 8px;
+  background: #102a43;
+  color: #ffffff;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+  vertical-align: middle;
+}
+
+.quotation-services-table thead th:first-child {
+  border-left: 1px solid #102a43;
+}
+
+.quotation-services-table tbody td {
+  padding: 12px 8px;
+  border: 1px solid #e2e8f0;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.quotation-services-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.quotation-services-table tbody tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.quotation-col-number {
+  width: 7%;
+}
+
+.quotation-col-service {
+  width: 43%;
+}
+
+.quotation-col-price {
+  width: 18%;
+}
+
+.quotation-col-tax {
+  width: 11%;
+}
+
+.quotation-col-total {
+  width: 21%;
+}
+
+.quotation-service-name {
+  margin-bottom: 4px;
+  color: #102a43;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.quotation-service-meta {
+  margin-bottom: 5px;
+  color: #2563eb;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.quotation-service-description {
+  margin: 5px 0 0 !important;
+  color: #62748a;
+  font-size: 9px;
+  white-space: pre-line;
+}
+
+.quotation-money-cell {
+  color: #243447;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-line-total {
+  color: #102a43;
+  font-weight: 700;
+}
+
+.quotation-empty-items {
+  padding: 24px !important;
+  color: #718096;
+  text-align: center;
+}
+
+/* Notes and financial summary */
+.quotation-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  align-items: start;
+  gap: 28px;
+  margin-top: 20px;
+}
+
+.quotation-notes-column {
+  min-width: 0;
+}
+
+.quotation-text-section {
+  margin-bottom: 20px;
+}
+
+.quotation-text-section h3 {
+  margin: 0 0 8px;
+  color: #102a43;
   font-size: 12px;
   font-weight: 700;
-  color: #0f172a;
-  margin: 0;
 }
 
-.qt-sig-subtitle {
-  font-size: 11px;
-  color: #64748b;
-  margin: 2px 0 0 0;
+.quotation-text-section p {
+  color: #62748a;
+  font-size: 10px;
+  white-space: pre-line;
 }
 
-/* Footer Section */
-.qt-footer {
-  margin-top: 32px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
+.quotation-summary {
+  border: 1px solid #dce5ef;
+  padding: 17px;
+}
+
+.quotation-summary h3 {
+  margin: 0 0 13px;
+  color: #102a43;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quotation-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  color: #62748a;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 10px;
+}
+
+.quotation-summary-row span:last-child {
+  color: #243447;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.quotation-grand-total {
+  margin: 15px -17px -17px;
+  padding: 15px 17px;
+  background: #102a43;
+  color: #ffffff;
+}
+
+.quotation-grand-total span {
+  display: block;
+  margin-bottom: 5px;
+  color: #bfdbfe;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.quotation-grand-total strong {
+  display: block;
+  font-size: 19px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+/* Signature and footer */
+.quotation-footer {
+  margin-top: 38px;
+  padding-top: 20px;
+  border-top: 1px solid #dce5ef;
+}
+
+.quotation-footer-message h3 {
+  margin: 0 0 5px;
+  color: #102a43;
+  font-size: 13px;
+}
+
+.quotation-footer-message p {
+  max-width: 480px;
+  color: #718096;
+  font-size: 10px;
+}
+
+.quotation-signature {
+  width: 210px;
+  margin: 25px 0 30px auto;
   text-align: center;
-  font-size: 11px;
-  color: #94a3b8;
 }
 
-.qt-footer-text {
-  font-weight: 600;
-  color: #1d4ed8;
-  margin-bottom: 2px;
+.quotation-signature img {
+  display: block;
+  width: 140px;
+  height: 55px;
+  margin: 0 auto 5px;
+  object-fit: contain;
 }
 
-/* Page break control for print/PDF */
+.quotation-signature-line {
+  border-top: 1px solid #9aa9b9;
+  margin-bottom: 7px;
+}
+
+.quotation-signature strong,
+.quotation-signature span {
+  display: block;
+  color: #102a43;
+  font-size: 10px;
+}
+
+.quotation-signature span {
+  color: #718096;
+}
+
+.quotation-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 10px;
+  border-top: 1px solid #edf2f7;
+  color: #718096;
+  font-size: 9px;
+}
+
+/* Browser preview and mobile responsiveness */
+@media screen {
+  .quotation-document {
+    box-shadow: 0 4px 24px rgba(16, 42, 67, 0.09);
+    border: 1px solid #e2e8f0;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .quotation-document {
+    padding: 24px 18px;
+    font-size: 11px;
+  }
+
+  .quotation-header-main {
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .quotation-heading {
+    text-align: left;
+  }
+
+  .quotation-heading h1 {
+    font-size: 26px;
+  }
+
+  .quotation-company-logo {
+    width: 58px;
+    height: 58px;
+  }
+
+  .quotation-company-details h2 {
+    font-size: 16px;
+  }
+
+  .quotation-reference-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quotation-reference-item + .quotation-reference-item {
+    border-top: 1px solid #dce5ef;
+    border-left: 0;
+  }
+
+  .quotation-details-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .quotation-project-details {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .quotation-bottom-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .quotation-services-section {
+    overflow: visible;
+  }
+
+  .quotation-services-table {
+    font-size: 9px;
+  }
+
+  .quotation-services-table thead th,
+  .quotation-services-table tbody td {
+    padding: 7px 4px;
+  }
+
+  .quotation-col-number {
+    width: 7%;
+  }
+
+  .quotation-col-service {
+    width: 39%;
+  }
+
+  .quotation-col-price {
+    width: 19%;
+  }
+
+  .quotation-col-tax {
+    width: 12%;
+  }
+
+  .quotation-col-total {
+    width: 23%;
+  }
+
+  .quotation-footer-bottom {
+    flex-direction: column;
+  }
+}
+
+/* A4 printing */
+@page {
+  size: A4;
+  margin: 12mm;
+}
+
 @media print {
-  body {
-    background: #ffffff !important;
+  .quotation-document {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    font-size: 10px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
-  .quotation-template-container {
-    max-width: 100% !important;
-    padding: 0 !important;
-  }
-  .pdf-no-break {
-    page-break-inside: avoid;
+
+  .quotation-header,
+  .quotation-reference-grid,
+  .quotation-details-grid,
+  .quotation-section-heading,
+  .quotation-summary,
+  .quotation-footer-message,
+  .quotation-signature {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .quotation-services-table thead {
+    display: table-header-group;
+  }
+
+  .quotation-services-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .quotation-services-table th,
+  .quotation-services-table td,
+  .quotation-grand-total {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .quotation-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

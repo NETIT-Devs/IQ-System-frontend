@@ -403,14 +403,6 @@
 }
 
 /* Hidden PDF template host */
-.qd-pdf-export-host {
-  position: absolute;
-  left: -9999px;
-  top: -9999px;
-  width: 800px;
-  background: #ffffff;
-}
-
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .qd-overlay {

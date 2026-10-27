@@ -1,6 +1,6 @@
 
-import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import {
   Users,
   FileText,
@@ -17,7 +17,10 @@ import {
   Wallet,
   TrendingUp,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
+import NotificationBell from "../components/NotificationBell";
+import { getQuotations } from "../services/quotationService";
 import "./AdminDashboard.css";
 
 // Summary cards show zero until real backend data is connected.
@@ -52,6 +55,12 @@ const statistics = [
   },
 ];
 
+const BUILT_PATHS = new Set([
+  "/admin-dashboard",
+  "/quotations",
+  "/reports",
+]);
+
 // Quick links for everyday Admin tasks.
 const quickLinks = [
   {
@@ -80,9 +89,11 @@ const quickLinks = [
   },
 ];
 
-// Navigate to a selected page.
+// Navigate to a selected page if built, otherwise do nothing
 function navigateTo(path) {
-  window.location.href = path;
+  if (BUILT_PATHS.has(path)) {
+    window.location.href = path;
+  }
 }
 
 // Reusable dashboard summary card.
@@ -234,7 +245,64 @@ function InvoiceStatusChart() {
 // Main Admin Dashboard component.
 export default function AdminDashboard() {
   const { openSidebar } = useOutletContext();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [quotations, setQuotations] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadData() {
+      try {
+        const records = await getQuotations();
+        if (isMounted) {
+          setQuotations(Array.isArray(records) ? records : []);
+        }
+      } catch (err) {
+        console.warn("Failed to load dashboard quotation data:", err);
+      }
+    }
+    loadData();
+    const timer = setInterval(loadData, 15000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const pendingCount = quotations.filter(
+    (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
+  ).length;
+
+  const dynamicStats = [
+    {
+      title: "Total Customers",
+      value: "0",
+      description: "Registered customers",
+      icon: Users,
+      color: "blue",
+    },
+    {
+      title: "Total Quotations",
+      value: String(quotations.length),
+      description: "All quotations",
+      icon: FileText,
+      color: "purple",
+    },
+    {
+      title: "Total Invoices",
+      value: "0",
+      description: "All invoices",
+      icon: Receipt,
+      color: "cyan",
+    },
+    {
+      title: "Outstanding Balance",
+      value: "Rs. 0.00",
+      description: "Remaining unpaid amount",
+      icon: Wallet,
+      color: "orange",
+    },
+  ];
 
   return (
     <>
@@ -282,22 +350,14 @@ export default function AdminDashboard() {
               )}
             </label>
 
-            <button
-              type="button"
-              className="sa-notification-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={19} />
-              <span className="sa-notification-dot" />
-            </button>
+            <NotificationBell />
           </div>
       </header>
 
         <div className="sa-dashboard-content">
           {/* Business summary cards */}
           <section className="sa-stats-grid" aria-label="Business summary">
-            {statistics.map((item) => (
+            {dynamicStats.map((item) => (
               <StatCard key={item.title} item={item} />
             ))}
           </section>
@@ -317,7 +377,7 @@ export default function AdminDashboard() {
                   <p>Invoices and quotations submitted for approval</p>
                 </div>
 
-                <span className="sa-neutral-badge">0 Pending</span>
+                <span className="sa-neutral-badge">{pendingCount} Pending</span>
               </div>
 
               <div className="sa-approval-items">
@@ -344,14 +404,26 @@ export default function AdminDashboard() {
                     <span>Awaiting Super Admin review</span>
                   </div>
 
-                  <strong className="sa-approval-count">0</strong>
+                  <strong className="sa-approval-count">{pendingCount}</strong>
                 </div>
               </div>
 
-              <div className="sa-approval-message">
-                <CheckCircle2 size={17} />
-                <span>No pending submissions to display.</span>
-              </div>
+              {pendingCount > 0 ? (
+                <div
+                  className="sa-approval-message"
+                  style={{ color: "#b45309", background: "#fef3c7" }}
+                >
+                  <Clock size={17} />
+                  <span>
+                    {pendingCount} quotation(s) awaiting Super Admin review.
+                  </span>
+                </div>
+              ) : (
+                <div className="sa-approval-message">
+                  <CheckCircle2 size={17} />
+                  <span>No pending submissions to display.</span>
+                </div>
+              )}
             </div>
 
             <div className="sa-panel">
@@ -365,6 +437,7 @@ export default function AdminDashboard() {
               <div className="sa-quick-links">
                 {quickLinks.map((item) => {
                   const Icon = item.icon;
+                  const isBuilt = BUILT_PATHS.has(item.path);
 
                   return (
                     <button
@@ -372,6 +445,8 @@ export default function AdminDashboard() {
                       key={item.path}
                       className="sa-quick-link"
                       onClick={() => navigateTo(item.path)}
+                      style={!isBuilt ? { cursor: "default", opacity: 0.65 } : {}}
+                      title={!isBuilt ? "Not available yet" : undefined}
                     >
                       <span className="sa-quick-icon">
                         <Icon size={19} />
@@ -406,6 +481,8 @@ export default function AdminDashboard() {
                   type="button"
                   className="sa-text-button"
                   onClick={() => navigateTo("/admin/invoices")}
+                  style={{ cursor: "default", opacity: 0.7 }}
+                  title="Not available yet"
                 >
                   View All <ChevronRight size={15} />
                 </button>
@@ -465,6 +542,8 @@ export default function AdminDashboard() {
                 type="button"
                 className="sa-text-button"
                 onClick={() => navigateTo("/admin/payments")}
+                style={{ cursor: "default", opacity: 0.7 }}
+                title="Not available yet"
               >
                 View Payments <ChevronRight size={15} />
               </button>

@@ -2,14 +2,13 @@
 // Displays comprehensive quotation information retrieved from backend database.
 // Supports downloading real business PDF documents via QuotationTemplate.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   FileText,
   Calendar,
   User,
   Download,
   X,
-  Clock,
   Layers,
   Edit,
   AlertCircle,
@@ -17,9 +16,9 @@ import {
 import {
   getQuotationById,
   getCompanyDetails,
+  getCustomers,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
-import QuotationTemplate from "../components/QuotationTemplate";
 import "./QuotationDetails.css";
 
 // Format date into human-readable representation
@@ -54,11 +53,10 @@ export default function QuotationDetails({
 }) {
   const [quotation, setQuotation] = useState(propQuotation);
   const [companyDetails, setCompanyDetails] = useState({});
+  const [customerDetails, setCustomerDetails] = useState({});
   const [loading, setLoading] = useState(!propQuotation && Boolean(quotationId));
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState("");
-
-  const pdfTemplateRef = useRef(null);
 
   const activeId = propQuotation?.quotation_id || quotationId;
 
@@ -69,25 +67,83 @@ export default function QuotationDetails({
     async function loadData() {
       try {
         setError("");
-        const companyPromise = getCompanyDetails().catch(() => ({}));
 
         if (activeId && (!propQuotation || !propQuotation.items)) {
           setLoading(true);
-          const [fetchedQuotation, company] = await Promise.all([
-            getQuotationById(activeId),
-            companyPromise,
-          ]);
+          const [quotationResult, companyResult, customersResult] =
+            await Promise.allSettled([
+              getQuotationById(activeId),
+              getCompanyDetails(),
+              getCustomers(),
+            ]);
+
+          if (quotationResult.status === "rejected") {
+            throw quotationResult.reason;
+          }
 
           if (isMounted) {
-            if (fetchedQuotation) {
-              setQuotation(fetchedQuotation);
+            if (quotationResult.value) {
+              setQuotation(quotationResult.value);
             }
-            setCompanyDetails(company);
+            if (companyResult.status === "fulfilled") {
+              setCompanyDetails(companyResult.value);
+            }
+            const customers =
+              customersResult.status === "fulfilled"
+                ? customersResult.value
+                : [];
+            setCustomerDetails(
+              customers.find(
+                (customer) =>
+                  String(customer.customer_id) ===
+                  String(quotationResult.value?.customer_id)
+              ) || {}
+            );
+            const warnings = [];
+            if (companyResult.status === "rejected") {
+              warnings.push(
+                "Company details could not be loaded; the PDF may omit company branding."
+              );
+            }
+            if (customersResult.status === "rejected") {
+              warnings.push(
+                "Customer contact details could not be loaded; only saved quotation details will be shown."
+              );
+            }
+            setError(warnings.join(" "));
           }
         } else {
-          const company = await companyPromise;
+          const [companyResult, customersResult] = await Promise.allSettled([
+            getCompanyDetails(),
+            getCustomers(),
+          ]);
           if (isMounted) {
-            setCompanyDetails(company);
+            if (companyResult.status === "fulfilled") {
+              setCompanyDetails(companyResult.value);
+            }
+            const customers =
+              customersResult.status === "fulfilled"
+                ? customersResult.value
+                : [];
+            setCustomerDetails(
+              customers.find(
+                (customer) =>
+                  String(customer.customer_id) ===
+                  String(propQuotation?.customer_id)
+              ) || {}
+            );
+            const warnings = [];
+            if (companyResult.status === "rejected") {
+              warnings.push(
+                "Company details could not be loaded; the PDF may omit company branding."
+              );
+            }
+            if (customersResult.status === "rejected") {
+              warnings.push(
+                "Customer contact details could not be loaded; only saved quotation details will be shown."
+              );
+            }
+            setError(warnings.join(" "));
           }
         }
       } catch (err) {
@@ -114,11 +170,50 @@ export default function QuotationDetails({
 
     try {
       setDownloadingPdf(true);
+      let activeCompany = companyDetails;
+      if (!activeCompany?.bank_name) {
+        try {
+          activeCompany = await getCompanyDetails();
+          setCompanyDetails(activeCompany);
+        } catch {
+          // ignore error
+        }
+      }
       const filename = `${quotation.quotation_number || "Quotation"}.pdf`;
-      await downloadQuotationPdf(pdfTemplateRef.current, filename);
+      await downloadQuotationPdf(
+        quotation,
+        activeCompany,
+        {
+          ...customerDetails,
+          customer_name: quotation.customer_name || customerDetails.customer_name,
+          company_name:
+            quotation.customer_company ||
+            quotation.company_name ||
+            customerDetails.company_name ||
+            "",
+          email:
+            quotation.customer_email ||
+            quotation.email ||
+            customerDetails.email ||
+            "",
+          phone:
+            quotation.customer_phone ||
+            quotation.phone ||
+            customerDetails.phone ||
+            "",
+          address:
+            quotation.customer_address ||
+            quotation.address ||
+            customerDetails.address ||
+            "",
+        },
+        filename
+      );
     } catch (err) {
       console.error("PDF download failed:", err);
-      alert("Failed to generate PDF. Please try again.");
+      setError(
+        "Could not generate the quotation PDF. Please check your connection and try again."
+      );
     } finally {
       setDownloadingPdf(false);
     }
@@ -221,11 +316,15 @@ export default function QuotationDetails({
                           {quotation.customer_name || "—"}
                         </td>
                       </tr>
-                      {(quotation.customer_company || quotation.company_name) && (
+                      {(quotation.customer_company ||
+                        quotation.company_name ||
+                        customerDetails.company_name) && (
                         <tr>
                           <td className="qd-data-label">Company:</td>
                           <td className="qd-data-val">
-                            {quotation.customer_company || quotation.company_name}
+                            {quotation.customer_company ||
+                              quotation.company_name ||
+                              customerDetails.company_name}
                           </td>
                         </tr>
                       )}
@@ -233,19 +332,39 @@ export default function QuotationDetails({
                         <td className="qd-data-label">Customer ID:</td>
                         <td className="qd-data-val">{quotation.customer_id}</td>
                       </tr>
-                      {(quotation.customer_email || quotation.email) && (
+                      {(quotation.customer_email ||
+                        quotation.email ||
+                        customerDetails.email) && (
                         <tr>
                           <td className="qd-data-label">Email:</td>
                           <td className="qd-data-val">
-                            {quotation.customer_email || quotation.email}
+                            {quotation.customer_email ||
+                              quotation.email ||
+                              customerDetails.email}
                           </td>
                         </tr>
                       )}
-                      {(quotation.customer_phone || quotation.phone) && (
+                      {(quotation.customer_phone ||
+                        quotation.phone ||
+                        customerDetails.phone) && (
                         <tr>
                           <td className="qd-data-label">Phone:</td>
                           <td className="qd-data-val">
-                            {quotation.customer_phone || quotation.phone}
+                            {quotation.customer_phone ||
+                              quotation.phone ||
+                              customerDetails.phone}
+                          </td>
+                        </tr>
+                      )}
+                      {(quotation.customer_address ||
+                        quotation.address ||
+                        customerDetails.address) && (
+                        <tr>
+                          <td className="qd-data-label">Address:</td>
+                          <td className="qd-data-val">
+                            {quotation.customer_address ||
+                              quotation.address ||
+                              customerDetails.address}
                           </td>
                         </tr>
                       )}
@@ -459,24 +578,6 @@ export default function QuotationDetails({
           </div>
         </div>
       </div>
-
-      {/* Hidden container for rendering QuotationTemplate for PDF export */}
-      {quotation && (
-        <div className="qd-pdf-export-host">
-          <QuotationTemplate
-            ref={pdfTemplateRef}
-            quotation={quotation}
-            customer={{
-              customer_name: quotation.customer_name,
-              company_name: quotation.customer_company || quotation.company_name || "",
-              email: quotation.customer_email || quotation.email || "",
-              phone: quotation.customer_phone || quotation.phone || "",
-              address: quotation.customer_address || quotation.address || "",
-            }}
-            company={companyDetails}
-          />
-        </div>
-      )}
     </div>
   );
 }

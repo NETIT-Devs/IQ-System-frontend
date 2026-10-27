@@ -15,16 +15,15 @@ import {
   Pencil,
   Copy,
   Trash2,
-  Clock3,
-  Send,
-  CheckCircle2,
-  XCircle,
-  FileEdit,
   SlidersHorizontal,
   Eye,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import QuotationForm from "./QuotationForm";
 import QuotationDetails from "./QuotationDetails";
+import NotificationBell from "../components/NotificationBell";
 import {
   getQuotations,
   deleteQuotation,
@@ -34,9 +33,10 @@ import "./Quotations.css";
 const statusOptions = [
   "All Statuses",
   "Draft",
-  "Sent",
+  "Pending Approval",
   "Approved",
   "Rejected",
+  "Sent",
 ];
 
 const dateOptions = [
@@ -75,18 +75,11 @@ function formatDate(value) {
 
 // Return an icon based on the quotation status
 function getStatusIcon(status) {
-  switch (status) {
-    case "Sent":
-      return Send;
-    case "Approved":
-      return CheckCircle2;
-    case "Rejected":
-      return XCircle;
-    case "Expired":
-      return Clock3;
-    default:
-      return FileEdit;
-  }
+  const s = String(status || "").toLowerCase();
+  if (s.includes("approv") || s.includes("accept")) return CheckCircle;
+  if (s.includes("reject") || s.includes("declin")) return XCircle;
+  if (s.includes("pending")) return Clock;
+  return FileText;
 }
 
 // Calculate the starting date for the selected date filter
@@ -109,6 +102,7 @@ export default function Quotations() {
 
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
@@ -117,62 +111,92 @@ export default function Quotations() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [newQuotationNumber, setNewQuotationNumber] = useState("");
 
   // Fetch quotations from backend
   async function loadQuotations() {
     try {
       setLoading(true);
+      setLoadError("");
       const data = await getQuotations();
 
       // Normalize backend records for table display
-      const normalized = (data || []).map((q) => ({
-        ...q,
-        id: q.quotation_number,
-        clientName: q.customer_name || "Customer",
-        project: q.items?.[0]?.item_name || "Software Solution",
-        issuedDate: String(q.quotation_date || "").slice(0, 10),
-        validUntil: String(q.valid_until || "").slice(0, 10),
-        total: Number(q.total_amount) || 0,
-        status: q.status || "Draft",
-      }));
+      const normalized = (Array.isArray(data) ? data : []).map((q) => {
+        const raw = q.status || q.approval_status;
+        let displayStatus = "Draft";
+        if (raw) {
+          const lower = String(raw).trim().toLowerCase();
+          if (["approved", "accepted"].includes(lower)) displayStatus = "Approved";
+          else if (["rejected", "declined"].includes(lower)) displayStatus = "Rejected";
+          else if (lower.includes("pending")) displayStatus = "Pending Approval";
+          else if (lower.includes("sent")) displayStatus = "Sent";
+          else displayStatus = raw.charAt(0).toUpperCase() + raw.slice(1);
+        }
+
+        return {
+          ...q,
+          id: q.quotation_number || "—",
+          clientName: q.customer_name || "—",
+          project: q.items?.[0]?.item_name || "—",
+          issuedDate: String(q.quotation_date || "").slice(0, 10),
+          validUntil: String(q.valid_until || "").slice(0, 10),
+          total: Number(q.total_amount ?? 0),
+          status: displayStatus,
+          rejection_reason: q.rejection_reason || null,
+        };
+      });
 
       setQuotations(normalized);
     } catch (err) {
       console.error("Failed to load quotations:", err);
+      setLoadError(err?.message || "Could not load quotations. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadQuotations();
+    Promise.resolve().then(loadQuotations);
   }, []);
 
   // Calculate the quotation summary card values
-  const stats = useMemo(
-    () => ({
-      total: quotations.length,
-      draft: quotations.filter((item) => item.status === "Draft").length,
-      sent: quotations.filter((item) => item.status === "Sent").length,
-      approved: quotations.filter((item) => item.status === "Approved").length,
-    }),
-    [quotations]
-  );
+  const stats = useMemo(() => {
+    let total = quotations.length;
+    let approved = 0;
+    let rejected = 0;
+    let pending = 0;
+    let draft = 0;
+
+    quotations.forEach((q) => {
+      const s = String(q.status || q.approval_status || "").trim().toLowerCase();
+      if (["approved", "accepted"].includes(s)) {
+        approved += 1;
+      } else if (["rejected", "declined"].includes(s)) {
+        rejected += 1;
+      } else if (s.includes("pending")) {
+        pending += 1;
+      } else {
+        draft += 1;
+      }
+    });
+
+    return { total, approved, rejected, pending, draft };
+  }, [quotations]);
 
   // Filter quotations using the search term, date range, and status
   const filteredQuotations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const cutoff = getDateCutoff(dateRange);
-    const today = new Date();
-
-    today.setHours(23, 59, 59, 999);
 
     return quotations.filter((quotation) => {
       const matchesSearch =
         !term ||
-        [quotation.id, quotation.clientName, quotation.project].some(
-          (value) => value?.toLowerCase().includes(term)
-        );
+        [
+          quotation.id,
+          quotation.clientName,
+          quotation.project,
+          quotation.status,
+        ].some((value) => String(value || "").toLowerCase().includes(term));
 
       const quotationDate = new Date(
         `${quotation.issuedDate}T00:00:00`
@@ -190,10 +214,14 @@ export default function Quotations() {
       return matchesSearch && matchesDate && matchesStatus;
     });
   }, [quotations, searchTerm, dateRange, statusFilter]);
+  const quotationSchemaError =
+    loadError.toLowerCase().includes("unknown column") &&
+    loadError.toLowerCase().includes("status");
 
   // Open creation modal
   function openCreateModal() {
     setSelectedQuotation(null);
+    setNewQuotationNumber(`QUO-${Date.now().toString(36).toUpperCase()}`);
     setShowFormModal(true);
   }
 
@@ -214,7 +242,7 @@ export default function Quotations() {
     const duplicated = {
       ...quotation,
       quotation_id: undefined,
-      quotation_number: `QUO-${Date.now().toString().slice(-6)}`,
+      quotation_number: `QUO-${Date.now().toString(36).toUpperCase()}`,
       status: "Draft",
       quotation_date: new Date().toISOString().slice(0, 10),
     };
@@ -225,7 +253,12 @@ export default function Quotations() {
 
   // Delete a quotation with confirmation and backend integration
   async function handleDelete(quotation) {
-    const targetId = quotation.quotation_id || quotation.id;
+    const targetId = quotation.quotation_id;
+    if (!targetId) {
+      alert("This quotation is missing its backend ID and cannot be deleted.");
+      return;
+    }
+
     const confirmed = window.confirm(
       `Delete quotation ${quotation.id}? This cannot be undone.`
     );
@@ -240,7 +273,7 @@ export default function Quotations() {
     }
   }
 
-  // Quotation summary cards
+  // Quotation summary cards - 4 cards: Total Quotations, Approved Quotations, Reject Quotations, Draft
   const statCards = [
     {
       label: "Total Quotations",
@@ -250,25 +283,25 @@ export default function Quotations() {
       note: "All quotations",
     },
     {
+      label: "Approved Quotations",
+      value: stats.approved,
+      icon: CheckCircle,
+      color: "green",
+      note: "Approved quotations",
+    },
+    {
+      label: "Reject Quotations",
+      value: stats.rejected,
+      icon: XCircle,
+      color: "red",
+      note: "Rejected quotations",
+    },
+    {
       label: "Draft",
       value: stats.draft,
-      icon: FileEdit,
-      color: "purple",
-      note: "Work in progress",
-    },
-    {
-      label: "Sent",
-      value: stats.sent,
-      icon: Send,
-      color: "cyan",
-      note: "Awaiting response",
-    },
-    {
-      label: "Approved",
-      value: stats.approved,
-      icon: CheckCircle2,
+      icon: Clock,
       color: "orange",
-      note: "Approved quotations",
+      note: "Draft quotations",
     },
   ];
 
@@ -354,11 +387,29 @@ export default function Quotations() {
                 <h2>All Quotations</h2>
                 <p>View and manage your quotation records.</p>
               </div>
-
               <span className="quotation-record-count">
                 {filteredQuotations.length} records
               </span>
             </div>
+
+            {loadError && (
+              <div
+                className="quotation-load-error"
+                role="alert"
+                aria-live="assertive"
+              >
+                <strong>
+                  {quotationSchemaError
+                    ? "Quotation data is unavailable"
+                    : "Could not load quotations"}
+                </strong>
+                <span>
+                  {quotationSchemaError
+                    ? "The connected database does not store quotation status. Restart the backend with the schema-compatible quotation update so saved records can be displayed without status fields."
+                    : loadError}
+                </span>
+              </div>
+            )}
 
             <div className="quotation-filters">
               {/* Search */}
@@ -526,9 +577,7 @@ export default function Quotations() {
                         </td>
 
                         <td>
-                          <span
-                            className={`quotation-status status-${quotation.status.toLowerCase()}`}
-                          >
+                          <span className={`quotation-status status-${(quotation.status || "").toLowerCase() === "approved" ? "accepted" : (quotation.status || "").toLowerCase()}`}>
                             <StatusIcon size={14} />
                             {quotation.status}
                           </span>
@@ -598,7 +647,9 @@ export default function Quotations() {
                           </div>
 
                           <h3>
-                            {loading
+                            {loadError
+                              ? "Unable to load quotations"
+                              : loading
                               ? "Loading quotations..."
                               : quotations.length === 0
                               ? "No quotations yet"
@@ -606,14 +657,16 @@ export default function Quotations() {
                           </h3>
 
                           <p>
-                            {loading
+                            {loadError
+                              ? "Check your connection or sign in again, then retry."
+                              : loading
                               ? "Retrieving records from backend database..."
                               : quotations.length === 0
                               ? "Create your first quotation to get started."
                               : "Try another search term or change your filters."}
                           </p>
 
-                          {!loading && quotations.length === 0 && (
+                          {!loading && !loadError && quotations.length === 0 && (
                             <button
                               type="button"
                               className="empty-create-button"
@@ -665,6 +718,7 @@ export default function Quotations() {
       {showFormModal && (
         <QuotationForm
           initialData={selectedQuotation}
+          quotationNumber={newQuotationNumber}
           onSave={async () => {
             setShowFormModal(false);
             setSelectedQuotation(null);

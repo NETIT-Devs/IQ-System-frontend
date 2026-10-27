@@ -3,6 +3,8 @@
 
 import API_BASE_URL from "./api";
 
+let sessionRedirectStarted = false;
+
 // Retrieve authentication token from localStorage or sessionStorage
 function getAuthToken() {
   return (
@@ -31,6 +33,18 @@ async function handleResponse(response) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("authUser");
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("authUser");
+
+      if (!sessionRedirectStarted && window.location.pathname !== "/login") {
+        sessionRedirectStarted = true;
+        window.location.replace("/login?session=expired");
+      }
+    }
+
     const errorMessage =
       data?.message ||
       (response.status === 401
@@ -44,62 +58,15 @@ async function handleResponse(response) {
   return data;
 }
 
-// Fetch active service catalog options (WordPress Website, React Website, Custom Website, Website Maintenance)
+// Fetch the active service catalogue from the backend.
 export async function getQuotationItemOptions() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/quotations/item-options`, {
-      method: "GET",
-      headers: getHeaders(),
-    });
+  const response = await fetch(`${API_BASE_URL}/api/quotations/item-options`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
 
-    const data = await handleResponse(response);
-    return data?.items || [];
-  } catch (error) {
-    console.error("Failed to load service options:", error);
-    // Fallback default software services if backend service catalog is temporarily unreachable
-    return [
-      {
-        service_id: 1,
-        item_name: "WordPress Website",
-        description: "WordPress website design and development.",
-        hosting_domain: "Domain and hosting setup assistance.",
-        core_features: "WordPress CMS, responsive design, page layouts and contact forms.",
-        maintenance_support: "Bug fixes and maintenance as agreed.",
-        content_seo: "Basic SEO setup and content structure.",
-        default_price: "0.00",
-      },
-      {
-        service_id: 2,
-        item_name: "React Website",
-        description: "Modern responsive website built with React.",
-        hosting_domain: "Hosting and domain setup assistance.",
-        core_features: "React components, responsive layouts and interactive UI.",
-        maintenance_support: "Technical support and bug fixes as agreed.",
-        content_seo: "Basic on-page SEO and metadata setup.",
-        default_price: "0.00",
-      },
-      {
-        service_id: 4,
-        item_name: "Custom Website",
-        description: "Website designed according to customer requirements.",
-        hosting_domain: "Hosting and domain setup assistance.",
-        core_features: "Custom pages, layouts and agreed business features.",
-        maintenance_support: "Maintenance according to the agreed service scope.",
-        content_seo: "Content structure and basic SEO setup.",
-        default_price: "0.00",
-      },
-      {
-        service_id: 5,
-        item_name: "Website Maintenance",
-        description: "Website maintenance and technical support service.",
-        hosting_domain: "Existing hosting and domain configuration support.",
-        core_features: "Updates, backups and website health checks as agreed.",
-        maintenance_support: "Bug fixes and ongoing support according to the selected plan.",
-        content_seo: "Content updates and basic SEO checks as agreed.",
-        default_price: "0.00",
-      },
-    ];
-  }
+  const data = await handleResponse(response);
+  return data?.services || data?.items || [];
 }
 
 // Fetch all quotations with items
@@ -210,10 +177,10 @@ export async function getCompanyDetails() {
 
   const defaultDetails = {
     setting_id: null,
-    company_name: "IQ Management & Software Solutions",
-    company_logo: "/logo.jpg",
+    company_name: "",
+    company_logo: "",
     company_signature: "",
-    company_address: "Colombo, Sri Lanka",
+    company_address: "",
     contact_number: "",
     email_address: "",
     bank_name: "",
@@ -225,7 +192,11 @@ export async function getCompanyDetails() {
     updated_by: currentUser?.full_name || currentUser?.email || "Admin",
     created_at: null,
     updated_at: null,
-    logo_url: "/logo.jpg",
+    logo_url: "",
+    signature_url: "",
+    address: "",
+    phone: "",
+    email: "",
     prepared_by: currentUser?.full_name || currentUser?.email || "Admin",
   };
 
@@ -235,42 +206,122 @@ export async function getCompanyDetails() {
       headers: getHeaders(),
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.company) {
-        const c = data.company;
-        const resolvedLogo = resolveMediaUrl(c.company_logo) || "/logo.jpg";
-        const resolvedSignature = resolveMediaUrl(c.company_signature) || "";
+    const data = await handleResponse(response);
+    const c = data?.companySettings || data?.company;
 
-        return {
-          setting_id: c.setting_id,
-          company_name: c.company_name || defaultDetails.company_name,
-          company_logo: resolvedLogo,
-          logo_url: resolvedLogo,
-          company_signature: resolvedSignature,
-          company_address: c.company_address || "",
-          contact_number: c.contact_number || "",
-          email_address: c.email_address || "",
-          bank_name: c.bank_name || "",
-          bank_account_name: c.bank_account_name || "",
-          bank_account_number: c.bank_account_number || "",
-          bank_branch: c.bank_branch || "",
-          bank_swift_code: c.bank_swift_code || "",
-          default_terms_and_conditions: c.default_terms_and_conditions || "",
-          updated_by: c.updated_by || defaultDetails.updated_by,
-          created_at: c.created_at,
-          updated_at: c.updated_at,
-          prepared_by: defaultDetails.prepared_by,
-          // Field aliases for backward compatibility with different components
-          address: c.company_address || "",
-          phone: c.contact_number || "",
-          email: c.email_address || "",
-        };
-      }
+    if (c) {
+      const resolvedLogo = resolveMediaUrl(c.company_logo);
+      const resolvedSignature = resolveMediaUrl(c.company_signature);
+
+      return {
+        ...defaultDetails,
+        setting_id: c.setting_id,
+        company_name: c.company_name || "",
+        company_logo: resolvedLogo,
+        logo_url: resolvedLogo,
+        company_signature: resolvedSignature,
+        signature_url: resolvedSignature,
+        company_address: c.company_address || "",
+        contact_number: c.contact_number || "",
+        email_address: c.email_address || "",
+        bank_name: c.bank_name || "",
+        bank_account_name: c.bank_account_name || "",
+        bank_account_number: c.bank_account_number || "",
+        bank_branch: c.bank_branch || "",
+        bank_swift_code: c.bank_swift_code || "",
+        default_terms_and_conditions: c.default_terms_and_conditions || "",
+        updated_by: c.updated_by || defaultDetails.updated_by,
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        prepared_by: defaultDetails.prepared_by,
+        address: c.company_address || "",
+        phone: c.contact_number || "",
+        email: c.email_address || "",
+      };
     }
   } catch (err) {
     console.error("Failed to fetch company details from backend:", err);
+    throw err;
   }
 
   return defaultDetails;
+}
+
+// Submit a quotation for approval
+export async function submitQuotationForApproval(id) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/quotations/${id}/submit-approval`,
+    {
+      method: "POST",
+      headers: getHeaders(),
+    }
+  );
+
+  return await handleResponse(response);
+}
+
+// Approve quotation (Super Admin)
+export async function approveQuotation(id) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/${id}/approve`, {
+    method: "POST",
+    headers: getHeaders(),
+  });
+
+  return await handleResponse(response);
+}
+
+// Reject quotation with reason (Super Admin)
+export async function rejectQuotation(id, reason) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/${id}/reject`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+
+  return await handleResponse(response);
+}
+
+// Fetch user notifications
+export async function getNotifications() {
+  const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await handleResponse(response);
+  return data?.notifications || [];
+}
+
+// Mark single notification as read
+export async function markNotificationRead(id) {
+  const response = await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
+    method: "PUT",
+    headers: getHeaders(),
+  });
+
+  return await handleResponse(response);
+}
+
+// Mark all notifications as read
+export async function markAllNotificationsRead() {
+  const response = await fetch(
+    `${API_BASE_URL}/api/notifications/read-all`,
+    {
+      method: "PUT",
+      headers: getHeaders(),
+    }
+  );
+
+  return await handleResponse(response);
+}
+
+// Fetch audit logs (Super Admin only)
+export async function getAuditLogs() {
+  const response = await fetch(`${API_BASE_URL}/api/audit-logs`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await handleResponse(response);
+  return data?.auditLogs || [];
 }

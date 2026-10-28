@@ -123,6 +123,17 @@ export async function deleteQuotation(id) {
   return await handleResponse(response);
 }
 
+// Manually update quotation customer response status (Not Sent, Sent to Customer, Customer Accepted, Customer Rejected)
+export async function updateQuotationCustomerStatus(id, customer_status) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/${id}/customer-status`, {
+    method: "PATCH",
+    headers: getHeaders(),
+    body: JSON.stringify({ customer_status }),
+  });
+
+  return await handleResponse(response);
+}
+
 // Fetch customers list for customer selection dropdown
 export async function getCustomers() {
   const response = await fetch(`${API_BASE_URL}/api/customers`, {
@@ -189,6 +200,7 @@ export async function getCompanyDetails() {
     bank_branch: "",
     bank_swift_code: "",
     default_terms_and_conditions: "",
+    pdf_custom_sections: "",
     updated_by: currentUser?.full_name || currentUser?.email || "Admin",
     created_at: null,
     updated_at: null,
@@ -230,6 +242,11 @@ export async function getCompanyDetails() {
         bank_branch: c.bank_branch || "",
         bank_swift_code: c.bank_swift_code || "",
         default_terms_and_conditions: c.default_terms_and_conditions || "",
+        pdf_heading: c.pdf_heading || "QUOTATION",
+        pdf_subheading: c.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
+        pdf_custom_lines: c.pdf_custom_lines || "",
+        pdf_footer_note: c.pdf_footer_note || "",
+        pdf_custom_sections: c.pdf_custom_sections || "",
         updated_by: c.updated_by || defaultDetails.updated_by,
         created_at: c.created_at,
         updated_at: c.updated_at,
@@ -323,5 +340,82 @@ export async function getAuditLogs() {
   });
 
   const data = await handleResponse(response);
-  return data?.auditLogs || [];
+  return data?.auditLogs || data?.logs || [];
+}
+
+// ----------------------------------------------------
+// Quotation Template & Service Settings (Super Admin)
+// ----------------------------------------------------
+
+// Update PDF template settings in company_settings
+export async function updateCompanyTemplateSettings(settingsData) {
+  // First fetch current settings to merge
+  let current = {};
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/company-settings`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
+    const data = await handleResponse(res);
+    current = data?.companySettings || data?.company || {};
+  } catch (err) {
+    console.warn("Could not pre-fetch current company settings:", err);
+  }
+
+  const merged = {
+    ...current,
+    ...settingsData,
+    company_name: current.company_name || settingsData.company_name || "Company",
+  };
+
+  const response = await fetch(`${API_BASE_URL}/api/company-settings`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(merged),
+  });
+
+  return await handleResponse(response);
+}
+
+// Fetch all services for management modal
+export async function getCatalogServices() {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/services`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await handleResponse(response);
+  return data?.services || [];
+}
+
+// Add a new service option (Super Admin)
+export async function createCatalogService(serviceData) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/services`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(serviceData),
+  });
+
+  return await handleResponse(response);
+}
+
+// Update an existing service option (Super Admin)
+export async function updateCatalogService(id, serviceData) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/services/${id}`, {
+    method: "PUT",
+    headers: getHeaders(),
+    body: JSON.stringify(serviceData),
+  });
+
+  return await handleResponse(response);
+}
+
+// Delete a service option (Super Admin)
+export async function deleteCatalogService(id) {
+  const response = await fetch(`${API_BASE_URL}/api/quotations/services/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+
+  return await handleResponse(response);
 }

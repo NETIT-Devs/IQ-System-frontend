@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BarChart3,
   CreditCard,
@@ -9,10 +10,12 @@ import {
   X,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import SignOutModal from "./SignOutModal";
+import { useCompanyBranding } from "../hooks/useCompanyBranding";
 
 const navigation = [
   { label: "Overview", icon: LayoutDashboard, path: "/admin-dashboard", isBuilt: true },
-  { label: "Customers", icon: UserRound, path: "/admin/customers", isBuilt: false },
+  { label: "Customers", icon: UserRound, path: "/admin/customers", isBuilt: true },
   { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
   { label: "Invoices", icon: Receipt, path: "/admin/invoices", isBuilt: false },
   { label: "Payments", icon: CreditCard, path: "/admin/payments", isBuilt: false },
@@ -20,9 +23,10 @@ const navigation = [
 ];
 
 export default function AdminSidebar({ isOpen, onClose }) {
-  function handleSignOut() {
-    if (!window.confirm("Are you sure you want to sign out?")) return;
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const { logoUrl, companyName } = useCompanyBranding();
 
+  function handleConfirmSignOut() {
     localStorage.removeItem("authToken");
     localStorage.removeItem("authUser");
     sessionStorage.removeItem("authToken");
@@ -32,6 +36,11 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
   return (
     <>
+      <SignOutModal
+        isOpen={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        onConfirm={handleConfirmSignOut}
+      />
       {isOpen && (
         <button
           type="button"
@@ -43,9 +52,18 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
       <aside className={`sa-sidebar ${isOpen ? "sidebar-open" : ""}`}>
         <div className="sa-brand">
-          <img src="/logo.jpg" alt="Company Logo" className="sa-brand-logo" />
+          <img
+            src={logoUrl || "/logo.jpg"}
+            alt={companyName || "Company Logo"}
+            className="sa-brand-logo"
+            onError={(e) => {
+              if (e.currentTarget.src !== window.location.origin + "/logo.jpg") {
+                e.currentTarget.src = "/logo.jpg";
+              }
+            }}
+          />
           <div className="sa-brand-text">
-            <h2>Invoice &amp; Quotation</h2>
+            <h2>{companyName || "Invoice & Quotation"}</h2>
             <span>Management System</span>
           </div>
           <button
@@ -114,7 +132,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
           <button
             type="button"
             className="sa-signout-button"
-            onClick={handleSignOut}
+            onClick={() => setShowSignOutModal(true)}
           >
             <LogOut size={18} />
             <span>Sign Out</span>

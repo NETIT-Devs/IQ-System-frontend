@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, CheckCircle2, Clock, AlertTriangle, XCircle, Info } from "lucide-react";
+import { Bell, CheckCircle2, Clock, AlertTriangle, XCircle, Info, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   getNotifications,
@@ -57,7 +57,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000); // 15s polling for live notifications
+    const interval = setInterval(fetchNotifications, 10000); // Poll every 10s for live alerts
 
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -92,15 +92,15 @@ export default function NotificationBell() {
 
     setIsOpen(false);
 
-    // Navigate to appropriate page based on role and notification reference
+    // Route based on role and notification reference
     if (isSuperAdmin) {
-      if (notif.reference_type === "quotation") {
+      if (notif.reference_type === "quotation" || notif.title?.toLowerCase().includes("pending")) {
         navigate("/super-admin/approvals");
       } else {
         navigate("/super-admin-dashboard");
       }
     } else {
-      if (notif.reference_type === "quotation") {
+      if (notif.reference_type === "quotation" || notif.title?.toLowerCase().includes("quotation")) {
         navigate("/quotations");
       } else {
         navigate("/admin-dashboard");
@@ -137,7 +137,9 @@ export default function NotificationBell() {
       {isOpen && (
         <div className="notif-dropdown">
           <div className="notif-header">
-            <h4>Notifications {unreadCount > 0 && `(${unreadCount})`}</h4>
+            <h4>
+              Notifications {unreadCount > 0 ? `(${unreadCount} Unread)` : ""}
+            </h4>
             {unreadCount > 0 && (
               <button
                 type="button"
@@ -155,24 +157,47 @@ export default function NotificationBell() {
                 <span>No notifications yet.</span>
               </li>
             ) : (
-              notifications.map((notif) => (
-                <li
-                  key={notif.notification_id}
-                  className={`notif-item ${!notif.is_read ? "unread" : ""}`}
-                  onClick={() => handleNotificationClick(notif)}
-                >
-                  <div className={`notif-icon ${notif.type || "info"}`}>
-                    {getIconForType(notif.type)}
-                  </div>
-                  <div className="notif-content">
-                    <p className="notif-title">{notif.title}</p>
-                    <p className="notif-message">{notif.message}</p>
-                    <span className="notif-time">
-                      {formatRelativeTime(notif.created_at)}
-                    </span>
-                  </div>
-                </li>
-              ))
+              notifications.map((notif) => {
+                const isPendingForSuperAdmin =
+                  isSuperAdmin &&
+                  (notif.title?.toLowerCase().includes("pending") ||
+                    notif.type === "warning");
+                const isDecisionForAdmin =
+                  !isSuperAdmin &&
+                  (notif.title?.toLowerCase().includes("approved") ||
+                    notif.title?.toLowerCase().includes("rejected"));
+
+                return (
+                  <li
+                    key={notif.notification_id}
+                    className={`notif-item ${!notif.is_read ? "unread" : ""}`}
+                    onClick={() => handleNotificationClick(notif)}
+                  >
+                    <div className={`notif-icon ${notif.type || "info"}`}>
+                      {getIconForType(notif.type)}
+                    </div>
+                    <div className="notif-content">
+                      <div className="notif-top-row">
+                        <p className="notif-title">{notif.title}</p>
+                        <span className="notif-time">
+                          {formatRelativeTime(notif.created_at)}
+                        </span>
+                      </div>
+                      <p className="notif-message">{notif.message}</p>
+                      {isPendingForSuperAdmin && (
+                        <span className="notif-action-hint">
+                          Review in Approvals <ExternalLink size={11} />
+                        </span>
+                      )}
+                      {isDecisionForAdmin && (
+                        <span className="notif-action-hint">
+                          View in Quotations <ExternalLink size={11} />
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>

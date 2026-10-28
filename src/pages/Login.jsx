@@ -15,11 +15,13 @@ import {
 } from "lucide-react";
 
 import { loginUser } from "../services/authService";
+import { useCompanyBranding } from "../hooks/useCompanyBranding";
 import "./login.css";
 
 export default function Login() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { logoUrl, companyName } = useCompanyBranding();
 
     // Store the login form values.
     const [email, setEmail] = useState("");
@@ -107,13 +109,18 @@ export default function Login() {
                     <div className="intro-content">
                         <header className="brand-header">
                             <img
-                                src="/logo.jpg"
-                                alt="Company logo"
+                                src={logoUrl || "/logo.jpg"}
+                                alt={companyName || "Company logo"}
                                 className="brand-logo"
+                                onError={(e) => {
+                                    if (e.currentTarget.src !== window.location.origin + "/logo.jpg") {
+                                        e.currentTarget.src = "/logo.jpg";
+                                    }
+                                }}
                             />
 
                             <div className="brand-name">
-                                <span>Invoice &amp; Quotation</span>
+                                <span>{companyName || "Invoice & Quotation"}</span>
                                 <span>Management System</span>
                             </div>
                         </header>

@@ -17,6 +17,7 @@ import {
   getQuotationById,
   getCompanyDetails,
   getCustomers,
+  updateQuotationCustomerStatus,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
 import "./QuotationDetails.css";
@@ -219,10 +220,27 @@ export default function QuotationDetails({
     }
   };
 
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  // Handle manual customer response status updates
+  const handleUpdateStatus = async (newCustomerStatus) => {
+    if (!activeId) return;
+    try {
+      setUpdatingStatus(true);
+      await updateQuotationCustomerStatus(activeId, newCustomerStatus);
+      setQuotation((prev) => ({ ...prev, customer_status: newCustomerStatus }));
+    } catch (err) {
+      setError(err?.message || "Failed to update quotation customer response.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   if (!quotation && !loading) return null;
 
   const currency = quotation?.currency || "LKR";
   const items = Array.isArray(quotation?.items) ? quotation.items : [];
+  const currentCustStatus = quotation?.customer_status || "Not Sent";
 
   return (
     <div className="qd-overlay">
@@ -236,7 +254,7 @@ export default function QuotationDetails({
             <div className="qd-header-title">
               <h2>{quotation?.quotation_number || "Quotation Details"}</h2>
               <p className="qd-header-subtitle">
-                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)}
+                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)} • System Status: <strong>{quotation?.status || "Draft"}</strong>
               </p>
             </div>
           </div>
@@ -266,6 +284,115 @@ export default function QuotationDetails({
             </div>
           ) : quotation ? (
             <>
+              {/* Separate Customer Response Tracker Bar */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  padding: "12px 16px",
+                  marginBottom: "16px",
+                  background: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "8px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>
+                    Customer Response:
+                  </span>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "3px 9px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "700",
+                      background:
+                        currentCustStatus === "Customer Accepted"
+                          ? "#dcfce7"
+                          : currentCustStatus === "Sent to Customer"
+                          ? "#e0f2fe"
+                          : currentCustStatus === "Customer Rejected"
+                          ? "#fee2e2"
+                          : "#f1f5f9",
+                      color:
+                        currentCustStatus === "Customer Accepted"
+                          ? "#15803d"
+                          : currentCustStatus === "Sent to Customer"
+                          ? "#0369a1"
+                          : currentCustStatus === "Customer Rejected"
+                          ? "#b91c1c"
+                          : "#475569",
+                      border: "1px solid currentColor",
+                    }}
+                  >
+                    {currentCustStatus}
+                  </span>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("Sent to Customer")}
+                    disabled={updatingStatus || currentCustStatus === "Sent to Customer"}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      borderRadius: "6px",
+                      border: "1px solid #bae6fd",
+                      background: currentCustStatus === "Sent to Customer" ? "#bae6fd" : "#e0f2fe",
+                      color: "#0369a1",
+                      cursor: currentCustStatus === "Sent to Customer" ? "default" : "pointer",
+                      opacity: updatingStatus ? 0.6 : 1,
+                    }}
+                  >
+                    📤 Sent to Customer
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("Customer Accepted")}
+                    disabled={updatingStatus || currentCustStatus === "Customer Accepted"}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      borderRadius: "6px",
+                      border: "1px solid #bbf7d0",
+                      background: currentCustStatus === "Customer Accepted" ? "#bbf7d0" : "#dcfce7",
+                      color: "#15803d",
+                      cursor: currentCustStatus === "Customer Accepted" ? "default" : "pointer",
+                      opacity: updatingStatus ? 0.6 : 1,
+                    }}
+                  >
+                    ✅ Customer Accepted
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus("Customer Rejected")}
+                    disabled={updatingStatus || currentCustStatus === "Customer Rejected"}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      borderRadius: "6px",
+                      border: "1px solid #fecaca",
+                      background: currentCustStatus === "Customer Rejected" ? "#fecaca" : "#fee2e2",
+                      color: "#b91c1c",
+                      cursor: currentCustStatus === "Customer Rejected" ? "default" : "pointer",
+                      opacity: updatingStatus ? 0.6 : 1,
+                    }}
+                  >
+                    ❌ Customer Rejected
+                  </button>
+                </div>
+              </div>
+
               {/* Overview Metrics Bar */}
               <div className="qd-overview-bar">
                 <div className="qd-overview-card">

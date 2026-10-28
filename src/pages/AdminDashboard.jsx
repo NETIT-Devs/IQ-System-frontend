@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import NotificationBell from "../components/NotificationBell";
 import { getQuotations } from "../services/quotationService";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import "./AdminDashboard.css";
 
 // Summary cards show zero until real backend data is connected.
@@ -255,7 +256,8 @@ export default function AdminDashboard() {
       try {
         const records = await getQuotations();
         if (isMounted) {
-          setQuotations(Array.isArray(records) ? records : []);
+          const list = Array.isArray(records) ? records : [];
+          setQuotations(list);
         }
       } catch (err) {
         console.warn("Failed to load dashboard quotation data:", err);

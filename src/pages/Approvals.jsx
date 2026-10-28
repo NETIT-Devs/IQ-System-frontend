@@ -13,6 +13,7 @@ import {
   Receipt,
   Layers,
   User,
+  Filter,
 } from "lucide-react";
 import {
   getQuotations,
@@ -51,14 +52,29 @@ function formatDate(date) {
   });
 }
 
-function SummaryCard({ label, value, icon, tone = "blue" }) {
+function getQuotationStatusCategory(quotation) {
+  const s = String(quotation?.status || quotation?.approval_status || "").trim().toLowerCase();
+  if (s.includes("pending")) return "pending";
+  if (s.includes("approv") || s.includes("accept")) return "approved";
+  if (s.includes("reject") || s.includes("declin")) return "rejected";
+  return "draft";
+}
+
+function SummaryCard({ label, value, icon, tone = "blue", active = false, onClick }) {
   return (
-    <article className="approval-summary-card">
+    <article
+      className={`approval-summary-card clickable ${active ? "active" : ""}`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      title={`Click to view ${label}`}
+    >
       <div className={`approval-summary-icon ${tone}`}>{icon}</div>
       <div>
         <p>{label}</p>
         <strong>{value}</strong>
       </div>
+      {active && <span className="approval-card-indicator" />}
     </article>
   );
 }
@@ -69,6 +85,7 @@ export default function Approvals() {
   const isSuperAdmin = role === "super admin";
 
   const [activeTab, setActiveTab] = useState("quotations"); // "quotations" | "invoices"
+  const [statusFilter, setStatusFilter] = useState("pending"); // "pending" | "approved" | "rejected" | "draft" | "all"
   const [allQuotations, setAllQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -103,14 +120,6 @@ export default function Approvals() {
     loadData();
   }, [loadData]);
 
-  // Quotations awaiting review
-  const pendingQuotations = useMemo(() => {
-    return allQuotations.filter((q) => {
-      const s = String(q.status || q.approval_status || "").trim();
-      return s === "Pending Approval" || s.toLowerCase() === "pending";
-    });
-  }, [allQuotations]);
-
   // Overall counts for summary cards
   const stats = useMemo(() => {
     let pending = 0;
@@ -119,12 +128,10 @@ export default function Approvals() {
     let drafts = 0;
 
     allQuotations.forEach((q) => {
-      const s = String(q.status || q.approval_status || "")
-        .trim()
-        .toLowerCase();
-      if (s.includes("pending")) pending += 1;
-      else if (s.includes("approv") || s.includes("accept")) approved += 1;
-      else if (s.includes("reject") || s.includes("declin")) rejected += 1;
+      const cat = getQuotationStatusCategory(q);
+      if (cat === "pending") pending += 1;
+      else if (cat === "approved") approved += 1;
+      else if (cat === "rejected") rejected += 1;
       else drafts += 1;
     });
 
@@ -137,12 +144,18 @@ export default function Approvals() {
     };
   }, [allQuotations]);
 
-  // Filter pending quotations by search
-  const filteredPending = useMemo(() => {
+  // Filter quotations by status filter & search query
+  const filteredQuotations = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return pendingQuotations;
 
-    return pendingQuotations.filter((item) => {
+    return allQuotations.filter((item) => {
+      const cat = getQuotationStatusCategory(item);
+      if (statusFilter !== "all" && cat !== statusFilter) {
+        return false;
+      }
+
+      if (!q) return true;
+
       const num = item.quotation_number || "";
       const client = item.customer_name || item.client_name || "";
       const proj =
@@ -151,15 +164,53 @@ export default function Approvals() {
         item.project_name ||
         "";
       const createdBy = item.created_by_name || String(item.created_by || "");
+      const reason = item.rejection_reason || "";
 
       return (
         num.toLowerCase().includes(q) ||
         client.toLowerCase().includes(q) ||
         proj.toLowerCase().includes(q) ||
-        createdBy.toLowerCase().includes(q)
+        createdBy.toLowerCase().includes(q) ||
+        reason.toLowerCase().includes(q)
       );
     });
-  }, [pendingQuotations, search]);
+  }, [allQuotations, statusFilter, search]);
+
+  const headingInfo = useMemo(() => {
+    switch (statusFilter) {
+      case "approved":
+        return {
+          title: "Approved Quotations History",
+          subtitle: "Quotations reviewed and approved by the Super Admin.",
+          badge: `${filteredQuotations.length} Approved`,
+        };
+      case "rejected":
+        return {
+          title: "Rejected Quotations History",
+          subtitle: "Quotations rejected by the Super Admin with specific feedback and revision notes.",
+          badge: `${filteredQuotations.length} Rejected`,
+        };
+      case "draft":
+        return {
+          title: "Draft Quotations",
+          subtitle: "Quotations currently saved as drafts and not yet submitted for approval.",
+          badge: `${filteredQuotations.length} Drafts`,
+        };
+      case "all":
+        return {
+          title: "All Quotations Approvals History",
+          subtitle: "Comprehensive review trail of all quotations across all review statuses.",
+          badge: `${filteredQuotations.length} Total`,
+        };
+      case "pending":
+      default:
+        return {
+          title: "Pending Quotations Awaiting Approval",
+          subtitle: "Quotations submitted by administrators that require your review and decision.",
+          badge: `${filteredQuotations.length} Pending`,
+        };
+    }
+  }, [statusFilter, filteredQuotations.length]);
 
   // Approve action
   const handleApprove = async (quotation) => {
@@ -226,118 +277,156 @@ export default function Approvals() {
 
   return (
     <main className="approvals-page">
-      {/* Page Header */}
+      {/* Header bar */}
       <div className="approvals-header">
         <div>
           <p className="approvals-eyebrow">INVOICE &amp; QUOTATION MANAGEMENT</p>
           <h1>Review &amp; Approvals</h1>
           <p className="approvals-subtitle">
-            {isSuperAdmin
-              ? "Review pending submissions from administrators, authorize final quotations, and track approval workflows."
-              : "Track quotation approval status."}
+            Authorize or reject admin submissions, verify project scope and pricing before clients receive documents.
           </p>
         </div>
 
         <button
-          className="approval-refresh"
           type="button"
+          className="approval-btn-action approval-btn-refresh"
           onClick={loadData}
-          disabled={loading || actionLoading}
+          disabled={loading}
+          title="Refresh approvals queue"
         >
-          <RefreshCw size={15} className={loading ? "spin" : ""} />
-          <span>Refresh</span>
+          <RefreshCw size={14} className={loading ? "spin" : ""} />
+          <span>Refresh Queue</span>
         </button>
       </div>
 
+      {/* Feedback banner */}
       {feedback && (
-        <div className="approval-feedback" role="status">
+        <div className="approval-feedback">
+          <CheckCircle2 size={16} />
           <span>{feedback}</span>
           <button
             type="button"
-            aria-label="Dismiss message"
+            className="approval-btn-action"
+            style={{ marginLeft: "auto", border: "none", background: "none" }}
             onClick={() => setFeedback("")}
           >
-            <X size={15} />
+            <X size={14} />
           </button>
         </div>
       )}
 
+      {/* Error banner */}
       {error && (
-        <div className="approval-error" role="alert">
-          <AlertCircle size={17} />
+        <div className="approval-error">
+          <AlertCircle size={16} />
           <span>{error}</span>
-          <button type="button" onClick={loadData}>
-            Try again
+          <button
+            type="button"
+            onClick={loadData}
+            style={{ marginLeft: "auto" }}
+          >
+            Retry
           </button>
         </div>
       )}
 
-      {/* Tabs Switcher: Quotations & Invoices */}
-      <div className="approval-tabs">
-        <button
-          type="button"
-          className={`approval-tab-btn ${activeTab === "quotations" ? "active" : ""}`}
-          onClick={() => setActiveTab("quotations")}
-        >
-          <FileText size={16} />
-          <span>Quotation Approvals</span>
-          <span className="approval-tab-badge">{pendingQuotations.length}</span>
-        </button>
+      {/* Modern Approvals Switcher Tabs */}
+      <div className="approval-tabs-wrapper">
+        <div className="approval-tabs-container" role="tablist" aria-label="Approval categories">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "quotations"}
+            className={`approval-tab-card ${activeTab === "quotations" ? "active" : ""}`}
+            onClick={() => setActiveTab("quotations")}
+          >
+            <div className="approval-tab-icon-box">
+              <FileText size={18} />
+            </div>
+            <div className="approval-tab-info">
+              <div className="approval-tab-label-group">
+                <span className="approval-tab-label">Quotation Approvals</span>
+                <span className={`approval-tab-count ${stats.pending > 0 ? "highlight" : "neutral"}`}>
+                  {stats.pending > 0 && <span className="approval-tab-dot" />}
+                  {stats.pending} {stats.pending === 1 ? "Pending" : "Pending"}
+                </span>
+              </div>
+              <span className="approval-tab-sub">Review estimates, pricing &amp; client scope</span>
+            </div>
+          </button>
 
-        <button
-          type="button"
-          className={`approval-tab-btn ${activeTab === "invoices" ? "active" : ""}`}
-          onClick={() => setActiveTab("invoices")}
-        >
-          <Receipt size={16} />
-          <span>Invoice Approvals</span>
-          <span className="approval-tab-badge">0</span>
-        </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "invoices"}
+            className={`approval-tab-card ${activeTab === "invoices" ? "active" : ""}`}
+            onClick={() => setActiveTab("invoices")}
+          >
+            <div className="approval-tab-icon-box">
+              <Receipt size={18} />
+            </div>
+            <div className="approval-tab-info">
+              <div className="approval-tab-label-group">
+                <span className="approval-tab-label">Invoice Approvals</span>
+                <span className="approval-tab-count neutral">
+                  0 Pending
+                </span>
+              </div>
+              <span className="approval-tab-sub">Authorize billing, taxes &amp; payment schedules</span>
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* Tab 1: Quotation Approvals */}
       {activeTab === "quotations" && (
         <>
-          {/* Summary metrics */}
+          {/* Summary metrics - Clickable to switch views */}
           <section className="approval-summary">
             <SummaryCard
               label="Pending Approvals"
               value={stats.pending}
               icon={<Clock3 size={19} />}
               tone="amber"
+              active={statusFilter === "pending"}
+              onClick={() => setStatusFilter("pending")}
             />
             <SummaryCard
               label="Approved Quotations"
               value={stats.approved}
               icon={<Check size={19} />}
               tone="green"
+              active={statusFilter === "approved"}
+              onClick={() => setStatusFilter("approved")}
             />
             <SummaryCard
               label="Rejected Quotations"
               value={stats.rejected}
               icon={<XCircle size={19} />}
               tone="red"
+              active={statusFilter === "rejected"}
+              onClick={() => setStatusFilter("rejected")}
             />
             <SummaryCard
               label="Draft Quotations"
               value={stats.drafts}
               icon={<FileText size={19} />}
               tone="blue"
+              active={statusFilter === "draft"}
+              onClick={() => setStatusFilter("draft")}
             />
           </section>
 
-          {/* Pending Quotations Table Panel */}
+          {/* Quotations Table Panel */}
           <section className="approval-panel">
             <div className="approval-panel-heading">
               <div>
-                <h2>Pending Quotations Awaiting Approval</h2>
-                <p>
-                  Only quotations submitted by administrators that require your decision are shown here.
-                </p>
+                <h2>{headingInfo.title}</h2>
+                <p>{headingInfo.subtitle}</p>
               </div>
 
               <span className="approval-count">
-                {filteredPending.length} Pending
+                {headingInfo.badge}
               </span>
             </div>
 
@@ -348,9 +437,24 @@ export default function Approvals() {
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by quotation #, client, or project..."
+                  placeholder="Search by quotation #, client, project, or reason..."
                 />
               </label>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: "650", color: "#64748b" }}>Status Filter:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filter quotations by approval status"
+                >
+                  <option value="pending">⏳ Pending Approvals ({stats.pending})</option>
+                  <option value="approved">✅ Approved Quotations ({stats.approved})</option>
+                  <option value="rejected">❌ Rejected Quotations ({stats.rejected})</option>
+                  <option value="draft">📝 Draft Quotations ({stats.drafts})</option>
+                  <option value="all">📋 All Quotations ({stats.total})</option>
+                </select>
+              </div>
             </div>
 
             <div className="approval-table-wrap">
@@ -359,37 +463,58 @@ export default function Approvals() {
                   <tr>
                     <th>Quotation Number</th>
                     <th>Client Name</th>
-                    <th>Project / Website Type</th>
-                    <th>Quotation Amount</th>
+                    <th>Project / Service</th>
+                    <th>Amount</th>
                     <th>Created By</th>
-                    <th>Submitted Date</th>
-                    <th>Current Status</th>
+                    <th>Date</th>
+                    <th>Approval Status</th>
+                    {(statusFilter === "rejected" || statusFilter === "all") && (
+                      <th>Rejection Reason / Feedback</th>
+                    )}
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "35px" }}>
-                        Loading pending approval requests...
+                      <td colSpan={statusFilter === "rejected" || statusFilter === "all" ? 9 : 8} style={{ textAlign: "center", padding: "35px" }}>
+                        Loading quotation records...
                       </td>
                     </tr>
-                  ) : filteredPending.length === 0 ? (
+                  ) : filteredQuotations.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "40px" }}>
+                      <td colSpan={statusFilter === "rejected" || statusFilter === "all" ? 9 : 8} style={{ textAlign: "center", padding: "40px" }}>
                         <div style={{ color: "#64748b", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-                          <CheckCircle2 size={32} color="#15803d" />
-                          <strong style={{ color: "#0f172a" }}>No Pending Approvals</strong>
-                          <span>
-                            {search
-                              ? "No pending quotations match your search."
-                              : "All quotation submissions have been reviewed."}
-                          </span>
+                          {statusFilter === "approved" ? (
+                            <>
+                              <CheckCircle2 size={32} color="#15803d" />
+                              <strong style={{ color: "#0f172a" }}>No Approved Quotations Found</strong>
+                              <span>{search ? "No approved quotations match your search." : "No quotations have been approved yet."}</span>
+                            </>
+                          ) : statusFilter === "rejected" ? (
+                            <>
+                              <XCircle size={32} color="#dc2626" />
+                              <strong style={{ color: "#0f172a" }}>No Rejected Quotations Found</strong>
+                              <span>{search ? "No rejected quotations match your search." : "No quotations have been rejected yet."}</span>
+                            </>
+                          ) : statusFilter === "pending" ? (
+                            <>
+                              <CheckCircle2 size={32} color="#15803d" />
+                              <strong style={{ color: "#0f172a" }}>No Pending Approvals</strong>
+                              <span>{search ? "No pending quotations match your search." : "All quotation submissions have been reviewed."}</span>
+                            </>
+                          ) : (
+                            <>
+                              <FileText size={32} color="#64748b" />
+                              <strong style={{ color: "#0f172a" }}>No Quotations Found</strong>
+                              <span>No quotations match your selected filter or search term.</span>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    filteredPending.map((q) => {
+                    filteredQuotations.map((q) => {
                       const amount = q.total_amount ?? q.grand_total ?? 0;
                       const websiteType =
                         q.items?.[0]?.website_type ||
@@ -400,9 +525,10 @@ export default function Approvals() {
                       const createdBy =
                         q.created_by_name ||
                         (q.created_by === 1 ? "Admin" : `User #${q.created_by}`);
-                      const submittedDate = formatDate(
+                      const recordDate = formatDate(
                         q.updated_at || q.created_at || q.quotation_date
                       );
+                      const cat = getQuotationStatusCategory(q);
 
                       return (
                         <tr key={q.quotation_id}>
@@ -415,23 +541,86 @@ export default function Approvals() {
                             {formatCurrency(amount, q.currency)}
                           </td>
                           <td>{createdBy}</td>
-                          <td>{submittedDate}</td>
+                          <td>{recordDate}</td>
                           <td>
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                background: "#fef3c7",
-                                color: "#b45309",
-                                padding: "3px 8px",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                              }}
-                            >
-                              <Clock3 size={12} /> Pending Approval
-                            </span>
+                            {cat === "pending" && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  background: "#fef3c7",
+                                  color: "#b45309",
+                                  padding: "3px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <Clock3 size={12} /> Pending Approval
+                              </span>
+                            )}
+                            {cat === "approved" && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  background: "#dcfce7",
+                                  color: "#15803d",
+                                  padding: "3px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <Check size={12} /> Approved
+                              </span>
+                            )}
+                            {cat === "rejected" && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  background: "#fee2e2",
+                                  color: "#b91c1c",
+                                  padding: "3px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <XCircle size={12} /> Rejected
+                              </span>
+                            )}
+                            {cat === "draft" && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  background: "#f1f5f9",
+                                  color: "#475569",
+                                  padding: "3px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <FileText size={12} /> Draft
+                              </span>
+                            )}
                           </td>
+
+                          {(statusFilter === "rejected" || statusFilter === "all") && (
+                            <td style={{ maxWidth: "230px", fontSize: "11.5px", color: q.rejection_reason ? "#991b1b" : "#94a3b8" }}>
+                              {q.rejection_reason ? (
+                                <span title={q.rejection_reason} style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                  {q.rejection_reason}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          )}
+
                           <td style={{ textAlign: "right" }}>
                             <div className="approval-table-actions" style={{ justifyContent: "flex-end" }}>
                               <button
@@ -444,27 +633,31 @@ export default function Approvals() {
                                 <span>View</span>
                               </button>
 
-                              <button
-                                type="button"
-                                className="approval-btn-action approval-btn-approve"
-                                onClick={() => handleApprove(q)}
-                                disabled={actionLoading}
-                                title="Approve quotation"
-                              >
-                                <Check size={13} />
-                                <span>Approve</span>
-                              </button>
+                              {cat === "pending" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="approval-btn-action approval-btn-approve"
+                                    onClick={() => handleApprove(q)}
+                                    disabled={actionLoading}
+                                    title="Approve quotation"
+                                  >
+                                    <Check size={13} />
+                                    <span>Approve</span>
+                                  </button>
 
-                              <button
-                                type="button"
-                                className="approval-btn-action approval-btn-reject"
-                                onClick={() => openRejectModal(q)}
-                                disabled={actionLoading}
-                                title="Reject quotation with reason"
-                              >
-                                <X size={13} />
-                                <span>Reject</span>
-                              </button>
+                                  <button
+                                    type="button"
+                                    className="approval-btn-action approval-btn-reject"
+                                    onClick={() => openRejectModal(q)}
+                                    disabled={actionLoading}
+                                    title="Reject quotation with reason"
+                                  >
+                                    <X size={13} />
+                                    <span>Reject</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>

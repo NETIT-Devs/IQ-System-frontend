@@ -203,11 +203,50 @@
   box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.12);
 }
 
+.qf-input::placeholder {
+  color: #94a3b8;
+  opacity: 1;
+}
+
 .qf-input:read-only,
 .qf-input:disabled {
   background-color: #f8fafc;
   color: #64748b;
   cursor: not-allowed;
+}
+
+.qf-input[type="number"]::-webkit-outer-spin-button,
+.qf-input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qf-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Amount Input with non-clickable suffix */
+.qf-amount-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.qf-amount-wrap .qf-amount-input {
+  width: 100%;
+  padding-right: 36px;
+}
+
+.qf-amount-suffix {
+  position: absolute;
+  right: 12px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+  line-height: 1;
 }
 
 /* Customer Preview Card */

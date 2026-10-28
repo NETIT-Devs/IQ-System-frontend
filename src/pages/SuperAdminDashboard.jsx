@@ -30,6 +30,9 @@ const BUILT_PATHS = new Set([
   "/reports",
   "/super-admin/approvals",
   "/super-admin/audit-logs",
+  "/super-admin/settings",
+  "/super-admin/users",
+  "/super-admin/customers",
 ]);
 
 // Quick links to commonly used administration pages.
@@ -220,6 +223,11 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [quotations, setQuotations] = useState([]);
+
+  function navigateTo(path) {
+    if (!BUILT_PATHS.has(path)) return;
+    navigate(path);
+  }
 
   useEffect(() => {
     let isMounted = true;

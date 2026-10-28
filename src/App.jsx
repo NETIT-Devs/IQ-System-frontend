@@ -15,6 +15,9 @@ import Reports from "./pages/Reports";
 import Approvals from "./pages/Approvals";
 import AuditLogs from "./pages/AuditLogs";
 import Notifications from "./pages/Notifications";
+import UserManagement from "./pages/UserManagement";
+import Customers from "./pages/Customers";
+import CompanySettings from "./pages/CompanySettings";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getAuthenticatedUser } from "./utils/authStorage";
@@ -57,11 +60,31 @@ export default function App() {
               element={<SuperAdminDashboard />}
             />
             <Route
+              path="/super-admin/users"
+              element={<UserManagement />}
+            />
+            <Route
               path="/super-admin/approvals"
               element={<Approvals />}
             />
             <Route
+              path="/super-admin/settings"
+              element={<CompanySettings />}
+            />
+            <Route
+              path="/settings"
+              element={<CompanySettings />}
+            />
+            <Route
+              path="/company-settings"
+              element={<CompanySettings />}
+            />
+            <Route
               path="/super-admin/audit-logs"
+              element={<AuditLogs />}
+            />
+            <Route
+              path="/audit-logs"
               element={<AuditLogs />}
             />
           </Route>
@@ -74,11 +97,17 @@ export default function App() {
           }
         >
           <Route element={<RoleBasedLayout />}>
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/admin/customers" element={<Customers />} />
+            <Route path="/super-admin/customers" element={<Customers />} />
             <Route path="/quotations" element={<Quotations />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/super-admin/reports" element={<Reports />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/admin/settings" element={<CompanySettings />} />
+            <Route path="/settings" element={<CompanySettings />} />
+            <Route path="/company-settings" element={<CompanySettings />} />
           </Route>
         </Route>
 

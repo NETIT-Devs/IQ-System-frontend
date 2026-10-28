@@ -58,12 +58,68 @@ const initialItem = {
   hosting_domain: "",
   description: "",
   unit_price: "",
-  tax_rate: "0",
+  tax_rate: "",
 };
 
 function getServiceOptionValue(serviceCatalog, itemName) {
   const service = serviceCatalog.find((item) => item.item_name === itemName);
   return service ? String(service.service_id ?? service.item_name) : "";
+}
+
+// Ensure terms and conditions numbered items appear on separate rows
+function formatTermsAndConditions(terms) {
+  if (!terms) return "";
+  return String(terms).replace(/([^\n])\s+(\d+\.\s+)/g, "$1\n$2");
+}
+
+// Amount input component with non-clickable .00 suffix
+function AmountInput({
+  value,
+  onChange,
+  suffix = ".00",
+  placeholder = "0",
+  required = false,
+  autoFocus = false,
+  className = "",
+}) {
+  const hasDecimals = String(value || "").includes(".");
+
+  return (
+    <div className="qf-amount-wrap">
+      <input
+        type="number"
+        min="0"
+        step="any"
+        className={`qf-input qf-amount-input ${className}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={(e) => {
+          if (e.target.value === "0" || e.target.value === "0.00") {
+            onChange("");
+          } else {
+            e.target.select();
+          }
+        }}
+        onClick={(e) => {
+          if (e.target.value === "0" || e.target.value === "0.00") {
+            onChange("");
+          }
+        }}
+        onWheel={(e) => e.target.blur()}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+        }}
+        required={required}
+        autoFocus={autoFocus}
+      />
+      {suffix && !hasDecimals && (
+        <span className="qf-amount-suffix" aria-hidden="true">
+          {suffix}
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function QuotationForm({
@@ -99,9 +155,15 @@ export default function QuotationForm({
     duration_unit: initialData?.duration_unit || "Weeks",
     valid_until: initialData?.valid_until ? String(initialData.valid_until).slice(0, 10) : "",
     currency: initialData?.currency || "LKR",
-    discount_amount: initialData?.discount_amount != null ? String(initialData.discount_amount) : "0",
+    discount_amount:
+      initialData?.discount_amount != null &&
+      Number(initialData.discount_amount) > 0
+        ? String(initialData.discount_amount)
+        : "",
     notes: initialData?.notes || "",
-    terms_and_conditions: initialData?.terms_and_conditions || "",
+    terms_and_conditions: formatTermsAndConditions(
+      initialData?.terms_and_conditions || ""
+    ),
   });
 
   // Items list
@@ -114,8 +176,16 @@ export default function QuotationForm({
           website_type: it.website_type || "",
           hosting_domain: it.hosting_domain || "",
           description: it.description || "",
-          unit_price: it.unit_price != null ? String(it.unit_price) : it.Price != null ? String(it.Price) : "",
-          tax_rate: it.tax_rate != null ? String(it.tax_rate) : "0",
+          unit_price:
+            it.unit_price != null && Number(it.unit_price) > 0
+              ? String(it.unit_price)
+              : it.Price != null && Number(it.Price) > 0
+              ? String(it.Price)
+              : "",
+          tax_rate:
+            it.tax_rate != null && Number(it.tax_rate) > 0
+              ? String(it.tax_rate)
+              : "",
         }))
       : [{ ...initialItem }]
   );
@@ -180,7 +250,8 @@ export default function QuotationForm({
         setFormData((prev) => ({
           ...prev,
           terms_and_conditions:
-            prev.terms_and_conditions || company.default_terms_and_conditions,
+            prev.terms_and_conditions ||
+            formatTermsAndConditions(company.default_terms_and_conditions),
         }));
       }
     }
@@ -309,10 +380,11 @@ export default function QuotationForm({
               hosting_domain: selectedService.hosting_domain || item.hosting_domain || "",
               unit_price:
                 selectedService.default_price !== null &&
-                selectedService.default_price !== undefined
+                selectedService.default_price !== undefined &&
+                Number(selectedService.default_price) > 0
                   ? String(selectedService.default_price)
                   : item.unit_price || "",
-              tax_rate: item.tax_rate || "0",
+              tax_rate: item.tax_rate || "",
             }
           : item
       )
@@ -336,7 +408,7 @@ export default function QuotationForm({
         hosting_domain: "",
         description: "",
         unit_price: "",
-        tax_rate: "0",
+        tax_rate: "",
         is_additional: true,
       },
     ]);
@@ -451,7 +523,7 @@ export default function QuotationForm({
         return `Please enter a valid price for line ${i + 1}.`;
       }
 
-      const tax = Number(it.tax_rate);
+      const tax = Number(it.tax_rate || 0);
       if (Number.isNaN(tax) || tax < 0 || tax > 100) {
         return `Tax rate for line ${i + 1} must be between 0% and 100%.`;
       }
@@ -937,14 +1009,11 @@ export default function QuotationForm({
                         <label className="qf-label">
                           Amount ({formData.currency}) <span className="qf-required">*</span>
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="qf-input"
-                          placeholder="0.00"
+                        <AmountInput
                           value={item.unit_price}
-                          onChange={(e) => updateItem(index, "unit_price", e.target.value)}
+                          onChange={(val) => updateItem(index, "unit_price", val)}
+                          suffix=".00"
+                          placeholder="0"
                           required
                         />
                       </div>
@@ -1081,14 +1150,11 @@ export default function QuotationForm({
                         <label className="qf-label">
                           Price ({formData.currency}) <span className="qf-required">*</span>
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="qf-input"
-                          placeholder="0.00"
+                        <AmountInput
                           value={item.unit_price}
-                          onChange={(e) => updateItem(index, "unit_price", e.target.value)}
+                          onChange={(val) => updateItem(index, "unit_price", val)}
+                          suffix=".00"
+                          placeholder="0"
                           required
                         />
                       </div>
@@ -1099,11 +1165,27 @@ export default function QuotationForm({
                           type="number"
                           min="0"
                           max="100"
-                          step="0.01"
+                          step="any"
                           className="qf-input"
                           placeholder="0"
                           value={item.tax_rate}
                           onChange={(e) => updateItem(index, "tax_rate", e.target.value)}
+                          onFocus={(e) => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              updateItem(index, "tax_rate", "");
+                            } else {
+                              e.target.select();
+                            }
+                          }}
+                          onClick={(e) => {
+                            if (e.target.value === "0" || e.target.value === "0.00") {
+                              updateItem(index, "tax_rate", "");
+                            }
+                          }}
+                          onWheel={(e) => e.target.blur()}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                          }}
                         />
                       </div>
 
@@ -1195,10 +1277,27 @@ export default function QuotationForm({
                   <input
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="any"
                     className="qf-input"
+                    placeholder="0"
                     value={formData.discount_amount}
                     onChange={(e) => updateField("discount_amount", e.target.value)}
+                    onFocus={(e) => {
+                      if (e.target.value === "0" || e.target.value === "0.00") {
+                        updateField("discount_amount", "");
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onClick={(e) => {
+                      if (e.target.value === "0" || e.target.value === "0.00") {
+                        updateField("discount_amount", "");
+                      }
+                    }}
+                    onWheel={(e) => e.target.blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                    }}
                   />
                 </div>
 

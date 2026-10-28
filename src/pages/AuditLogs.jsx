@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import {
   ClipboardList,
   Search,
@@ -7,6 +8,11 @@ import {
   Clock,
   ShieldCheck,
   User,
+  Users,
+  FileText,
+  LogIn,
+  Menu,
+  X,
   Filter,
 } from "lucide-react";
 import { getAuditLogs } from "../services/quotationService";
@@ -33,13 +39,18 @@ function formatTimestamp(ts) {
 
 function getActionBadgeClass(action) {
   const a = String(action || "").toLowerCase();
-  if (a.includes("approv")) return "audit-action-approved";
+  if (a.includes("delet")) return "audit-action-deleted";
   if (a.includes("reject")) return "audit-action-rejected";
-  if (a.includes("submit") || a.includes("pending")) return "audit-action-pending";
+  if (a.includes("approv") || a.includes("finaliz")) return "audit-action-approved";
+  if (a.includes("submit") || a.includes("pending") || a.includes("resubmit")) return "audit-action-pending";
+  if (a.includes("login") || a.includes("sign in")) return "audit-action-login";
+  if (a.includes("admin") || a.includes("user") || a.includes("password")) return "audit-action-user";
+  if (a.includes("customer")) return "audit-action-customer";
   return "audit-action-created";
 }
 
 export default function AuditLogs() {
+  const { openSidebar } = useOutletContext();
   const user = getAuthenticatedUser();
   const isSuperAdmin = String(user?.role || "").trim().toLowerCase() === "super admin";
 
@@ -47,7 +58,8 @@ export default function AuditLogs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [actionFilter, setActionFilter] = useState("All");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [roleFilter, setRoleFilter] = useState("All");
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -68,14 +80,49 @@ export default function AuditLogs() {
     loadLogs();
   }, [loadLogs]);
 
+  // Filtered Logs
   const filteredLogs = useMemo(() => {
     const q = search.trim().toLowerCase();
 
     return logs.filter((log) => {
-      const matchesAction =
-        actionFilter === "All" ||
-        String(log.action || "").toLowerCase().includes(actionFilter.toLowerCase());
+      const action = String(log.action || "").toLowerCase();
+      const role = String(log.user_role || "").toLowerCase();
 
+      // Category filter
+      let matchesCategory = true;
+      if (categoryFilter === "quotations") {
+        matchesCategory = action.includes("quotation");
+      } else if (categoryFilter === "approvals") {
+        matchesCategory =
+          action.includes("approv") ||
+          action.includes("reject") ||
+          action.includes("submit");
+      } else if (categoryFilter === "users") {
+        matchesCategory =
+          action.includes("admin") ||
+          action.includes("user") ||
+          action.includes("password");
+      } else if (categoryFilter === "auth") {
+        matchesCategory = action.includes("login") || action.includes("password");
+      } else if (categoryFilter === "customers") {
+        matchesCategory = action.includes("customer");
+      }
+
+      // Role filter
+      let matchesRole = true;
+      if (roleFilter !== "All") {
+        const filterVal = roleFilter.trim().toLowerCase();
+        const normalizedRole = role.replace(/[\-_]/g, " ").trim();
+        if (filterVal === "admin") {
+          matchesRole = normalizedRole === "admin";
+        } else if (filterVal === "super admin") {
+          matchesRole = normalizedRole === "super admin" || normalizedRole === "superadmin";
+        } else {
+          matchesRole = normalizedRole === filterVal;
+        }
+      }
+
+      // Search term filter
       const matchesSearch =
         !q ||
         [
@@ -88,16 +135,33 @@ export default function AuditLogs() {
           .filter(Boolean)
           .some((val) => String(val).toLowerCase().includes(q));
 
-      return matchesAction && matchesSearch;
+      return matchesCategory && matchesRole && matchesSearch;
     });
-  }, [logs, search, actionFilter]);
+  }, [logs, search, categoryFilter, roleFilter]);
+
+  // Statistics
+  const stats = useMemo(() => {
+    const total = logs.length;
+    const quotations = logs.filter((l) =>
+      String(l.action || "").toLowerCase().includes("quotation")
+    ).length;
+    const userEvents = logs.filter((l) => {
+      const a = String(l.action || "").toLowerCase();
+      return a.includes("admin") || a.includes("user");
+    }).length;
+    const logins = logs.filter((l) =>
+      String(l.action || "").toLowerCase().includes("login")
+    ).length;
+
+    return { total, quotations, userEvents, logins };
+  }, [logs]);
 
   if (!isSuperAdmin) {
     return (
       <main className="audit-page">
-        <div style={{ padding: "40px 20px", textAlign: "center" }}>
-          <AlertCircle size={36} color="#b91c1c" />
-          <h2 style={{ marginTop: "12px", color: "#0f172a" }}>Access Restricted</h2>
+        <div style={{ padding: "60px 20px", textAlign: "center" }}>
+          <AlertCircle size={40} color="#b91c1c" />
+          <h2 style={{ marginTop: "14px", color: "#0f172a" }}>Access Restricted</h2>
           <p style={{ color: "#64748b", fontSize: "13px" }}>
             Audit Logs are restricted to Super Administrator accounts only.
           </p>
@@ -108,112 +172,224 @@ export default function AuditLogs() {
 
   return (
     <main className="audit-page">
-      <div className="audit-header">
-        <div>
-          <p className="audit-eyebrow">SYSTEM GOVERNANCE &amp; SECURITY</p>
-          <h1>System Audit Logs</h1>
-          <p className="audit-subtitle">
-            Chronological audit trail of quotation and workflow actions taken across the system.
-          </p>
+      {/* Top Header */}
+      <header className="audit-header">
+        <div className="audit-header-left">
+          <button
+            type="button"
+            className="audit-menu-button"
+            aria-label="Open menu"
+            onClick={openSidebar}
+          >
+            <Menu size={20} />
+          </button>
+          <div>
+            <p className="audit-eyebrow">SYSTEM GOVERNANCE &amp; AUDIT TRAIL</p>
+            <h1>System Audit Logs</h1>
+            <p className="audit-subtitle">
+              Comprehensive chronological audit trail of all quotation workflows, admin actions, and system logins.
+            </p>
+          </div>
         </div>
 
-        <button
-          type="button"
-          className="audit-refresh-btn"
-          onClick={loadLogs}
-          disabled={loading}
-        >
-          <RefreshCw size={14} className={loading ? "spin" : ""} />
-          <span>Refresh Logs</span>
-        </button>
-      </div>
+        <div className="audit-header-actions">
+          <button
+            type="button"
+            className="audit-refresh-btn"
+            onClick={loadLogs}
+            disabled={loading}
+          >
+            <RefreshCw size={14} className={loading ? "spin" : ""} />
+            <span>Refresh Logs</span>
+          </button>
+        </div>
+      </header>
 
+      {/* Error alert */}
       {error && (
-        <div style={{ background: "#fee2e2", border: "1px solid #fecaca", color: "#b91c1c", padding: "10px 14px", marginBottom: "16px", fontSize: "12.5px" }}>
+        <div
+          style={{
+            background: "#fee2e2",
+            border: "1px solid #fecaca",
+            color: "#b91c1c",
+            padding: "10px 14px",
+            marginBottom: "16px",
+            fontSize: "12.5px",
+          }}
+        >
           {error}
         </div>
       )}
 
-      <section className="audit-panel">
-        <div className="audit-toolbar">
-          <label className="audit-search">
-            <Search size={15} color="#64748b" />
-            <input
-              type="search"
-              placeholder="Search by user, quotation number, or action..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <select
-              style={{ padding: "8px 12px", border: "1px solid #cbd5e1", borderRadius: 0, fontSize: "12px", background: "#fff", outline: "none" }}
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
-            >
-              <option value="All">All Actions</option>
-              <option value="Approved">Approvals</option>
-              <option value="Rejected">Rejections</option>
-              <option value="Submitted">Submissions</option>
-              <option value="Draft">Drafts</option>
-            </select>
-
-            <span className="audit-count">
-              {filteredLogs.length} Records
-            </span>
+      {/* Overview Statistics Cards */}
+      <section className="audit-stats-grid">
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon blue">
+            <ClipboardList size={22} />
+          </div>
+          <div className="audit-stat-info">
+            <p>Total Events</p>
+            <h3>{stats.total}</h3>
           </div>
         </div>
 
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon purple">
+            <FileText size={22} />
+          </div>
+          <div className="audit-stat-info">
+            <p>Quotation Activities</p>
+            <h3>{stats.quotations}</h3>
+          </div>
+        </div>
+
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon emerald">
+            <Users size={22} />
+          </div>
+          <div className="audit-stat-info">
+            <p>Admin / User Events</p>
+            <h3>{stats.userEvents}</h3>
+          </div>
+        </div>
+
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon amber">
+            <LogIn size={22} />
+          </div>
+          <div className="audit-stat-info">
+            <p>User Sign-ins</p>
+            <h3>{stats.logins}</h3>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Panel */}
+      <section className="audit-panel">
+        {/* Toolbar */}
+        <div className="audit-toolbar">
+          <div className="audit-toolbar-left">
+            <label className="audit-search">
+              <Search size={15} color="#64748b" />
+              <input
+                type="search"
+                placeholder="Search by initiator, action, record ID, or details..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </label>
+
+            <select
+              className="audit-filter-select"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+            >
+              <option value="All">All Categories</option>
+              <option value="quotations">Quotation Workflows</option>
+              <option value="approvals">Submissions &amp; Approvals</option>
+              <option value="users">Admin &amp; User Management</option>
+              <option value="auth">Sign-ins &amp; Authentication</option>
+              <option value="customers">Customer Records</option>
+            </select>
+
+            <select
+              className="audit-filter-select"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="All">All Initiator Roles</option>
+              <option value="Super Admin">Super Admin</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </div>
+
+          <span className="audit-count">
+            {filteredLogs.length} Records
+          </span>
+        </div>
+
+        {/* Table */}
         <div className="audit-table-wrap">
           <table className="audit-table">
             <thead>
               <tr>
                 <th>Timestamp</th>
                 <th>User / Initiator</th>
-                <th>Action</th>
-                <th>Quotation / Record ID</th>
-                <th>Details &amp; Notes</th>
+                <th>Action Taken</th>
+                <th>Record Reference</th>
+                <th>Action Details &amp; Notes</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "35px" }}>
-                    Loading audit trail records...
+                  <td colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
+                    <RefreshCw size={20} className="spin" style={{ marginBottom: "8px", color: "#2563eb" }} />
+                    <p style={{ margin: 0, color: "#64748b" }}>Loading audit records...</p>
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", padding: "35px", color: "#64748b" }}>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
                     No audit log records found matching your filters.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.log_id || `${log.created_at}-${log.record_id}`}>
-                    <td style={{ whiteSpace: "nowrap", color: "#64748b" }}>
-                      {formatTimestamp(log.created_at)}
-                    </td>
-                    <td>
-                      <strong>{log.user_name || "System"}</strong>
-                      <span className="audit-role-badge">
-                        {log.user_role || "User"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`audit-action-badge ${getActionBadgeClass(log.action)}`}>
-                        {log.action}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 700, color: "#1d4ed8" }}>
-                      {log.record_id || "—"}
-                    </td>
-                    <td style={{ maxWidth: "340px", wordBreak: "break-word" }}>
-                      {log.details || "—"}
-                    </td>
-                  </tr>
-                ))
+                filteredLogs.map((log) => {
+                  const initials = (log.user_name || "AD")
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0].toUpperCase())
+                    .join("");
+                  const isSuper = String(log.user_role || "").toLowerCase().includes("super");
+
+                  return (
+                    <tr key={log.log_id || `${log.created_at}-${log.record_id}-${log.action}`}>
+                      <td style={{ whiteSpace: "nowrap", color: "#64748b" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <Clock size={13} color="#94a3b8" />
+                          <span>{formatTimestamp(log.created_at)}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="audit-user-cell">
+                          <div className={`audit-avatar ${isSuper ? "super-admin" : ""}`}>
+                            {initials || "U"}
+                          </div>
+                          <div className="audit-user-details">
+                            <span className="audit-user-name">{log.user_name || "System"}</span>
+                            <span className={`audit-role-badge ${isSuper ? "super-admin" : "admin"}`}>
+                              {log.user_role || "User"}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`audit-action-badge ${getActionBadgeClass(log.action)}`}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="audit-record-id">
+                          {log.record_id || "—"}
+                        </span>
+                      </td>
+                      <td style={{ maxWidth: "380px", wordBreak: "break-word", lineHeight: "1.45" }}>
+                        {log.details || "—"}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

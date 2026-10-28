@@ -17,6 +17,7 @@ import {
   Trash2,
   SlidersHorizontal,
   Eye,
+  Download,
   CheckCircle,
   XCircle,
   Clock,
@@ -26,8 +27,13 @@ import QuotationDetails from "./QuotationDetails";
 import NotificationBell from "../components/NotificationBell";
 import {
   getQuotations,
+  getQuotationById,
   deleteQuotation,
+  getCompanyDetails,
+  updateQuotationCustomerStatus,
 } from "../services/quotationService";
+import { downloadQuotationPdf } from "../utils/pdfGenerator";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Quotations.css";
 
 const statusOptions = [
@@ -119,9 +125,10 @@ export default function Quotations() {
       setLoading(true);
       setLoadError("");
       const data = await getQuotations();
+      const list = Array.isArray(data) ? data : [];
 
       // Normalize backend records for table display
-      const normalized = (Array.isArray(data) ? data : []).map((q) => {
+      const normalized = list.map((q) => {
         const raw = q.status || q.approval_status;
         let displayStatus = "Draft";
         if (raw) {
@@ -225,6 +232,14 @@ export default function Quotations() {
     setShowFormModal(true);
   }
 
+  const authUser = getAuthenticatedUser();
+  const currentUserId = authUser?.user_id;
+  const isSuperAdmin = String(authUser?.role || "").trim().toLowerCase() === "super admin";
+
+  const [showFormSettingsModal, setShowFormSettingsModal] = useState(false);
+  const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
+  const [downloadingId, setDownloadingId] = useState(null);
+
   // Open edit modal
   function openEditModal(quotation) {
     setSelectedQuotation(quotation);
@@ -235,6 +250,63 @@ export default function Quotations() {
   function openDetailsModal(quotation) {
     setSelectedQuotation(quotation);
     setShowDetailsModal(true);
+  }
+
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+
+  // Manually update customer quotation status (Sent, Approved, Rejected, etc.)
+  async function handleCustomerStatusUpdate(quotation, newStatus) {
+    const rawId = quotation.quotation_id || quotation.id;
+    try {
+      setUpdatingStatusId(rawId);
+      await updateQuotationCustomerStatus(rawId, newStatus);
+      await loadQuotations();
+    } catch (err) {
+      alert(err?.message || "Failed to update quotation customer status.");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  }
+
+  // Direct PDF download from table row
+  async function handleDirectDownload(quotation) {
+    const rawId = quotation.quotation_id || quotation.id;
+    try {
+      setDownloadingId(rawId);
+      let targetQuotation = quotation;
+      try {
+        const full = await getQuotationById(rawId);
+        if (full) targetQuotation = full;
+      } catch (e) {
+        console.warn("Could not fetch full quotation details, using row data:", e);
+      }
+
+      let company = null;
+      try {
+        company = await getCompanyDetails();
+      } catch {
+        // ignore
+      }
+
+      const filename = `${targetQuotation.quotation_number || quotation.id || "Quotation"}.pdf`;
+      await downloadQuotationPdf(
+        targetQuotation,
+        company,
+        {
+          customer_name: targetQuotation.customer_name || targetQuotation.clientName || quotation.clientName || "",
+          company_name: targetQuotation.customer_company || targetQuotation.company_name || "",
+          email: targetQuotation.customer_email || targetQuotation.email || "",
+          phone: targetQuotation.customer_phone || targetQuotation.phone || "",
+          address: targetQuotation.customer_address || targetQuotation.address || "",
+        },
+        filename
+      );
+    } catch (err) {
+      console.error("Direct PDF download failed:", err);
+      alert("Could not generate quotation PDF. Please open details to try again.");
+    } finally {
+      setDownloadingId(null);
+    }
   }
 
   // Duplicate quotation
@@ -253,14 +325,14 @@ export default function Quotations() {
 
   // Delete a quotation with confirmation and backend integration
   async function handleDelete(quotation) {
-    const targetId = quotation.quotation_id;
+    const targetId = quotation.quotation_id || quotation.id;
     if (!targetId) {
       alert("This quotation is missing its backend ID and cannot be deleted.");
       return;
     }
 
     const confirmed = window.confirm(
-      `Delete quotation ${quotation.id}? This cannot be undone.`
+      `Delete quotation ${quotation.id || quotation.quotation_number}? This cannot be undone.`
     );
 
     if (!confirmed) return;
@@ -341,15 +413,7 @@ export default function Quotations() {
               </span>
             </div>
 
-            <button
-              type="button"
-              className="quotation-notification-button"
-              aria-label="Notifications"
-              title="Notifications"
-            >
-              <Bell size={19} />
-              <span className="quotation-notification-dot" />
-            </button>
+            <NotificationBell />
 
             <button
               type="button"
@@ -515,9 +579,11 @@ export default function Quotations() {
                     <th>CLIENT</th>
                     <th>PROJECT</th>
                     <th>ISSUED DATE</th>
+                    <th>CREATED BY</th>
                     <th>VALID UNTIL</th>
                     <th className="amount-column">TOTAL</th>
                     <th>STATUS</th>
+                    <th>CUSTOMER STATUS</th>
                     <th className="actions-column">ACTIONS</th>
                   </tr>
                 </thead>
@@ -525,6 +591,8 @@ export default function Quotations() {
                 <tbody>
                   {filteredQuotations.map((quotation) => {
                     const StatusIcon = getStatusIcon(quotation.status);
+                    const canModify = quotation.created_by === currentUserId;
+                    const isMine = quotation.created_by === currentUserId;
 
                     return (
                       <tr key={quotation.id || quotation.quotation_id}>
@@ -570,6 +638,25 @@ export default function Quotations() {
 
                         <td>{formatDate(quotation.issuedDate)}</td>
 
+                        <td>
+                          <span
+                            style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              fontSize: "11px",
+                              fontWeight: "600",
+                              borderRadius: "4px",
+                              background: isMine ? "#eff6ff" : "#f1f5f9",
+                              color: isMine ? "#1d4ed8" : "#475569",
+                              border: isMine ? "1px solid #bfdbfe" : "1px solid #e2e8f0",
+                            }}
+                          >
+                            {isMine
+                              ? "You"
+                              : quotation.created_by_name || `User #${quotation.created_by || "—"}`}
+                          </span>
+                        </td>
+
                         <td>{formatDate(quotation.validUntil)}</td>
 
                         <td className="amount-column quotation-amount">
@@ -583,18 +670,47 @@ export default function Quotations() {
                           </span>
                         </td>
 
+                        <td>
+                          <div className="quotation-status-control" title="Manually update customer response">
+                            <select
+                              value={quotation.customer_status || "Not Sent"}
+                              disabled={updatingStatusId === (quotation.quotation_id || quotation.id)}
+                              onChange={(e) => handleCustomerStatusUpdate(quotation, e.target.value)}
+                              className={`quotation-status-select cust-status-badge status-${(quotation.customer_status || "notsent").toLowerCase().replace(/\s+/g, "")}`}
+                            >
+                              <option value="Not Sent">Not Sent</option>
+                              <option value="Sent to Customer">📤 Sent to Customer</option>
+                              <option value="Customer Accepted">✅ Customer Accepted</option>
+                              <option value="Customer Rejected">❌ Customer Rejected</option>
+                            </select>
+                          </div>
+                        </td>
+
                         <td className="actions-column">
                           <div className="quotation-row-actions">
-                            {/* View details & download PDF */}
+                            {/* View details */}
                             <button
                               type="button"
                               className="row-action-button"
                               style={{ color: "#2563eb" }}
-                              title="View details & Download PDF"
+                              title="View details"
                               aria-label={`View ${quotation.id}`}
                               onClick={() => openDetailsModal(quotation)}
                             >
                               <Eye size={16} />
+                            </button>
+
+                            {/* Download PDF directly */}
+                            <button
+                              type="button"
+                              className="row-action-button download-action"
+                              style={{ color: "#0284c7" }}
+                              title="Download PDF"
+                              aria-label={`Download ${quotation.id} PDF`}
+                              disabled={downloadingId === (quotation.quotation_id || quotation.id)}
+                              onClick={() => handleDirectDownload(quotation)}
+                            >
+                              <Download size={16} />
                             </button>
 
                             {/* Edit */}
@@ -640,7 +756,7 @@ export default function Quotations() {
                   {/* Empty state */}
                   {filteredQuotations.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="quotation-empty-cell">
+                      <td colSpan={9} className="quotation-empty-cell">
                         <div className="quotation-empty-state">
                           <div className="empty-state-icon">
                             <FileText size={29} />

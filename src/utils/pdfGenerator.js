@@ -196,6 +196,73 @@ function addWrappedSection(doc, title, content, y, margin, pageBottom) {
   return currentY + 5;
 }
 
+function drawCustomTemplateSections(doc, customSections, startY, margin, contentWidth, pageBottom) {
+  let currentY = startY;
+
+  const sections = Array.isArray(customSections)
+    ? customSections
+    : typeof customSections === "string"
+      ? (() => {
+          try {
+            const p = JSON.parse(customSections);
+            return Array.isArray(p) ? p : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  sections.forEach((section) => {
+    const heading = valueOrEmpty(section.heading || section.title);
+    const subText = valueOrEmpty(section.sub_text || section.subText || section.content || section.text);
+
+    if (!heading && !subText) return;
+
+    if (currentY + 16 > pageBottom) {
+      doc.addPage();
+      currentY = margin;
+    }
+
+    if (heading) {
+      // Navy Blue Header bar
+      doc.setFillColor(...COLORS.navy);
+      doc.roundedRect(margin, currentY, contentWidth, 6.5, 1, 1, "F");
+
+      // Accent blue underline
+      doc.setFillColor(...COLORS.blue);
+      doc.rect(margin, currentY + 5.8, contentWidth, 0.7, "F");
+
+      // Heading text
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...COLORS.white);
+      doc.text(heading.toUpperCase(), margin + 3.5, currentY + 4.2);
+
+      currentY += 9.5;
+    }
+
+    if (subText) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...COLORS.text);
+      const lines = doc.splitTextToSize(subText, contentWidth - 4);
+
+      lines.forEach((line) => {
+        if (currentY + 4.2 > pageBottom) {
+          doc.addPage();
+          currentY = margin;
+        }
+        doc.text(line, margin + 2, currentY);
+        currentY += 4.2;
+      });
+
+      currentY += 4;
+    }
+  });
+
+  return currentY;
+}
+
 function drawFooter(doc, quotationNumber) {
   const pageCount = doc.internal.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -296,14 +363,17 @@ export async function downloadQuotationPdf(
     headerY += wrapped.length * 3.6;
   });
 
+  const headingText = valueOrEmpty(company.pdf_heading) || "QUOTATION";
+  const subheadingText = valueOrEmpty(company.pdf_subheading) || "PROFESSIONAL SERVICES PROPOSAL";
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(19);
   doc.setTextColor(...COLORS.navy);
-  doc.text("QUOTATION", pageWidth - PAGE_MARGIN, 21, { align: "right" });
+  doc.text(headingText, pageWidth - PAGE_MARGIN, 21, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...COLORS.blue);
-  doc.text("PROFESSIONAL SERVICES PROPOSAL", pageWidth - PAGE_MARGIN, 27, {
+  doc.text(subheadingText, pageWidth - PAGE_MARGIN, 27, {
     align: "right",
   });
 
@@ -312,7 +382,19 @@ export async function downloadQuotationPdf(
   doc.rect(PAGE_MARGIN, y, contentWidth, 1.2, "F");
   doc.setFillColor(...COLORS.blue);
   doc.rect(PAGE_MARGIN, y + 1.2, contentWidth, 0.6, "F");
-  y += 8;
+  y += 5;
+
+  const customHeaderNotice = valueOrEmpty(company.pdf_custom_lines);
+  if (customHeaderNotice) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...COLORS.muted);
+    const splitCustom = doc.splitTextToSize(customHeaderNotice, contentWidth);
+    doc.text(splitCustom, PAGE_MARGIN, y);
+    y += splitCustom.length * 3.6 + 3;
+  } else {
+    y += 3;
+  }
 
   const referenceData = [
     [
@@ -624,6 +706,17 @@ export async function downloadQuotationPdf(
   y = Math.max(bankEndY, summaryEndY) + 10;
 
   const pageBottom = pageHeight - FOOTER_SPACE;
+
+  // Custom Template Sections configured by Super Admin (e.g. Scope, Deliverables, Timeline)
+  y = drawCustomTemplateSections(
+    doc,
+    company?.pdf_custom_sections,
+    y,
+    PAGE_MARGIN,
+    contentWidth,
+    pageBottom
+  );
+
   y = addWrappedSection(
     doc,
     "Terms & Conditions",
@@ -640,6 +733,18 @@ export async function downloadQuotationPdf(
     PAGE_MARGIN,
     pageBottom
   );
+
+  const templateFooterNote = valueOrEmpty(company.pdf_footer_note);
+  if (templateFooterNote) {
+    y = addWrappedSection(
+      doc,
+      "Important Notice / Declaration",
+      templateFooterNote,
+      y,
+      PAGE_MARGIN,
+      pageBottom
+    );
+  }
 
   if (signatureData) {
     if (y + 31 > pageBottom) {

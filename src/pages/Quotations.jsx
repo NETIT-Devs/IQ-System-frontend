@@ -1,7 +1,7 @@
 // Quotations List Page Component
 // Connected with backend Quotation API, Customer API, QuotationForm, and QuotationDetails.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   FileText,
@@ -12,6 +12,7 @@ import {
   Plus,
   CalendarDays,
   ChevronDown,
+  Check,
   Pencil,
   Copy,
   Trash2,
@@ -37,20 +38,19 @@ import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Quotations.css";
 
 const statusOptions = [
-  "All Statuses",
-  "Draft",
-  "Pending Approval",
-  "Approved",
-  "Rejected",
-  "Sent",
+  { label: "All Statuses", value: "All Statuses", color: "#64748b" },
+  { label: "Draft", value: "Draft", color: "#d97706" },
+  { label: "Pending Approval", value: "Pending Approval", color: "#0284c7" },
+  { label: "Approved", value: "Approved", color: "#16a34a" },
+  { label: "Rejected", value: "Rejected", color: "#dc2626" },
 ];
 
 const dateOptions = [
-  { label: "All time", value: "all" },
-  { label: "Last 1 week", value: "week" },
-  { label: "Last 1 month", value: "month" },
-  { label: "Last 1 year", value: "year" },
-  { label: "Last 2 years", value: "twoYears" },
+  { label: "All time", value: "all", desc: "Show complete history" },
+  { label: "Last 1 week", value: "week", desc: "Past 7 days" },
+  { label: "Last 1 month", value: "month", desc: "Past 30 days" },
+  { label: "Last 1 year", value: "year", desc: "Past 365 days" },
+  { label: "Last 2 years", value: "twoYears", desc: "Past 24 months" },
 ];
 
 // Format amounts using Sri Lankan Rupees or quotation currency
@@ -103,8 +103,29 @@ function getDateCutoff(range) {
   return date;
 }
 
+// Resolve creator role display (Admin vs Super Admin)
+function getCreatorRole(quotation) {
+  if (!quotation) return "—";
+  const role = quotation.created_by_role || quotation.creator_role || quotation.creatorRole;
+  if (role) {
+    const lower = String(role).trim().toLowerCase();
+    if (lower.includes("super")) return "Super Admin";
+    if (lower.includes("admin")) return "Admin";
+    return role;
+  }
+  if (quotation.created_by === 2) return "Super Admin";
+  if (quotation.created_by === 1) return "Admin";
+  if (quotation.created_by_name) {
+    const lower = String(quotation.created_by_name).trim().toLowerCase();
+    if (lower.includes("super")) return "Super Admin";
+    if (lower.includes("admin")) return "Admin";
+    return quotation.created_by_name;
+  }
+  return quotation.created_by ? `User #${quotation.created_by}` : "—";
+}
+
 export default function Quotations() {
-  const { openSidebar } = useOutletContext();
+  const { openSidebar } = useOutletContext() || {};
 
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,6 +133,35 @@ export default function Quotations() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
+
+  // Modern Dropdown Popups state & refs
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const dateDropdownRef = useRef(null);
+  const statusDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target)) {
+        setDateDropdownOpen(false);
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setStatusDropdownOpen(false);
+      }
+    }
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setDateDropdownOpen(false);
+        setStatusDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   // Modal controls
   const [showFormModal, setShowFormModal] = useState(false);
@@ -129,15 +179,27 @@ export default function Quotations() {
 
       // Normalize backend records for table display
       const normalized = list.map((q) => {
-        const raw = q.status || q.approval_status;
+        const approval = String(q.approval_status || "").trim().toLowerCase();
+        const rawStatus = String(q.status || "").trim().toLowerCase();
+        const role = String(q.created_by_role || "").trim().toLowerCase();
+        const isSuperCreator = role.includes("super") || q.created_by === 2;
+
         let displayStatus = "Draft";
-        if (raw) {
-          const lower = String(raw).trim().toLowerCase();
-          if (["approved", "accepted"].includes(lower)) displayStatus = "Approved";
-          else if (["rejected", "declined"].includes(lower)) displayStatus = "Rejected";
-          else if (lower.includes("pending")) displayStatus = "Pending Approval";
-          else if (lower.includes("sent")) displayStatus = "Sent";
-          else displayStatus = raw.charAt(0).toUpperCase() + raw.slice(1);
+        // Super Admin finalized quotations are always Approved!
+        if (isSuperCreator) {
+          displayStatus = rawStatus === "draft" ? "Draft" : "Approved";
+        } else if (approval === "pending" || rawStatus.includes("pending")) {
+          displayStatus = "Pending Approval";
+        } else if (approval === "approved" || ["approved", "accepted"].includes(rawStatus)) {
+          displayStatus = "Approved";
+        } else if (approval === "rejected" || ["rejected", "declined"].includes(rawStatus)) {
+          displayStatus = "Rejected";
+        } else if (rawStatus === "draft") {
+          displayStatus = "Draft";
+        } else if (rawStatus === "sent") {
+          displayStatus = "Pending Approval";
+        } else if (q.status) {
+          displayStatus = q.status.charAt(0).toUpperCase() + q.status.slice(1);
         }
 
         return {
@@ -190,6 +252,21 @@ export default function Quotations() {
     return { total, approved, rejected, pending, draft };
   }, [quotations]);
 
+  // Count items per status for modern dropdown badges
+  const statusCounts = useMemo(() => {
+    const counts = { "All Statuses": quotations.length };
+    statusOptions.forEach((opt) => {
+      if (opt.value !== "All Statuses") counts[opt.value] = 0;
+    });
+    quotations.forEach((q) => {
+      const s = q.status;
+      if (counts[s] !== undefined) {
+        counts[s] += 1;
+      }
+    });
+    return counts;
+  }, [quotations]);
+
   // Filter quotations using the search term, date range, and status
   const filteredQuotations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -203,6 +280,8 @@ export default function Quotations() {
           quotation.clientName,
           quotation.project,
           quotation.status,
+          getCreatorRole(quotation),
+          quotation.created_by_name,
         ].some((value) => String(value || "").toLowerCase().includes(term));
 
       const quotationDate = new Date(
@@ -234,7 +313,11 @@ export default function Quotations() {
 
   const authUser = getAuthenticatedUser();
   const currentUserId = authUser?.user_id;
-  const isSuperAdmin = String(authUser?.role || "").trim().toLowerCase() === "super admin";
+  const isSuperAdmin =
+    String(authUser?.role || "").trim().toLowerCase() === "super admin" ||
+    authUser?.role === "super_admin";
+  const userInitials = isSuperAdmin ? "SA" : "A";
+  const userRoleTitle = isSuperAdmin ? "Super Admin" : "Admin";
 
   const [showFormSettingsModal, setShowFormSettingsModal] = useState(false);
   const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
@@ -380,59 +463,72 @@ export default function Quotations() {
   return (
     <div className="quotation-app">
       <div className="quotation-main">
-        {/* Top bar header */}
+        {/* Top bar header matching Overview styling */}
         <header className="quotation-topbar">
           <div className="quotation-topbar-left">
-            <button
-              type="button"
-              className="quotation-menu-button"
-              aria-label="Open navigation menu"
-              onClick={openSidebar}
-            >
-              <Menu size={21} />
-            </button>
+            {openSidebar && (
+              <button
+                type="button"
+                className="quotation-menu-button"
+                aria-label="Open navigation menu"
+                onClick={openSidebar}
+              >
+                <Menu size={20} />
+              </button>
+            )}
 
-            <div>
-              <p className="quotation-breadcrumb">Dashboard / Quotations</p>
+            <div className="quotation-breadcrumb-wrap">
+              <span className="quotation-breadcrumb">Dashboard / Quotations</span>
+            </div>
+          </div>
+
+          <div className="quotation-header-actions">
+            <NotificationBell />
+
+            <span className="quotation-date-badge" title="Today's Date">
+              {new Intl.DateTimeFormat("en-US", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }).format(new Date())}
+            </span>
+
+            <div className="quotation-header-profile" title={userRoleTitle}>
+              <span className="quotation-profile-avatar" aria-label={`${userRoleTitle} profile`}>
+                {userInitials}
+              </span>
+            </div>
+          </div>
+        </header>
+
+        <div className="quotation-content">
+          {/* Welcome / Title Row right below topbar */}
+          <div className="quotation-welcome-bar">
+            <div className="quotation-welcome-text">
               <h1>Quotations</h1>
               <p className="quotation-subtitle">
                 Create, organize, and track your business quotations.
               </p>
             </div>
-          </div>
-
-          <div className="quotation-header-actions">
-            <div className="quotation-date-badge">
-              <CalendarDays size={15} />
-              <span>
-                {new Date().toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-            </div>
-
-            <NotificationBell />
 
             <button
               type="button"
               className="quotation-create-button"
               onClick={openCreateModal}
+              title="Create new quotation"
             >
               <Plus size={16} />
               <span>Create Quotation</span>
             </button>
           </div>
-        </header>
 
-        <div className="quotation-content">
-          {/* Summary Cards */}
-          <section className="quotation-stats-grid">
+          {/* Summary Cards matching Overview Card Size */}
+          <section className="quotation-stats-grid" aria-label="Quotation statistics">
             {statCards.map(({ label, value, icon: Icon, color, note }) => (
               <article key={label} className="quotation-stat-card">
                 <div className={`quotation-stat-icon ${color}`}>
-                  <Icon size={21} strokeWidth={1.8} />
+                  <Icon size={22} strokeWidth={2} />
                 </div>
 
                 <div className="quotation-stat-content">
@@ -499,75 +595,124 @@ export default function Quotations() {
                 )}
               </label>
 
-              {/* Date Filter */}
-              <label
-                className="quotation-filter-select"
-                onClick={(e) => {
-                  const select = e.currentTarget.querySelector("select");
-                  if (
-                    select &&
-                    typeof select.showPicker === "function" &&
-                    e.target !== select
-                  ) {
-                    try {
-                      select.showPicker();
-                    } catch {
-                      select.focus();
-                    }
-                  }
-                }}
-              >
-                <CalendarDays size={17} />
-
-                <select
-                  value={dateRange}
-                  onChange={(event) => setDateRange(event.target.value)}
-                  aria-label="Filter by date"
+              {/* Modern Date Filter Dropdown */}
+              <div className="quotation-dropdown-wrap" ref={dateDropdownRef}>
+                <button
+                  type="button"
+                  className={`quotation-filter-btn ${dateDropdownOpen ? "active" : ""}`}
+                  onClick={() => {
+                    setDateDropdownOpen((prev) => !prev);
+                    setStatusDropdownOpen(false);
+                  }}
+                  aria-expanded={dateDropdownOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by date range"
                 >
-                  {dateOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <CalendarDays size={16} className="quotation-filter-icon" />
+                  <span className="quotation-filter-label">
+                    {dateOptions.find((o) => o.value === dateRange)?.label || "Date Filter"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`quotation-filter-chevron ${dateDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
 
-                <ChevronDown size={15} />
-              </label>
+                {dateDropdownOpen && (
+                  <div className="quotation-dropdown-menu date-menu" role="listbox">
+                    <div className="quotation-dropdown-header">
+                      <span>Filter by Date</span>
+                    </div>
+                    <div className="quotation-dropdown-list">
+                      {dateOptions.map((opt) => {
+                        const isSelected = dateRange === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`quotation-dropdown-item ${isSelected ? "selected" : ""}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setDateRange(opt.value);
+                              setDateDropdownOpen(false);
+                            }}
+                          >
+                            <div className="quotation-dropdown-item-info">
+                              <span className="quotation-item-title">{opt.label}</span>
+                              {opt.desc && (
+                                <span className="quotation-item-desc">{opt.desc}</span>
+                              )}
+                            </div>
+                            {isSelected && <Check size={15} className="quotation-item-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-              {/* Status Filter */}
-              <label
-                className="quotation-filter-select"
-                onClick={(e) => {
-                  const select = e.currentTarget.querySelector("select");
-                  if (
-                    select &&
-                    typeof select.showPicker === "function" &&
-                    e.target !== select
-                  ) {
-                    try {
-                      select.showPicker();
-                    } catch {
-                      select.focus();
-                    }
-                  }
-                }}
-              >
-                <SlidersHorizontal size={17} />
-
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  aria-label="Filter by status"
+              {/* Modern Status Filter Dropdown */}
+              <div className="quotation-dropdown-wrap" ref={statusDropdownRef}>
+                <button
+                  type="button"
+                  className={`quotation-filter-btn ${statusDropdownOpen ? "active" : ""}`}
+                  onClick={() => {
+                    setStatusDropdownOpen((prev) => !prev);
+                    setDateDropdownOpen(false);
+                  }}
+                  aria-expanded={statusDropdownOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by status"
                 >
-                  {statusOptions.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
+                  <SlidersHorizontal size={16} className="quotation-filter-icon" />
+                  <span className="quotation-filter-label">{statusFilter}</span>
+                  <ChevronDown
+                    size={14}
+                    className={`quotation-filter-chevron ${statusDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
 
-                <ChevronDown size={15} />
-              </label>
+                {statusDropdownOpen && (
+                  <div className="quotation-dropdown-menu status-menu" role="listbox">
+                    <div className="quotation-dropdown-header">
+                      <span>Filter by Status</span>
+                    </div>
+                    <div className="quotation-dropdown-list">
+                      {statusOptions.map((opt) => {
+                        const isSelected = statusFilter === opt.value;
+                        const count = statusCounts[opt.value] ?? 0;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`quotation-dropdown-item ${isSelected ? "selected" : ""}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setStatusFilter(opt.value);
+                              setStatusDropdownOpen(false);
+                            }}
+                          >
+                            <div className="quotation-dropdown-item-left">
+                              <span
+                                className="quotation-status-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="quotation-item-title">{opt.label}</span>
+                            </div>
+                            <div className="quotation-dropdown-item-right">
+                              <span className="quotation-item-badge">{count}</span>
+                              {isSelected && <Check size={15} className="quotation-item-check" />}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Table */}
@@ -639,22 +784,32 @@ export default function Quotations() {
                         <td>{formatDate(quotation.issuedDate)}</td>
 
                         <td>
-                          <span
-                            style={{
-                              display: "inline-block",
-                              padding: "2px 8px",
-                              fontSize: "11px",
-                              fontWeight: "600",
-                              borderRadius: "4px",
-                              background: isMine ? "#eff6ff" : "#f1f5f9",
-                              color: isMine ? "#1d4ed8" : "#475569",
-                              border: isMine ? "1px solid #bfdbfe" : "1px solid #e2e8f0",
-                            }}
-                          >
-                            {isMine
-                              ? "You"
-                              : quotation.created_by_name || `User #${quotation.created_by || "—"}`}
-                          </span>
+                          {(() => {
+                            const creatorRole = getCreatorRole(quotation);
+                            const isSuper = String(creatorRole).toLowerCase().includes("super");
+
+                            return (
+                              <span
+                                style={{
+                                  display: "inline-block",
+                                  padding: "2px 8px",
+                                  fontSize: "11px",
+                                  fontWeight: "600",
+                                  borderRadius: "4px",
+                                  background: isSuper ? "#f5f3ff" : "#eff6ff",
+                                  color: isSuper ? "#6d28d9" : "#1d4ed8",
+                                  border: isSuper ? "1px solid #ddd6fe" : "1px solid #bfdbfe",
+                                }}
+                                title={
+                                  quotation.created_by_name
+                                    ? `${creatorRole} (${quotation.created_by_name})`
+                                    : creatorRole
+                                }
+                              >
+                                {creatorRole}
+                              </span>
+                            );
+                          })()}
                         </td>
 
                         <td>{formatDate(quotation.validUntil)}</td>
@@ -664,7 +819,7 @@ export default function Quotations() {
                         </td>
 
                         <td>
-                          <span className={`quotation-status status-${(quotation.status || "").toLowerCase() === "approved" ? "accepted" : (quotation.status || "").toLowerCase()}`}>
+                          <span className={`quotation-status status-${(quotation.status || "").toLowerCase().replace(/\s+/g, "-")}`}>
                             <StatusIcon size={14} />
                             {quotation.status}
                           </span>

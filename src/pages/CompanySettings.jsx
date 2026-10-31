@@ -25,6 +25,8 @@ import {
   Layers,
   SlidersHorizontal,
   X,
+  Receipt,
+  Sparkles,
 } from "lucide-react";
 import {
   getCompanySettings,
@@ -472,7 +474,7 @@ export default function CompanySettings() {
             </button>
           )}
           <div>
-            <p className="cs-eyebrow">SYSTEM CONFIGURATION &amp; BRAND IDENTITY</p>
+            <p className="cs-eyebrow">Administration / Company Settings</p>
             <h1>Company Settings</h1>
           </div>
         </div>
@@ -483,10 +485,10 @@ export default function CompanySettings() {
             className="cs-refresh-btn"
             onClick={loadSettings}
             disabled={loading || saving}
-            title="Reload settings from server"
+            title="Refresh settings from server"
           >
             <RefreshCw size={14} className={loading ? "cs-spin" : ""} />
-            <span>Reload</span>
+            <span>Refresh</span>
           </button>
           <button
             type="button"
@@ -527,51 +529,41 @@ export default function CompanySettings() {
           <p>Loading company configuration and branding...</p>
         </div>
       ) : (
-        <div className="cs-layout-grid">
-          {/* Left Column: Form & Tabs */}
-          <div className="cs-main-content">
-            {/* Top Level Tab Navigation */}
-            <div className="cs-tabs-bar">
-              <button
-                type="button"
-                className={`cs-tab-btn ${activeTab === "profile" ? "active" : ""}`}
-                onClick={() => setActiveTab("profile")}
-              >
-                <Building2 size={16} />
-                <span>Company Profile</span>
-              </button>
+        <div className="cs-content-wrapper">
+          {/* Top Level Modern Tab Navigation */}
+          <div className="cs-tabs-bar">
+            <button
+              type="button"
+              className={`cs-tab-btn ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => setActiveTab("profile")}
+            >
+              <Building2 size={16} />
+              <span>Company Profile</span>
+            </button>
 
-              <button
-                type="button"
-                className={`cs-tab-btn ${activeTab === "signature" ? "active" : ""}`}
-                onClick={() => setActiveTab("signature")}
-              >
-                <FileCheck size={16} />
-                <span>Digital Signature</span>
-              </button>
+            <button
+              type="button"
+              className={`cs-tab-btn ${activeTab === "quotation" ? "active" : ""}`}
+              onClick={() => setActiveTab("quotation")}
+            >
+              <SlidersHorizontal size={16} />
+              <span>Quotation Settings</span>
+            </button>
 
-              <button
-                type="button"
-                className={`cs-tab-btn ${activeTab === "banking" ? "active" : ""}`}
-                onClick={() => setActiveTab("banking")}
-              >
-                <Landmark size={16} />
-                <span>Banking &amp; Remittance</span>
-              </button>
+            <button
+              type="button"
+              className={`cs-tab-btn ${activeTab === "invoice" ? "active" : ""}`}
+              onClick={() => setActiveTab("invoice")}
+            >
+              <Receipt size={16} />
+              <span>Invoice Settings</span>
+            </button>
+          </div>
 
-              <button
-                type="button"
-                className={`cs-tab-btn ${activeTab === "quotation" ? "active" : ""}`}
-                onClick={() => setActiveTab("quotation")}
-              >
-                <SlidersHorizontal size={16} />
-                <span>Quotation Settings</span>
-              </button>
-            </div>
-
-            {/* TAB 1: Company Profile & Logo */}
+            {/* TAB 1: Unified Company Profile (Identity, Bank Details & Signature) */}
             {activeTab === "profile" && (
-              <form onSubmit={handleSubmit} className="cs-form-body">
+              <div className="cs-profile-layout">
+                <form onSubmit={handleSubmit} className="cs-profile-form-col">
                 <section className="cs-section-card">
                   <div className="cs-section-header">
                     <div className="cs-section-icon">
@@ -717,206 +709,280 @@ export default function CompanySettings() {
                   </div>
                 </section>
 
-                <div className="cs-action-bar">
-                  <button
-                    type="button"
-                    className="cs-btn-secondary"
-                    onClick={loadSettings}
-                    disabled={saving || loading}
-                  >
-                    Discard Changes
-                  </button>
-                  <button
-                    type="submit"
-                    className="cs-btn-save"
-                    disabled={saving || loading}
-                  >
-                    <Save size={16} />
-                    <span>{saving ? "Saving..." : "Save Profile Settings"}</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* TAB 2: Digital Signature */}
-            {activeTab === "signature" && (
-              <form onSubmit={handleSubmit} className="cs-form-body">
-                <section className="cs-section-card">
-                  <div className="cs-section-header">
-                    <div className="cs-section-icon">
-                      <FileCheck size={18} />
-                    </div>
-                    <div>
-                      <h3>Authorized Digital Signature</h3>
-                      <p>
-                        Authorized company signature appended at the bottom right of official Quotation &amp; Invoice PDFs.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="cs-signature-box">
-                    <div className="cs-signature-preview-card">
-                      {signatureUrl ? (
-                        <img
-                          src={signatureUrl}
-                          alt="Authorized Digital Signature"
-                          className="cs-signature-img"
-                        />
-                      ) : (
-                        <div className="cs-signature-placeholder">
-                          <ShieldCheck size={36} color="#94a3b8" />
-                          <span>No Authorized Signature Uploaded</span>
-                        </div>
-                      )}
+                  {/* Section 2: Banking & Payment Remittance Details (Underneath Profile) */}
+                  <section className="cs-section-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon">
+                        <Landmark size={18} />
+                      </div>
+                      <div>
+                        <h3>Bank &amp; Payment Remittance Details</h3>
+                        <p>
+                          Bank details rendered in quotation and invoice payment boxes for direct client bank transfers.
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="cs-signature-info">
-                      <h4>Upload Authorized Signature</h4>
-                      <p>
-                        Upload a clean, high-resolution signature image on a transparent or white background. It will automatically populate the &quot;Authorized Signature&quot; field on quotation documents.
-                      </p>
-
-                      <div className="cs-logo-btn-row">
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group">
+                        <label htmlFor="bank_name">Bank Name</label>
                         <input
-                          ref={signatureInputRef}
-                          type="file"
-                          accept="image/png, image/jpeg, image/jpg"
-                          onChange={handleSignatureUpload}
-                          style={{ display: "none" }}
-                          id="cs-signature-input"
+                          id="bank_name"
+                          name="bank_name"
+                          type="text"
+                          placeholder="e.g. Commercial Bank of Ceylon PLC"
+                          value={formData.bank_name}
+                          onChange={handleInputChange}
                         />
-                        <button
-                          type="button"
-                          className="cs-btn-upload"
-                          onClick={() => signatureInputRef.current?.click()}
-                          disabled={uploadingSignature}
-                        >
-                          <Upload size={14} />
-                          <span>
-                            {uploadingSignature ? "Uploading Signature..." : "Upload Signature"}
-                          </span>
-                        </button>
+                      </div>
 
-                        {signatureUrl && (
-                          <button
-                            type="button"
-                            className="cs-btn-remove"
-                            onClick={handleRemoveSignature}
-                            disabled={uploadingSignature}
-                          >
-                            <Trash2 size={13} />
-                            <span>Remove</span>
-                          </button>
+                      <div className="cs-field-group">
+                        <label htmlFor="bank_account_name">Account Name (Beneficiary)</label>
+                        <input
+                          id="bank_account_name"
+                          name="bank_account_name"
+                          type="text"
+                          placeholder="e.g. NetIT Technology (Pvt) Ltd"
+                          value={formData.bank_account_name}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="bank_account_number">Bank Account Number</label>
+                        <input
+                          id="bank_account_number"
+                          name="bank_account_number"
+                          type="text"
+                          placeholder="e.g. 8001234567"
+                          value={formData.bank_account_number}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="bank_branch">Branch Name</label>
+                        <input
+                          id="bank_branch"
+                          name="bank_branch"
+                          type="text"
+                          placeholder="e.g. Kandy Main Branch"
+                          value={formData.bank_branch}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="bank_swift_code">SWIFT / BIC Code</label>
+                        <input
+                          id="bank_swift_code"
+                          name="bank_swift_code"
+                          type="text"
+                          placeholder="e.g. CCBLKLX"
+                          value={formData.bank_swift_code}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Section 3: Authorized Digital Signature (Underneath Bank Details) */}
+                  <section className="cs-section-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon">
+                        <FileCheck size={18} />
+                      </div>
+                      <div>
+                        <h3>Authorized Digital Signature</h3>
+                        <p>
+                          Authorized company signature appended at the bottom right of official Quotation &amp; Invoice PDFs.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="cs-signature-box">
+                      <div className="cs-signature-preview-card">
+                        {signatureUrl ? (
+                          <img
+                            src={signatureUrl}
+                            alt="Authorized Digital Signature"
+                            className="cs-signature-img"
+                          />
+                        ) : (
+                          <div className="cs-signature-placeholder">
+                            <ShieldCheck size={36} color="#94a3b8" />
+                            <span>No Authorized Signature Uploaded</span>
+                          </div>
                         )}
                       </div>
-                      <small>Recommended aspect ratio: 3:1 width to height (e.g. 400x120px PNG).</small>
+
+                      <div className="cs-signature-info">
+                        <h4>Upload Authorized Signature</h4>
+                        <p>
+                          Upload a clean, high-resolution signature image on a transparent or white background. It will automatically populate the &quot;Authorized Signature&quot; field on quotation documents.
+                        </p>
+
+                        <div className="cs-logo-btn-row">
+                          <input
+                            ref={signatureInputRef}
+                            type="file"
+                            accept="image/png, image/jpeg, image/jpg"
+                            onChange={handleSignatureUpload}
+                            style={{ display: "none" }}
+                            id="cs-signature-input"
+                          />
+                          <button
+                            type="button"
+                            className="cs-btn-upload"
+                            onClick={() => signatureInputRef.current?.click()}
+                            disabled={uploadingSignature}
+                          >
+                            <Upload size={14} />
+                            <span>
+                              {uploadingSignature ? "Uploading Signature..." : "Upload Signature"}
+                            </span>
+                          </button>
+
+                          {signatureUrl && (
+                            <button
+                              type="button"
+                              className="cs-btn-remove"
+                              onClick={handleRemoveSignature}
+                              disabled={uploadingSignature}
+                            >
+                              <Trash2 size={13} />
+                              <span>Remove</span>
+                            </button>
+                          )}
+                        </div>
+                        <small>Recommended aspect ratio: 3:1 width to height (e.g. 400x120px PNG).</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Unified Action Bar */}
+                  <div className="cs-action-bar">
+                    <button
+                      type="button"
+                      className="cs-btn-secondary"
+                      onClick={loadSettings}
+                      disabled={saving || loading}
+                    >
+                      Discard Changes
+                    </button>
+                    <button
+                      type="submit"
+                      className="cs-btn-save"
+                      disabled={saving || loading}
+                    >
+                      <Save size={16} />
+                      <span>{saving ? "Saving..." : "Save Company Profile & Settings"}</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Right Column: Live Branding Preview for Company Profile */}
+                <aside className="cs-profile-preview-col">
+                  <div className="cs-preview-sticky">
+                    <div className="cs-preview-panel">
+                      <div className="cs-preview-title-bar">
+                        <div className="cs-preview-title-wrap">
+                          <Eye size={15} color="#2563eb" />
+                          <h4>Live Branding Preview</h4>
+                        </div>
+                        <span className="cs-live-pill">Live Sync</span>
+                      </div>
+
+                      <div className="cs-preview-card">
+                        {/* Company Header */}
+                        <div className="cs-prev-header">
+                          <div className="cs-prev-logo-wrap">
+                            {logoUrl ? (
+                              <img src={logoUrl} alt="Logo" className="cs-prev-logo" />
+                            ) : (
+                              <div className="cs-prev-logo-fallback">
+                                <Building2 size={24} color="#2563eb" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="cs-prev-company-name">
+                              {formData.company_name || "Company Name"}
+                            </h3>
+                            <p className="cs-prev-tagline">
+                              {formData.pdf_subheading || "Professional Services"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="cs-prev-divider" />
+
+                        {/* Contact Meta */}
+                        <div className="cs-prev-details">
+                          <div className="cs-prev-item">
+                            <Mail size={13} color="#64748b" />
+                            <span>{formData.email_address || "email@company.com"}</span>
+                          </div>
+                          <div className="cs-prev-item">
+                            <Phone size={13} color="#64748b" />
+                            <span>{formData.contact_number || "Phone numbers"}</span>
+                          </div>
+                          <div className="cs-prev-item">
+                            <MapPin size={13} color="#64748b" />
+                            <span>{formData.company_address || "Company address"}</span>
+                          </div>
+                        </div>
+
+                        {/* Banking Preview */}
+                        {formData.bank_name && (
+                          <div className="cs-prev-bank-box">
+                            <div className="cs-prev-bank-head">
+                              <Landmark size={12} color="#1d4ed8" />
+                              <strong>{formData.bank_name}</strong>
+                            </div>
+                            <div className="cs-prev-bank-row">
+                              <span>A/C Name:</span>
+                              <strong>{formData.bank_account_name || "—"}</strong>
+                            </div>
+                            <div className="cs-prev-bank-row">
+                              <span>A/C No:</span>
+                              <strong>{formData.bank_account_number || "—"}</strong>
+                            </div>
+                            {formData.bank_branch && (
+                              <div className="cs-prev-bank-row">
+                                <span>Branch:</span>
+                                <span>{formData.bank_branch}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Digital Signature Preview */}
+                        <div className="cs-prev-signature-box">
+                          <span className="cs-prev-sig-label">Authorized Sign-off</span>
+                          {signatureUrl ? (
+                            <img
+                              src={signatureUrl}
+                              alt="Signature"
+                              className="cs-prev-signature-img"
+                            />
+                          ) : (
+                            <div className="cs-prev-sig-empty">Signature Pending</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="cs-preview-footnote">
+                        <ShieldCheck size={14} color="#10b981" />
+                        <span>Synchronized with PDF generator &amp; system dashboards</span>
+                      </div>
                     </div>
                   </div>
-                </section>
-              </form>
+                </aside>
+              </div>
             )}
 
-            {/* TAB 3: Banking & Remittance Details */}
-            {activeTab === "banking" && (
-              <form onSubmit={handleSubmit} className="cs-form-body">
-                <section className="cs-section-card">
-                  <div className="cs-section-header">
-                    <div className="cs-section-icon">
-                      <Landmark size={18} />
-                    </div>
-                    <div>
-                      <h3>Bank &amp; Payment Remittance Details</h3>
-                      <p>
-                        Bank details rendered in quotation and invoice payment boxes for direct client bank transfers.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="cs-fields-grid">
-                    <div className="cs-field-group">
-                      <label htmlFor="bank_name">Bank Name</label>
-                      <input
-                        id="bank_name"
-                        name="bank_name"
-                        type="text"
-                        placeholder="e.g. Commercial Bank of Ceylon PLC"
-                        value={formData.bank_name}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div className="cs-field-group">
-                      <label htmlFor="bank_account_name">Account Name (Beneficiary)</label>
-                      <input
-                        id="bank_account_name"
-                        name="bank_account_name"
-                        type="text"
-                        placeholder="e.g. NetIT Technology (Pvt) Ltd"
-                        value={formData.bank_account_name}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div className="cs-field-group">
-                      <label htmlFor="bank_account_number">Bank Account Number</label>
-                      <input
-                        id="bank_account_number"
-                        name="bank_account_number"
-                        type="text"
-                        placeholder="e.g. 8001234567"
-                        value={formData.bank_account_number}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div className="cs-field-group">
-                      <label htmlFor="bank_branch">Branch Name</label>
-                      <input
-                        id="bank_branch"
-                        name="bank_branch"
-                        type="text"
-                        placeholder="e.g. Kandy Main Branch"
-                        value={formData.bank_branch}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-
-                    <div className="cs-field-group">
-                      <label htmlFor="bank_swift_code">SWIFT / BIC Code</label>
-                      <input
-                        id="bank_swift_code"
-                        name="bank_swift_code"
-                        type="text"
-                        placeholder="e.g. CCBLKLX"
-                        value={formData.bank_swift_code}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <div className="cs-action-bar">
-                  <button
-                    type="button"
-                    className="cs-btn-secondary"
-                    onClick={loadSettings}
-                    disabled={saving || loading}
-                  >
-                    Discard Changes
-                  </button>
-                  <button
-                    type="submit"
-                    className="cs-btn-save"
-                    disabled={saving || loading}
-                  >
-                    <Save size={16} />
-                    <span>{saving ? "Saving..." : "Save Banking Details"}</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* TAB 4: Combined Quotation Settings (Template Settings + Form Settings) */}
+            {/* TAB 2: Combined Quotation Settings (Template Settings + Form Settings) */}
             {activeTab === "quotation" && (
               <div className="cs-quotation-settings-container">
                 {/* Quotation Sub-Tabs */}
@@ -1456,104 +1522,117 @@ export default function CompanySettings() {
                 )}
               </div>
             )}
-          </div>
 
-          {/* Right Column: Live Branding & Document Preview Card */}
-          <aside className="cs-preview-sidebar">
-            <div className="cs-preview-sticky">
-              <div className="cs-preview-panel">
-                <div className="cs-preview-title-bar">
-                  <Eye size={15} color="#2563eb" />
-                  <h4>Live Branding Preview</h4>
-                </div>
-
-                <div className="cs-preview-card">
-                  {/* Company Header */}
-                  <div className="cs-prev-header">
-                    <div className="cs-prev-logo-wrap">
-                      {logoUrl ? (
-                        <img src={logoUrl} alt="Logo" className="cs-prev-logo" />
-                      ) : (
-                        <div className="cs-prev-logo-fallback">
-                          <Building2 size={24} color="#2563eb" />
-                        </div>
-                      )}
+            {/* TAB 3: Invoice Settings (Module in Development) */}
+            {activeTab === "invoice" && (
+              <div className="cs-invoice-settings-container">
+                <section className="cs-section-card cs-invoice-placeholder-card">
+                  <div className="cs-section-header">
+                    <div className="cs-section-icon cs-invoice-icon">
+                      <Receipt size={20} />
                     </div>
-                    <div>
-                      <h3 className="cs-prev-company-name">
-                        {formData.company_name || "Company Name"}
-                      </h3>
-                      <p className="cs-prev-tagline">
-                        {formData.pdf_subheading || "Professional Services"}
+                    <div className="cs-section-header-text">
+                      <div className="cs-title-badge-row">
+                        <h3>Invoice Settings &amp; Preferences</h3>
+                        <span className="cs-badge-coming-soon">Module In Development</span>
+                      </div>
+                      <p>
+                        Configure default billing sequences, payment terms, and automated invoice settings.
                       </p>
                     </div>
                   </div>
 
-                  <div className="cs-prev-divider" />
-
-                  {/* Contact Meta */}
-                  <div className="cs-prev-details">
-                    <div className="cs-prev-item">
-                      <Mail size={13} color="#64748b" />
-                      <span>{formData.email_address || "email@company.com"}</span>
+                  <div className="cs-invoice-banner">
+                    <div className="cs-invoice-banner-icon">
+                      <Sparkles size={20} color="#2563eb" />
                     </div>
-                    <div className="cs-prev-item">
-                      <Phone size={13} color="#64748b" />
-                      <span>{formData.contact_number || "Phone numbers"}</span>
-                    </div>
-                    <div className="cs-prev-item">
-                      <MapPin size={13} color="#64748b" />
-                      <span>{formData.company_address || "Company address"}</span>
+                    <div className="cs-invoice-banner-text">
+                      <strong>Invoicing &amp; Billing Module Under Active Development</strong>
+                      <p>
+                        Client billing, automatic invoice generation from accepted quotations, payment tracking, and receipt issuance are coming in the next release. Company branding and bank remittance details configured under <strong>Company Profile</strong> will automatically be inherited.
+                      </p>
                     </div>
                   </div>
 
-                  {/* Banking Preview */}
-                  {formData.bank_name && (
-                    <div className="cs-prev-bank-box">
-                      <div className="cs-prev-bank-head">
-                        <Landmark size={12} color="#1d4ed8" />
-                        <strong>{formData.bank_name}</strong>
+                  <div className="cs-fields-grid cs-invoice-preview-grid">
+                    <div className="cs-field-group">
+                      <label htmlFor="inv_prefix">Invoice Number Prefix</label>
+                      <div className="cs-input-icon-wrap">
+                        <FileText size={16} />
+                        <input
+                          id="inv_prefix"
+                          type="text"
+                          disabled
+                          value="INV-2026-"
+                          className="cs-input-disabled"
+                        />
                       </div>
-                      <div className="cs-prev-bank-row">
-                        <span>A/C Name:</span>
-                        <strong>{formData.bank_account_name || "—"}</strong>
-                      </div>
-                      <div className="cs-prev-bank-row">
-                        <span>A/C No:</span>
-                        <strong>{formData.bank_account_number || "—"}</strong>
-                      </div>
-                      {formData.bank_branch && (
-                        <div className="cs-prev-bank-row">
-                          <span>Branch:</span>
-                          <span>{formData.bank_branch}</span>
-                        </div>
-                      )}
+                      <small className="cs-field-hint">e.g. INV-2026-0001 (Sequential generation)</small>
                     </div>
-                  )}
 
-                  {/* Digital Signature Preview */}
-                  <div className="cs-prev-signature-box">
-                    <span className="cs-prev-sig-label">Authorized Sign-off</span>
-                    {signatureUrl ? (
-                      <img
-                        src={signatureUrl}
-                        alt="Signature"
-                        className="cs-prev-signature-img"
-                      />
-                    ) : (
-                      <div className="cs-prev-sig-empty">Signature Pending</div>
-                    )}
+                    <div className="cs-field-group">
+                      <label htmlFor="inv_due_days">Default Payment Due Period</label>
+                      <div className="cs-input-icon-wrap">
+                        <CreditCard size={16} />
+                        <input
+                          id="inv_due_days"
+                          type="text"
+                          disabled
+                          value="14 Days from Issue Date"
+                          className="cs-input-disabled"
+                        />
+                      </div>
+                      <small className="cs-field-hint">Standard client payment window</small>
+                    </div>
+
+                    <div className="cs-field-group">
+                      <label htmlFor="inv_currency">Default Billing Currency</label>
+                      <div className="cs-input-icon-wrap">
+                        <Landmark size={16} />
+                        <input
+                          id="inv_currency"
+                          type="text"
+                          disabled
+                          value="LKR (Sri Lankan Rupee)"
+                          className="cs-input-disabled"
+                        />
+                      </div>
+                      <small className="cs-field-hint">Aligned with quotation currency</small>
+                    </div>
+
+                    <div className="cs-field-group">
+                      <label htmlFor="inv_tax_display">Tax &amp; VAT Display Option</label>
+                      <div className="cs-input-icon-wrap">
+                        <Sliders size={16} />
+                        <input
+                          id="inv_tax_display"
+                          type="text"
+                          disabled
+                          value="Itemized Tax &amp; Discount Lines"
+                          className="cs-input-disabled"
+                        />
+                      </div>
+                      <small className="cs-field-hint">Complies with tax invoice regulations</small>
+                    </div>
+
+                    <div className="cs-field-group cs-full-width">
+                      <label htmlFor="inv_notes">Default Client Remittance Notice</label>
+                      <div className="cs-input-icon-wrap textarea-wrap">
+                        <textarea
+                          id="inv_notes"
+                          rows={3}
+                          disabled
+                          value={formData.bank_name ? `Please remit payment via bank transfer to ${formData.bank_name} (A/C: ${formData.bank_account_number || "—"}, Beneficiary: ${formData.bank_account_name || formData.company_name || "—"}). Reference the invoice number on your payment slip.` : "Please remit payment via direct bank transfer referencing the invoice number on your deposit slip."}
+                          className="cs-input-disabled"
+                        />
+                      </div>
+                      <small className="cs-field-hint">Pulls bank details configured in your Company Profile.</small>
+                    </div>
                   </div>
-                </div>
-
-                <div className="cs-preview-footnote">
-                  <ShieldCheck size={14} color="#10b981" />
-                  <span>Synchronized with PDF generator &amp; system dashboards</span>
-                </div>
+                </section>
               </div>
-            </div>
-          </aside>
-        </div>
+            )}
+          </div>
       )}
     </main>
   );

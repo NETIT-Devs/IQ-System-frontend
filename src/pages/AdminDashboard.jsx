@@ -1,9 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
+  Calendar,
   Users,
   FileText,
+  Building2,
   Receipt,
   CreditCard,
   BarChart3,
@@ -20,7 +22,7 @@ import {
   Clock,
 } from "lucide-react";
 import NotificationBell from "../components/NotificationBell";
-import { getQuotations } from "../services/quotationService";
+import { getQuotations, getCustomers } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./AdminDashboard.css";
 
@@ -60,7 +62,67 @@ const BUILT_PATHS = new Set([
   "/admin-dashboard",
   "/quotations",
   "/reports",
+  "/admin/reports",
+  "/customers",
+  "/admin/customers",
+  "/settings",
+  "/admin/settings",
+  "/company-settings",
+  "/admin/invoices",
+  "/notifications",
 ]);
+
+// Searchable dashboard items and pages by name for Admin
+const dashboardSearchItems = [
+  {
+    name: "Dashboard / Overview",
+    label: "Dashboard",
+    description: "Admin overview and business summary",
+    icon: BarChart3,
+    path: "/admin-dashboard",
+    keywords: ["dashboard", "overview", "home", "main"],
+  },
+  {
+    name: "Customers",
+    label: "Customers",
+    description: "View and manage registered customers",
+    icon: Users,
+    path: "/customers",
+    keywords: ["customer", "customers", "client", "clients"],
+  },
+  {
+    name: "Quotations",
+    label: "Quotations",
+    description: "Create, view and manage price quotations",
+    icon: FileText,
+    path: "/quotations",
+    keywords: ["quotation", "quotations", "quote", "proposals", "pricing"],
+  },
+  {
+    name: "Invoices",
+    label: "Invoices",
+    description: "Manage invoices and payment records",
+    icon: Receipt,
+    path: "/admin/invoices",
+    keywords: ["invoice", "invoices", "billing", "payments"],
+  },
+  {
+    name: "Reports & Analytics",
+    label: "Reports & Analytics",
+    description: "Review financial and quotation summaries",
+    icon: BarChart3,
+    path: "/reports",
+    keywords: ["report", "reports", "analytics", "revenue"],
+  },
+  {
+    name: "Company Settings",
+    label: "Company Settings",
+    description: "View company profile and catalog",
+    icon: Building2,
+    path: "/settings",
+    keywords: ["company", "settings", "profile", "catalog"],
+  },
+];
 
 // Quick links for everyday Admin tasks.
 const quickLinks = [
@@ -249,18 +311,70 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [quotations, setQuotations] = useState([]);
+  const [customerCount, setCustomerCount] = useState(0);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setIsSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const matchingDashboardItems = useMemo(() => {
+    if (!search.trim()) return [];
+    const query = search.trim().toLowerCase();
+    return dashboardSearchItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.label.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query) ||
+        item.keywords?.some((k) => k.toLowerCase().includes(query))
+    );
+  }, [search]);
+
+  const filteredQuickLinks = useMemo(() => {
+    if (!search.trim()) return quickLinks;
+    const query = search.trim().toLowerCase();
+    return quickLinks.filter(
+      (item) =>
+        item.label.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query)
+    );
+  }, [search]);
+
+  function handleSearchSubmit(e) {
+    if (e) e.preventDefault();
+    if (matchingDashboardItems.length > 0) {
+      navigate(matchingDashboardItems[0].path);
+      setSearch("");
+      setIsSearchOpen(false);
+    }
+  }
+
+  function navigateTo(path) {
+    navigate(path);
+  }
 
   useEffect(() => {
     let isMounted = true;
     async function loadData() {
       try {
-        const records = await getQuotations();
+        const [records, custList] = await Promise.all([
+          getQuotations(),
+          getCustomers(),
+        ]);
         if (isMounted) {
           const list = Array.isArray(records) ? records : [];
           setQuotations(list);
+          setCustomerCount(Array.isArray(custList) ? custList.length : 0);
         }
       } catch (err) {
-        console.warn("Failed to load dashboard quotation data:", err);
+        console.warn("Failed to load dashboard data:", err);
       }
     }
     loadData();
@@ -278,7 +392,7 @@ export default function AdminDashboard() {
   const dynamicStats = [
     {
       title: "Total Customers",
-      value: "0",
+      value: String(customerCount),
       description: "Registered customers",
       icon: Users,
       color: "blue",
@@ -308,55 +422,135 @@ export default function AdminDashboard() {
 
   return (
     <>
-      {/* Top bar */}
+      {/* Top bar with reduced height */}
       <header className="sa-topbar">
-          <div className="sa-topbar-left">
-            <button
-              type="button"
-              className="sa-menu-button"
-              aria-label="Open navigation menu"
-              onClick={openSidebar}
-            >
-              <Menu size={21} />
-            </button>
+        <div className="sa-topbar-left">
+          <button
+            type="button"
+            className="sa-menu-button"
+            aria-label="Open navigation menu"
+            onClick={openSidebar}
+          >
+            <Menu size={20} />
+          </button>
+          <p className="sa-breadcrumb">Dashboard / Overview</p>
+        </div>
 
-            <div>
-              <p className="sa-breadcrumb">Dashboard / Overview</p>
-              <h1>Welcome to Admin Dashboard</h1>
-              <p className="sa-subtitle">
-                Manage customers, quotations, invoices and payments.
-              </p>
-            </div>
-          </div>
-
-          <div className="sa-header-actions">
-            <label className="sa-search-box">
-              <Search size={17} />
+        <div className="sa-header-actions">
+          {/* Search bar */}
+          <div className="sa-search-container" ref={searchRef}>
+            <form className="sa-search-box" onSubmit={handleSearchSubmit}>
+              <button
+                type="submit"
+                className="sa-search-btn"
+                title="Search dashboard"
+                aria-label="Search dashboard"
+                onClick={handleSearchSubmit}
+              >
+                <Search size={16} />
+              </button>
               <input
                 type="search"
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setIsSearchOpen(true);
+                }}
+                onFocus={() => {
+                  if (search.trim()) setIsSearchOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSearchSubmit(e);
+                  }
+                }}
                 placeholder="Search dashboard..."
                 aria-label="Search dashboard"
               />
-
               {search && (
                 <button
                   type="button"
                   className="sa-clear-search"
-                  onClick={() => setSearch("")}
+                  onClick={() => {
+                    setSearch("");
+                    setIsSearchOpen(false);
+                  }}
                   aria-label="Clear search"
                 >
-                  <X size={15} />
+                  <X size={14} />
                 </button>
               )}
-            </label>
+            </form>
 
-            <NotificationBell />
+            {/* Live search results dropdown: only dashboard items */}
+            {isSearchOpen && search.trim() && (
+              <div className="sa-search-dropdown">
+                <div className="sa-search-group-title">Dashboard Pages &amp; Modules</div>
+                {matchingDashboardItems.length > 0 ? (
+                  matchingDashboardItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        type="button"
+                        key={item.path}
+                        className="sa-search-result-item"
+                        onClick={() => {
+                          navigateTo(item.path);
+                          setSearch("");
+                          setIsSearchOpen(false);
+                        }}
+                      >
+                        <div className="sa-search-result-icon">
+                          <Icon size={16} />
+                        </div>
+                        <div className="sa-search-result-info">
+                          <strong>{item.name}</strong>
+                          <span>{item.description}</span>
+                        </div>
+                        <ChevronRight size={14} className="sa-search-result-arrow" />
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="sa-search-no-results">
+                    <Search size={20} color="#94a3b8" />
+                    <p>No dashboard pages found matching &ldquo;{search}&rdquo;</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Notification icon */}
+          <NotificationBell />
+
+          {/* Date badge */}
+          <span className="sa-header-date" title="Today's Date">
+            {new Intl.DateTimeFormat("en-US", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }).format(new Date())}
+          </span>
+
+          {/* Profile circle icon for Admin */}
+          <div className="sa-header-profile" title="Admin">
+            <span className="sa-profile-avatar" aria-label="Admin profile">A</span>
+          </div>
+        </div>
       </header>
 
-        <div className="sa-dashboard-content">
+      <div className="sa-dashboard-content">
+        {/* Welcome bar: Title on left */}
+        <div className="sa-welcome-bar">
+          <div className="sa-welcome-text">
+            <h1>Welcome to Admin Dashboard</h1>
+            <p className="sa-subtitle">
+              Manage customers, quotations, invoices and payments.
+            </p>
+          </div>
+        </div>
           {/* Business summary cards */}
           <section className="sa-stats-grid" aria-label="Business summary">
             {dynamicStats.map((item) => (
@@ -437,7 +631,7 @@ export default function AdminDashboard() {
               </div>
 
               <div className="sa-quick-links">
-                {quickLinks.map((item) => {
+                {filteredQuickLinks.map((item) => {
                   const Icon = item.icon;
                   const isBuilt = BUILT_PATHS.has(item.path);
 
@@ -532,55 +726,86 @@ export default function AdminDashboard() {
             </div>
           </section>
 
-          {/* Invoice payment summary */}
-          <section className="sa-panel sa-payment-summary">
-            <div className="sa-panel-heading">
-              <div>
-                <h2>Invoice Payment Summary</h2>
-                <p>Current invoice payment status overview</p>
+          {/* Bottom Grid: Invoice Payment Summary & Reports Promo Card */}
+          <section className="sa-bottom-grid">
+            <div className="sa-panel sa-payment-summary">
+              <div className="sa-panel-heading">
+                <div>
+                  <h2>Invoice Payment Summary</h2>
+                  <p>Current invoice payment status overview</p>
+                </div>
+
+                <button
+                  type="button"
+                  className="sa-text-button"
+                  onClick={() => navigateTo("/admin/payments")}
+                  style={{ cursor: "default", opacity: 0.7 }}
+                  title="Not available yet"
+                >
+                  View Payments <ChevronRight size={15} />
+                </button>
               </div>
 
-              <button
-                type="button"
-                className="sa-text-button"
-                onClick={() => navigateTo("/admin/payments")}
-                style={{ cursor: "default", opacity: 0.7 }}
-                title="Not available yet"
-              >
-                View Payments <ChevronRight size={15} />
-              </button>
+              <div className="sa-status-rows">
+                <div className="sa-status-row">
+                  <div className="sa-status-row-left">
+                    <span className="sa-status-dot paid" />
+                    <p>Paid</p>
+                  </div>
+                  <h3>0</h3>
+                </div>
+
+                <div className="sa-status-row">
+                  <div className="sa-status-row-left">
+                    <span className="sa-status-dot unpaid" />
+                    <p>Unpaid</p>
+                  </div>
+                  <h3>0</h3>
+                </div>
+
+                <div className="sa-status-row">
+                  <div className="sa-status-row-left">
+                    <span className="sa-status-dot partial" />
+                    <p>Partially Paid</p>
+                  </div>
+                  <h3>0</h3>
+                </div>
+
+                <div className="sa-status-row">
+                  <div className="sa-status-row-left">
+                    <span className="sa-status-dot overdue" />
+                    <p>Overdue</p>
+                  </div>
+                  <h3>0</h3>
+                </div>
+              </div>
             </div>
 
-            <div className="sa-status-grid">
-              <div className="sa-status-card">
-                <span className="sa-status-dot paid" />
-                <div>
-                  <p>Paid</p>
-                  <h3>0</h3>
+            {/* Navy Blue Reports Feature Card */}
+            <div className="sa-promo-card">
+              <div className="sa-promo-left">
+                <div className="sa-promo-tag">
+                  <TrendingUp size={11} />
+                  <span>Financial Analytics</span>
                 </div>
+                <h3 className="sa-promo-title">Better Process, Bigger Growth</h3>
+                <p className="sa-promo-desc">
+                  Manage your quotations, invoices and revenue all in one place.
+                </p>
+                <button
+                  type="button"
+                  className="sa-promo-action-btn"
+                  onClick={() => navigate("/reports")}
+                  title="View Reports"
+                >
+                  <span>View Reports</span>
+                  <ChevronRight size={14} />
+                </button>
               </div>
 
-              <div className="sa-status-card">
-                <span className="sa-status-dot unpaid" />
-                <div>
-                  <p>Unpaid</p>
-                  <h3>0</h3>
-                </div>
-              </div>
-
-              <div className="sa-status-card">
-                <span className="sa-status-dot partial" />
-                <div>
-                  <p>Partially Paid</p>
-                  <h3>0</h3>
-                </div>
-              </div>
-
-              <div className="sa-status-card">
-                <span className="sa-status-dot overdue" />
-                <div>
-                  <p>Overdue</p>
-                  <h3>0</h3>
+              <div className="sa-promo-right">
+                <div className="sa-promo-icon-badge">
+                  <BarChart3 size={26} />
                 </div>
               </div>
             </div>

@@ -29,6 +29,7 @@ import {
   getQuotations,
   updateQuotationCustomerStatus,
 } from "../services/quotationService";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Customers.css";
 
 const PINNED_STORAGE_KEY = "iq_pinned_daily_customers";
@@ -61,6 +62,13 @@ function formatCurrency(amount) {
 export default function Customers() {
   const { openSidebar } = useOutletContext() || {};
   const navigate = useNavigate();
+
+  const authUser = getAuthenticatedUser();
+  const isSuperAdmin =
+    String(authUser?.role || "").trim().toLowerCase() === "super admin" ||
+    authUser?.role === "super_admin";
+  const userInitials = isSuperAdmin ? "SA" : "A";
+  const userRoleTitle = isSuperAdmin ? "Super Admin" : "Admin";
 
   const [customers, setCustomers] = useState([]);
   const [quotations, setQuotations] = useState([]);
@@ -314,9 +322,9 @@ export default function Customers() {
 
   return (
     <div className="cust-page">
-      {/* Top Header */}
-      <header className="cust-header">
-        <div className="cust-header-left">
+      {/* Top Header Bar */}
+      <header className="cust-topbar">
+        <div className="cust-topbar-left">
           {openSidebar && (
             <button
               type="button"
@@ -328,84 +336,98 @@ export default function Customers() {
             </button>
           )}
 
-          <div>
-            <p className="cust-eyebrow">Customer Relationship &amp; Tracking</p>
+          <div className="cust-breadcrumb-wrap">
+            <span className="cust-breadcrumb">Dashboard / Customers</span>
+            <span className="cust-breadcrumb-dot">•</span>
+            <span className="cust-eyebrow-tag">Customer Relationship &amp; Tracking</span>
+          </div>
+        </div>
+
+        <div className="cust-header-actions">
+          <span className="cust-header-date" title="Today's Date">
+            {new Intl.DateTimeFormat("en-US", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }).format(new Date())}
+          </span>
+
+          <div className="cust-header-profile" title={userRoleTitle}>
+            <span className="cust-profile-avatar" aria-label={`${userRoleTitle} profile`}>
+              {userInitials}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="cust-content">
+        {/* Welcome / Title Row right below topbar */}
+        <div className="cust-welcome-bar">
+          <div className="cust-welcome-text">
             <h1>Customers &amp; Quotation Responses</h1>
             <p className="cust-subtitle">
               Monitor customer responses (Sent, Approved, Rejected) and daily website clients.
             </p>
           </div>
-        </div>
 
-        <div className="cust-header-actions">
           <button
             type="button"
             className="cust-add-btn"
             onClick={() => setShowAddModal(true)}
+            title="Add new customer"
           >
             <UserPlus size={16} />
-            Add Customer
+            <span>Add Customer</span>
           </button>
         </div>
-      </header>
 
-      {/* Summary Stat Cards */}
-      <section className="cust-stats-grid" aria-label="Customer statistics">
-        <div className="cust-stat-card">
-          <div className="cust-stat-icon blue">
-            <Users size={22} />
+        {/* 4 Summary Stat Cards matching Overview Card Size (Customer Sent card removed) */}
+        <section className="cust-stats-grid" aria-label="Customer statistics">
+          <div className="cust-stat-card">
+            <div className="cust-stat-icon blue">
+              <Users size={22} strokeWidth={2} />
+            </div>
+            <div className="cust-stat-info">
+              <p>Total Customers</p>
+              <h3>{stats.totalClients}</h3>
+              <span>Registered client accounts</span>
+            </div>
           </div>
-          <div className="cust-stat-info">
-            <p>Total Customers</p>
-            <h3>{stats.totalClients}</h3>
-            <span>Registered client accounts</span>
-          </div>
-        </div>
 
-        <div className="cust-stat-card">
-          <div className="cust-stat-icon purple">
-            <Globe size={22} />
+          <div className="cust-stat-card">
+            <div className="cust-stat-icon purple">
+              <Globe size={22} strokeWidth={2} />
+            </div>
+            <div className="cust-stat-info">
+              <p>Daily / Web Clients</p>
+              <h3>{stats.dailyClients}</h3>
+              <span>Regular website clients</span>
+            </div>
           </div>
-          <div className="cust-stat-info">
-            <p>Daily / Web Clients</p>
-            <h3>{stats.dailyClients}</h3>
-            <span>Regular website clients</span>
-          </div>
-        </div>
 
-        <div className="cust-stat-card">
-          <div className="cust-stat-icon green">
-            <CheckCircle2 size={22} />
+          <div className="cust-stat-card">
+            <div className="cust-stat-icon green">
+              <CheckCircle2 size={22} strokeWidth={2} />
+            </div>
+            <div className="cust-stat-info">
+              <p>Customer Approved</p>
+              <h3>{stats.totalApprovedQuotes}</h3>
+              <span>{formatCurrency(stats.totalApprovedVal)}</span>
+            </div>
           </div>
-          <div className="cust-stat-info">
-            <p>Customer Approved</p>
-            <h3>{stats.totalApprovedQuotes}</h3>
-            <span>{formatCurrency(stats.totalApprovedVal)}</span>
-          </div>
-        </div>
 
-        <div className="cust-stat-card">
-          <div className="cust-stat-icon amber">
-            <Send size={22} />
+          <div className="cust-stat-card">
+            <div className="cust-stat-icon red">
+              <XCircle size={22} strokeWidth={2} />
+            </div>
+            <div className="cust-stat-info">
+              <p>Customer Rejected</p>
+              <h3>{stats.totalRejectedQuotes}</h3>
+              <span>Quotations declined</span>
+            </div>
           </div>
-          <div className="cust-stat-info">
-            <p>Sent to Customer</p>
-            <h3>{stats.totalSentQuotes}</h3>
-            <span>Pending customer review</span>
-          </div>
-        </div>
-
-        <div className="cust-stat-card">
-          <div className="cust-stat-icon red">
-            <XCircle size={22} />
-          </div>
-          <div className="cust-stat-info">
-            <p>Customer Rejected</p>
-            <h3>{stats.totalRejectedQuotes}</h3>
-            <span>Quotations declined</span>
-          </div>
-        </div>
-      </section>
+        </section>
 
       {/* Main Customers Table Panel */}
       <section className="cust-panel" aria-label="Customer list">
@@ -581,6 +603,7 @@ export default function Customers() {
           </table>
         </div>
       </section>
+      </div>
 
       {/* Customer Details & Quotations History Modal */}
       {selectedCustomer && (

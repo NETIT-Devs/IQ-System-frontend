@@ -6,6 +6,7 @@
   inset: 0;
   z-index: 999;
   background-color: rgba(15, 23, 42, 0.75);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: flex-start;

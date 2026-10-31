@@ -1,4 +1,5 @@
 import "./QuotationTemplate.css";
+import API_BASE_URL from "../services/api";
 
 // Format dates safely without changing the original data.
 const formatDate = (value) => {
@@ -61,17 +62,32 @@ export default function QuotationTemplate({
       subtotal + taxAmount - discount
   );
 
-  const companyLogo =
+  const resolveUrl = (url) => {
+    if (!url || typeof url !== "string") return "";
+    if (
+      url.startsWith("http://") ||
+      url.startsWith("https://") ||
+      url.startsWith("data:")
+    ) {
+      return url;
+    }
+    const clean = url.startsWith("/") ? url : `/${url}`;
+    return `${API_BASE_URL}${clean}`;
+  };
+
+  const companyLogo = resolveUrl(
     company.logo_url ||
     company.logo ||
     company.company_logo ||
-    "";
+    ""
+  );
 
-  const signatureImage =
+  const signatureImage = resolveUrl(
     signature ||
     company.signature_url ||
     company.signature ||
-    "";
+    ""
+  );
 
   return (
     <article className="quotation-document">

@@ -26,7 +26,7 @@ async function handleResponse(response) {
     const errorMsg =
       data?.message ||
       (response.status === 401
-        ? "Session expired. Please log in again."
+        ? "Unauthorized request."
         : response.status === 403
         ? "Access denied. Super Admin privileges required."
         : `Request failed with status ${response.status}`);
@@ -42,7 +42,7 @@ export async function fetchUsers() {
     headers: getHeaders(),
   });
   const data = await handleResponse(response);
-  return data?.users || [];
+  return data?.users || (Array.isArray(data) ? data : []);
 }
 
 export async function createAdminUser({ username, email, password, role = "Admin" }) {

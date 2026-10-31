@@ -53,14 +53,35 @@ function formatDate(date) {
 }
 
 function getQuotationStatusCategory(quotation) {
-  const s = String(quotation?.status || quotation?.approval_status || "").trim().toLowerCase();
-  if (s.includes("pending")) return "pending";
-  if (s.includes("approv") || s.includes("accept")) return "approved";
-  if (s.includes("reject") || s.includes("declin")) return "rejected";
+  const approval = String(quotation?.approval_status || "").trim().toLowerCase();
+  const status = String(quotation?.status || "").trim().toLowerCase();
+  const role = String(quotation?.created_by_role || "").trim().toLowerCase();
+  const isSuperCreator = role.includes("super") || quotation?.created_by === 2;
+
+  // Super Admin finalized quotations are always Approved and never need pending approval!
+  if (isSuperCreator) {
+    if (status === "draft") return "draft";
+    return "approved";
+  }
+
+  // Admin submitted quotations
+  if (approval === "approved" || status.includes("approv") || status.includes("accept")) {
+    return "approved";
+  }
+  if (approval === "rejected" || status.includes("reject") || status.includes("declin")) {
+    return "rejected";
+  }
+  if (status === "draft" && approval !== "pending") {
+    return "draft";
+  }
+  if (approval === "pending" || status.includes("pending") || status === "sent") {
+    return "pending";
+  }
+
   return "draft";
 }
 
-function SummaryCard({ label, value, icon, tone = "blue", active = false, onClick }) {
+function SummaryCard({ label, value, icon, note, tone = "blue", active = false, onClick }) {
   return (
     <article
       className={`approval-summary-card clickable ${active ? "active" : ""}`}
@@ -70,9 +91,10 @@ function SummaryCard({ label, value, icon, tone = "blue", active = false, onClic
       title={`Click to view ${label}`}
     >
       <div className={`approval-summary-icon ${tone}`}>{icon}</div>
-      <div>
+      <div className="approval-summary-info">
         <p>{label}</p>
         <strong>{value}</strong>
+        {note && <span className="approval-card-note">{note}</span>}
       </div>
       {active && <span className="approval-card-indicator" />}
     </article>
@@ -280,7 +302,7 @@ export default function Approvals() {
       {/* Header bar */}
       <div className="approvals-header">
         <div>
-          <p className="approvals-eyebrow">INVOICE &amp; QUOTATION MANAGEMENT</p>
+          <p className="approvals-eyebrow">Administration / Approvals</p>
           <h1>Review &amp; Approvals</h1>
           <p className="approvals-subtitle">
             Authorize or reject admin submissions, verify project scope and pricing before clients receive documents.
@@ -341,17 +363,18 @@ export default function Approvals() {
             onClick={() => setActiveTab("quotations")}
           >
             <div className="approval-tab-icon-box">
-              <FileText size={18} />
+              <FileText size={16} />
             </div>
             <div className="approval-tab-info">
               <div className="approval-tab-label-group">
                 <span className="approval-tab-label">Quotation Approvals</span>
-                <span className={`approval-tab-count ${stats.pending > 0 ? "highlight" : "neutral"}`}>
-                  {stats.pending > 0 && <span className="approval-tab-dot" />}
-                  {stats.pending} {stats.pending === 1 ? "Pending" : "Pending"}
-                </span>
+                {stats.pending > 0 && (
+                  <span className="approval-tab-count highlight">
+                    <span className="approval-tab-dot" />
+                    {stats.pending} Pending
+                  </span>
+                )}
               </div>
-              <span className="approval-tab-sub">Review estimates, pricing &amp; client scope</span>
             </div>
           </button>
 
@@ -363,16 +386,12 @@ export default function Approvals() {
             onClick={() => setActiveTab("invoices")}
           >
             <div className="approval-tab-icon-box">
-              <Receipt size={18} />
+              <Receipt size={16} />
             </div>
             <div className="approval-tab-info">
               <div className="approval-tab-label-group">
                 <span className="approval-tab-label">Invoice Approvals</span>
-                <span className="approval-tab-count neutral">
-                  0 Pending
-                </span>
               </div>
-              <span className="approval-tab-sub">Authorize billing, taxes &amp; payment schedules</span>
             </div>
           </button>
         </div>
@@ -386,7 +405,8 @@ export default function Approvals() {
             <SummaryCard
               label="Pending Approvals"
               value={stats.pending}
-              icon={<Clock3 size={19} />}
+              icon={<Clock3 size={22} />}
+              note="Awaiting decision"
               tone="amber"
               active={statusFilter === "pending"}
               onClick={() => setStatusFilter("pending")}
@@ -394,7 +414,8 @@ export default function Approvals() {
             <SummaryCard
               label="Approved Quotations"
               value={stats.approved}
-              icon={<Check size={19} />}
+              icon={<Check size={22} />}
+              note="Verified &amp; ready"
               tone="green"
               active={statusFilter === "approved"}
               onClick={() => setStatusFilter("approved")}
@@ -402,7 +423,8 @@ export default function Approvals() {
             <SummaryCard
               label="Rejected Quotations"
               value={stats.rejected}
-              icon={<XCircle size={19} />}
+              icon={<XCircle size={22} />}
+              note="Returned with notes"
               tone="red"
               active={statusFilter === "rejected"}
               onClick={() => setStatusFilter("rejected")}
@@ -410,7 +432,8 @@ export default function Approvals() {
             <SummaryCard
               label="Draft Quotations"
               value={stats.drafts}
-              icon={<FileText size={19} />}
+              icon={<FileText size={22} />}
+              note="Unsubmitted drafts"
               tone="blue"
               active={statusFilter === "draft"}
               onClick={() => setStatusFilter("draft")}
@@ -523,8 +546,12 @@ export default function Approvals() {
                       const client =
                         q.customer_name || q.client_name || "Client";
                       const createdBy =
-                        q.created_by_name ||
-                        (q.created_by === 1 ? "Admin" : `User #${q.created_by}`);
+                        q.created_by_role ||
+                        (q.created_by === 2
+                          ? "Super Admin"
+                          : q.created_by === 1
+                          ? "Admin"
+                          : q.created_by_name || `User #${q.created_by || "—"}`);
                       const recordDate = formatDate(
                         q.updated_at || q.created_at || q.quotation_date
                       );

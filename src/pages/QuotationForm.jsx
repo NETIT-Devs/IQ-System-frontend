@@ -27,6 +27,7 @@ import {
   getCompanyDetails,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import "./QuotationForm.css";
 
 // Calculate estimated project completion date using the exact backend algorithm
@@ -134,15 +135,12 @@ export default function QuotationForm({
 
   // Authenticated user role detection
   const authUser = useMemo(() => {
-    try {
-      const raw =
-        localStorage.getItem("authUser") || sessionStorage.getItem("authUser");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
+    return getAuthenticatedUser();
   }, []);
-  const isSuperAdmin = authUser?.role === "Super Admin";
+  const isSuperAdmin = useMemo(() => {
+    const role = String(authUser?.role || "").trim().toLowerCase();
+    return role.includes("super");
+  }, [authUser]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -458,9 +456,27 @@ export default function QuotationForm({
 
   // Prepare full quotation payload
   const buildPayload = (assignedCustomerId, statusToSave) => {
+    const resolvedClientName = formData.client_name ? formData.client_name.trim() : "";
+    const effectiveStatus = isSuperAdmin
+      ? (statusToSave === "Draft" ? "Draft" : "Approved")
+      : (statusToSave || initialData?.status || "Draft");
+    const effectiveApprovalStatus = isSuperAdmin
+      ? (statusToSave === "Draft" ? "Not Required" : "Approved")
+      : (statusToSave === "Pending Approval" || statusToSave === "Pending"
+        ? "Pending"
+        : statusToSave === "Approved"
+        ? "Approved"
+        : statusToSave === "Rejected"
+        ? "Rejected"
+        : statusToSave === "Draft"
+        ? "Not Required"
+        : initialData?.approval_status || "Pending");
+
     return {
       quotation_number: formData.quotation_number.trim(),
       customer_id: assignedCustomerId,
+      customer_name: resolvedClientName,
+      client_name: resolvedClientName,
       quotation_date: formData.quotation_date,
       project_start_date: formData.project_start_date || formData.quotation_date,
       estimated_duration: formData.estimated_duration ? Number(formData.estimated_duration) : null,
@@ -470,7 +486,8 @@ export default function QuotationForm({
       discount_amount: totals.discount,
       notes: formData.notes?.trim() || null,
       terms_and_conditions: formData.terms_and_conditions?.trim() || null,
-      status: statusToSave || initialData?.status || "Draft",
+      status: effectiveStatus,
+      approval_status: effectiveApprovalStatus,
       items: items.map((item) => ({
         item_name: item.item_name.trim(),
         description: item.description?.trim() || null,

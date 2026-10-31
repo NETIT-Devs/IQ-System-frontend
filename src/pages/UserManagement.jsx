@@ -264,19 +264,30 @@ export default function UserManagement() {
     }
   }
 
-  // Handle Delete User
+  // Handle Delete User - moves active account to Inactive Accounts so it appears in the Inactive card
   async function handleConfirmDelete() {
     if (!userToDelete) return;
 
     try {
       setDeleting(true);
-      await deleteUserAccount(userToDelete.user_id);
-      setSuccessMsg(`User account "${userToDelete.full_name}" deleted successfully.`);
+      if (userToDelete.is_active) {
+        // Deactivate account so it remains in the system and is counted in Inactive Accounts
+        await toggleUserAccountStatus(userToDelete.user_id);
+        setSuccessMsg(
+          `User account "${userToDelete.full_name}" has been deleted and moved to Inactive Accounts.`
+        );
+      } else {
+        // If already inactive, permanently purge the record
+        await deleteUserAccount(userToDelete.user_id);
+        setSuccessMsg(
+          `Inactive user account "${userToDelete.full_name}" permanently deleted.`
+        );
+      }
       setUserToDelete(null);
       await loadData();
     } catch (err) {
       console.error("Delete user error:", err);
-      setError(err?.message || "Failed to delete user account.");
+      setError(err?.message || "Failed to process user account deletion.");
     } finally {
       setDeleting(false);
     }
@@ -357,6 +368,7 @@ export default function UserManagement() {
           <div className="um-stat-info">
             <p>Total Users</p>
             <h3>{stats.total}</h3>
+            <span className="um-stat-note">All system accounts</span>
           </div>
         </div>
 
@@ -367,6 +379,7 @@ export default function UserManagement() {
           <div className="um-stat-info">
             <p>Active Admins</p>
             <h3>{stats.activeAdmins}</h3>
+            <span className="um-stat-note">Standard administrators</span>
           </div>
         </div>
 
@@ -377,6 +390,7 @@ export default function UserManagement() {
           <div className="um-stat-info">
             <p>Super Admins</p>
             <h3>{stats.superAdmins}</h3>
+            <span className="um-stat-note">Full access privilege</span>
           </div>
         </div>
 
@@ -387,6 +401,7 @@ export default function UserManagement() {
           <div className="um-stat-info">
             <p>Inactive Accounts</p>
             <h3>{stats.inactive}</h3>
+            <span className="um-stat-note">Deactivated users</span>
           </div>
         </div>
       </section>
@@ -909,9 +924,19 @@ export default function UserManagement() {
 
             <h3 className="um-delete-title">Delete User Account</h3>
             <p className="um-delete-desc">
-              Are you sure you want to permanently delete the account for{" "}
-              <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
-              This action cannot be undone.
+              {userToDelete.is_active ? (
+                <>
+                  Are you sure you want to delete the account for{" "}
+                  <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
+                  This account will be deactivated and moved to Inactive Accounts.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to permanently delete the inactive account for{" "}
+                  <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
+                  This action cannot be undone.
+                </>
+              )}
             </p>
 
             <div className="um-delete-actions">

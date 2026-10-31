@@ -3,8 +3,6 @@
 
 import API_BASE_URL from "./api";
 
-let sessionRedirectStarted = false;
-
 // Retrieve authentication token from localStorage or sessionStorage
 function getAuthToken() {
   return (
@@ -33,25 +31,13 @@ async function handleResponse(response) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    if (response.status === 401) {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("authUser");
-      sessionStorage.removeItem("authToken");
-      sessionStorage.removeItem("authUser");
-
-      if (!sessionRedirectStarted && window.location.pathname !== "/login") {
-        sessionRedirectStarted = true;
-        window.location.replace("/login?session=expired");
-      }
-    }
-
     const errorMessage =
       data?.message ||
       (response.status === 401
-        ? "Session expired. Please log in again."
+        ? "Unauthorized request."
         : response.status === 404
-        ? "Requested resource was not found."
-        : `Request failed with status ${response.status}`);
+          ? "Requested resource was not found."
+          : `Request failed with status ${response.status}`);
     throw new Error(errorMessage);
   }
 
@@ -166,10 +152,8 @@ function resolveMediaUrl(url) {
   ) {
     return url;
   }
-  if (url.startsWith("/uploads/")) {
-    return `${API_BASE_URL}${url}`;
-  }
-  return url;
+  const cleanPath = url.startsWith("/") ? url : `/${url}`;
+  return `${API_BASE_URL}${cleanPath}`;
 }
 
 // Fetch company details and logo for Quotation header and PDF
@@ -379,13 +363,21 @@ export async function updateCompanyTemplateSettings(settingsData) {
 
 // Fetch all services for management modal
 export async function getCatalogServices() {
-  const response = await fetch(`${API_BASE_URL}/api/quotations/services`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quotations/services`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
 
-  const data = await handleResponse(response);
-  return data?.services || [];
+    if (response.ok) {
+      const data = await response.json();
+      return data?.services || [];
+    }
+  } catch (err) {
+    console.warn("Could not load /services, falling back to /item-options:", err);
+  }
+
+  return await getQuotationItemOptions();
 }
 
 // Add a new service option (Super Admin)

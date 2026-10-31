@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
     Mail,
     LockKeyhole,
@@ -20,7 +20,6 @@ import "./login.css";
 
 export default function Login() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
     const { logoUrl, companyName } = useCompanyBranding();
 
     // Store the login form values.
@@ -31,11 +30,7 @@ export default function Login() {
     // Control the password visibility and submission state.
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(() =>
-        searchParams.get("session") === "expired"
-            ? "Your session expired. Please sign in again to continue."
-            : ""
-    );
+    const [error, setError] = useState("");
 
     // Handle form submission and authenticate the user.
     async function handleSubmit(event) {
@@ -77,10 +72,8 @@ export default function Login() {
                 storage.removeItem("authUser");
             }
 
-            const storage = rememberMe ? localStorage : sessionStorage;
-
-            storage.setItem("authToken", data.token);
-            storage.setItem("authUser", JSON.stringify(user));
+            localStorage.setItem("authToken", data.token);
+            localStorage.setItem("authUser", JSON.stringify(user));
 
             // Navigate the user to the dashboard assigned to their role.
             if (role === "super admin") {

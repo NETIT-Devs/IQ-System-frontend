@@ -10,19 +10,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 0;
-  color: #1e293b;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.18s ease;
 }
 
 .notif-bell-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.06);
 }
 
 .notif-badge {
@@ -49,13 +53,14 @@
   top: calc(100% + 8px);
   width: 360px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 0;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   animation: notifFadeIn 0.15s ease-out;
+  overflow: hidden;
 }
 
 @keyframes notifFadeIn {

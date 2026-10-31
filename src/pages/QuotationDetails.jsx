@@ -23,6 +23,29 @@ import { downloadQuotationPdf } from "../utils/pdfGenerator";
 import "./QuotationDetails.css";
 
 // Format date into human-readable representation
+function getDetailsStatus(q) {
+  if (!q) return "Draft";
+  const approval = String(q.approval_status || "").trim().toLowerCase();
+  const status = String(q.status || "").trim().toLowerCase();
+  const role = String(q.created_by_role || "").trim().toLowerCase();
+  const isSuperCreator = role.includes("super") || q.created_by === 2;
+
+  if (isSuperCreator) {
+    return status === "draft" ? "Draft" : "Approved";
+  }
+  if (approval === "pending" || status.includes("pending") || (status === "sent" && approval !== "approved")) {
+    return "Pending Approval";
+  }
+  if (approval === "approved" || ["approved", "accepted"].includes(status)) {
+    return "Approved";
+  }
+  if (approval === "rejected" || ["rejected", "declined"].includes(status)) {
+    return "Rejected";
+  }
+  if (status === "draft") return "Draft";
+  return q.status || "Draft";
+}
+
 function formatDate(dateString) {
   if (!dateString) return "Not specified";
   try {
@@ -254,7 +277,7 @@ export default function QuotationDetails({
             <div className="qd-header-title">
               <h2>{quotation?.quotation_number || "Quotation Details"}</h2>
               <p className="qd-header-subtitle">
-                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)} • System Status: <strong>{quotation?.status || "Draft"}</strong>
+                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)} • System Status: <strong>{getDetailsStatus(quotation)}</strong>
               </p>
             </div>
           </div>

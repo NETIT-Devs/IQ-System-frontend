@@ -184,7 +184,7 @@ export default function AuditLogs() {
             <Menu size={20} />
           </button>
           <div>
-            <p className="audit-eyebrow">SYSTEM GOVERNANCE &amp; AUDIT TRAIL</p>
+            <p className="audit-eyebrow">Administration / Audit Logs</p>
             <h1>System Audit Logs</h1>
             <p className="audit-subtitle">
               Comprehensive chronological audit trail of all quotation workflows, admin actions, and system logins.
@@ -230,6 +230,7 @@ export default function AuditLogs() {
           <div className="audit-stat-info">
             <p>Total Events</p>
             <h3>{stats.total}</h3>
+            <span className="audit-stat-note">All recorded system actions</span>
           </div>
         </div>
 
@@ -240,6 +241,7 @@ export default function AuditLogs() {
           <div className="audit-stat-info">
             <p>Quotation Activities</p>
             <h3>{stats.quotations}</h3>
+            <span className="audit-stat-note">Workflow &amp; proposals</span>
           </div>
         </div>
 
@@ -250,6 +252,7 @@ export default function AuditLogs() {
           <div className="audit-stat-info">
             <p>Admin / User Events</p>
             <h3>{stats.userEvents}</h3>
+            <span className="audit-stat-note">Account &amp; security logs</span>
           </div>
         </div>
 
@@ -260,6 +263,7 @@ export default function AuditLogs() {
           <div className="audit-stat-info">
             <p>User Sign-ins</p>
             <h3>{stats.logins}</h3>
+            <span className="audit-stat-note">Authenticated sessions</span>
           </div>
         </div>
       </section>

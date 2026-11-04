@@ -242,7 +242,7 @@
 
 .quotation-breadcrumb {
   margin: 0;
-  color: #475569;
+  color: #0b1932;
   font-size: 12.5px;
   font-weight: 650;
   letter-spacing: 0.1px;
@@ -282,17 +282,17 @@
 .quotation-date-badge {
   display: inline-flex;
   align-items: center;
-  height: 38px;
-  padding: 0 12px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 9px;
-  background: #f8fafc;
-  color: #475569;
-  font-size: 11.5px;
-  font-weight: 600;
+  height: auto;
+  padding: 0 6px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #0b1932;
+  font-size: 12.5px;
+  font-weight: 500;
   letter-spacing: 0.2px;
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
 }
 
 .quotation-header-profile {
@@ -307,14 +307,14 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10284b 0%, #173e73 100%);
-  border: 1.5px solid #234778;
+  background: #0b1932;
+  border: 1.5px solid #0b1932;
   color: #ffffff;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 800;
   letter-spacing: 0.5px;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(16, 40, 75, 0.2);
+  box-shadow: 0 2px 5px rgba(11, 25, 50, 0.2);
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -343,6 +343,24 @@
 .quotation-notification-button:hover {
   border-color: #cbd5e1;
   background: #f1f5f9;
+}
+
+.quotation-topbar .notif-bell-btn {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #4b5563 !important;
+}
+
+.quotation-topbar .notif-bell-btn svg {
+  fill: currentColor !important;
+}
+
+.quotation-topbar .notif-bell-btn:hover {
+  background: rgba(75, 85, 99, 0.08) !important;
+  border-color: transparent !important;
+  color: #1f2937 !important;
+  box-shadow: none !important;
 }
 
 /* Main content wrapper */
@@ -388,24 +406,24 @@
   gap: 8px;
   min-height: 38px;
   padding: 8px 18px;
-  background: #163b73;
+  background: #0b1932;
   color: #ffffff;
-  border: 1px solid #1b4d91;
+  border: 1px solid #0b1932;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 2px 5px rgba(22, 59, 115, 0.2);
+  box-shadow: 0 2px 5px rgba(11, 25, 50, 0.2);
   transition: all 0.18s ease;
 }
 
 .quotation-create-button:hover {
-  background: #0b2447;
-  border-color: #0b2447;
+  background: #14284b;
+  border-color: #14284b;
   color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(11, 36, 71, 0.3);
+  box-shadow: 0 4px 12px rgba(11, 25, 50, 0.3);
 }
 
 /* Quotation summary cards matching Overview Dashboard card size */
@@ -1613,19 +1631,19 @@
   .mobile-menu-button {
     display: grid;
     flex-shrink: 0;
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     place-items: center;
-    border: 1px solid #e1e7f0;
-    border-radius: 0;
-    background: #fff;
-    color: var(--quote-navy);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #0b1932;
     cursor: pointer;
   }
 
   .quotation-topbar {
-    padding: 16px 20px;
-    gap: 14px;
+    padding: 0 20px;
+    gap: 12px;
   }
 
   .quotation-stats-grid {
@@ -1633,35 +1651,125 @@
   }
 }
 
-/* Tablet and mobile header wrap */
+/* Tablet and mobile header */
 @media (max-width: 768px) {
   .quotation-topbar {
-    position: relative;
-    flex-direction: column;
-    align-items: flex-start;
-    min-height: auto;
-    padding: 16px 18px;
-    gap: 14px;
+    position: sticky;
+    top: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    min-height: 56px;
+    padding: 0 12px;
+    gap: 8px;
   }
 
   .quotation-topbar-left {
-    width: 100%;
-    align-items: flex-start;
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .quotation-breadcrumb-wrap {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .quotation-breadcrumb {
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .quotation-header-actions {
-    width: 100%;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    gap: 9px;
+    width: auto;
+    margin-left: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .quotation-topbar .notif-bell-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .quotation-date-badge {
+    display: inline-flex;
+    font-size: 11px;
+    padding: 0 2px;
+  }
+
+  .quotation-profile-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .quotation-stat-card {
+    min-height: auto;
+    padding: 12px 12px;
+    border-radius: 12px;
+    gap: 10px;
+  }
+
+  .quotation-stat-content p {
+    margin: 0 0 4px;
+  }
+
+  .quotation-stat-content h3 {
+    margin: 0 0 4px;
   }
 }
 
 /* Mobile */
 @media (max-width: 600px) {
   .quotation-topbar {
-    min-height: auto;
-    padding: 14px 14px;
+    height: 56px;
+    min-height: 56px;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .quotation-topbar-left {
+    gap: 6px;
+  }
+
+  .quotation-menu-button,
+  .mobile-menu-button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .quotation-breadcrumb {
+    font-size: 11px;
+  }
+
+  .quotation-header-actions {
+    gap: 5px;
+  }
+
+  .quotation-topbar .notif-bell-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .quotation-date-badge {
+    display: inline-flex;
+    font-size: 10.5px;
+    padding: 0;
+  }
+
+  .quotation-profile-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 10.5px;
   }
 
   .quotation-topbar h1 {
@@ -1670,10 +1778,6 @@
 
   .quotation-subtitle {
     font-size: 10.5px;
-  }
-
-  .quotation-date-badge {
-    display: none;
   }
 
   .quotation-notification-button {
@@ -1697,9 +1801,10 @@
   }
 
   .quotation-stat-card {
-    min-height: 104px;
-    padding: 13px 10px;
-    border-radius: 0;
+    min-height: auto;
+    padding: 11px 10px;
+    border-radius: 12px;
+    gap: 10px;
   }
 
   .quotation-stat-icon {
@@ -1834,7 +1939,44 @@
 /* Narrow mobile screens */
 @media (max-width: 380px) {
   .quotation-topbar {
-    padding: 12px 10px;
+    height: 56px;
+    min-height: 56px;
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .quotation-topbar-left {
+    gap: 5px;
+  }
+
+  .quotation-menu-button,
+  .mobile-menu-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .quotation-breadcrumb {
+    font-size: 10.5px;
+  }
+
+  .quotation-header-actions {
+    gap: 4px;
+  }
+
+  .quotation-topbar .notif-bell-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .quotation-date-badge {
+    font-size: 10px;
+    padding: 0;
+  }
+
+  .quotation-profile-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 10px;
   }
 
   .quotation-topbar h1 {
@@ -1904,4 +2046,139 @@
   background: #e0f2fe;
   color: #0369a1;
   border: 1px solid #bae6fd;
+}
+
+/* ==========================================================================
+   Quotation Delete Confirmation Modal
+   ========================================================================== */
+.quotation-delete-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 28px 24px;
+  box-shadow: 0 20px 45px rgba(8, 22, 43, 0.28), 0 4px 12px rgba(8, 22, 43, 0.12);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  margin: auto;
+  box-sizing: border-box;
+  animation: quotation-modal-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes quotation-modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.quotation-delete-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 2px solid #fecaca;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.quotation-delete-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 750;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.quotation-delete-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.55;
+  padding: 0 8px;
+}
+
+.quotation-delete-desc strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.quotation-delete-error {
+  width: 100%;
+  padding: 9px 13px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+  line-height: 1.4;
+  box-sizing: border-box;
+}
+
+.quotation-delete-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.quotation-delete-btn {
+  flex: 1;
+  min-height: 40px;
+  padding: 9px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.quotation-delete-btn.cancel {
+  background: #f1f5f9;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+}
+
+.quotation-delete-btn.cancel:hover:not(:disabled) {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+.quotation-delete-btn.confirm {
+  background: #dc2626;
+  border: 1.5px solid #dc2626;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+.quotation-delete-btn.confirm:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  box-shadow: 0 4px 10px rgba(185, 28, 28, 0.35);
+  transform: translateY(-1px);
+}
+
+.quotation-delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
 }

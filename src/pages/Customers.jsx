@@ -338,8 +338,6 @@ export default function Customers() {
 
           <div className="cust-breadcrumb-wrap">
             <span className="cust-breadcrumb">Dashboard / Customers</span>
-            <span className="cust-breadcrumb-dot">•</span>
-            <span className="cust-eyebrow-tag">Customer Relationship &amp; Tracking</span>
           </div>
         </div>
 

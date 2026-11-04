@@ -299,6 +299,7 @@ function EmptyState({ icon: Icon, title, description }) {
   );
 }
 
+
 // Main Super Admin Dashboard component.
 export default function SuperAdminDashboard() {
   const { openSidebar } = useOutletContext();
@@ -307,16 +308,23 @@ export default function SuperAdminDashboard() {
   const [quotations, setQuotations] = useState([]);
   const [customerCount, setCustomerCount] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setIsSearchOpen(false);
+        setMobileSearchOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   const matchingDashboardItems = useMemo(() => {
@@ -347,6 +355,7 @@ export default function SuperAdminDashboard() {
       navigate(matchingDashboardItems[0].path);
       setSearch("");
       setIsSearchOpen(false);
+      setMobileSearchOpen(false);
     }
   }
 
@@ -381,6 +390,58 @@ export default function SuperAdminDashboard() {
   const pendingApprovalsCount = quotations.filter(
     (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
   ).length;
+
+  
+  const quotationDistribution = useMemo(() => {
+    const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
+    const list = Array.isArray(quotations) ? quotations : [];
+
+    list.forEach((q) => {
+      const approval = String(q.approval_status || "").trim().toLowerCase();
+      const rawStatus = String(q.status || "").trim().toLowerCase();
+      const custStatus = String(q.customer_status || "").trim().toLowerCase();
+      const role = String(q.created_by_role || "").trim().toLowerCase();
+      const isSuperCreator = role === "super_admin" || role === "super admin";
+
+      if (
+        approval === "rejected" ||
+        rawStatus === "rejected" ||
+        rawStatus === "declined" ||
+        custStatus === "customer rejected"
+      ) {
+        counts.rejected += 1;
+      } else if (rawStatus === "draft") {
+        counts.draft += 1;
+      } else if (
+        approval === "pending" ||
+        rawStatus.includes("pending") ||
+        rawStatus === "sent"
+      ) {
+        counts.pending += 1;
+      } else if (
+        approval === "approved" ||
+        rawStatus === "approved" ||
+        rawStatus === "accepted" ||
+        custStatus === "customer accepted" ||
+        isSuperCreator
+      ) {
+        counts.approved += 1;
+      } else {
+        counts.draft += 1;
+      }
+    });
+
+    const total = list.length;
+    const pct = (val) => (total > 0 ? Math.round((val / total) * 100) : 0);
+
+    return {
+      total,
+      draft: { count: counts.draft, pct: pct(counts.draft) },
+      pending: { count: counts.pending, pct: pct(counts.pending) },
+      approved: { count: counts.approved, pct: pct(counts.approved) },
+      rejected: { count: counts.rejected, pct: pct(counts.rejected) },
+    };
+  }, [quotations]);
 
   const dynamicStats = [
     {
@@ -426,23 +487,47 @@ export default function SuperAdminDashboard() {
           >
             <Menu size={20} />
           </button>
-          <p className="sa-breadcrumb">Dashboard / Overview</p>
+          <p className="sa-breadcrumb">
+            <span className="sa-breadcrumb-full">Dashboard / Overview</span>
+            <span className="sa-breadcrumb-short">Overview</span>
+          </p>
         </div>
 
         <div className="sa-header-actions">
           {/* Search bar */}
-          <div className="sa-search-container" ref={searchRef}>
-            <form className="sa-search-box" onSubmit={handleSearchSubmit}>
+          <div
+            className={`sa-search-container ${mobileSearchOpen ? "mobile-open" : ""}`}
+            ref={searchRef}
+          >
+            <form
+              className="sa-search-box"
+              onSubmit={handleSearchSubmit}
+              onClick={() => {
+                if (!mobileSearchOpen) {
+                  setMobileSearchOpen(true);
+                  setTimeout(() => searchInputRef.current?.focus(), 50);
+                }
+              }}
+            >
               <button
-                type="submit"
+                type="button"
                 className="sa-search-btn"
                 title="Search dashboard"
                 aria-label="Search dashboard"
-                onClick={handleSearchSubmit}
+                onClick={(e) => {
+                  if (!mobileSearchOpen) {
+                    e.preventDefault();
+                    setMobileSearchOpen(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 50);
+                    return;
+                  }
+                  handleSearchSubmit(e);
+                }}
               >
                 <Search size={16} />
               </button>
               <input
+                ref={searchInputRef}
                 type="search"
                 value={search}
                 onChange={(event) => {
@@ -450,25 +535,33 @@ export default function SuperAdminDashboard() {
                   setIsSearchOpen(true);
                 }}
                 onFocus={() => {
+                  setMobileSearchOpen(true);
                   if (search.trim()) setIsSearchOpen(true);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     handleSearchSubmit(e);
                   }
+                  if (e.key === "Escape") {
+                    setIsSearchOpen(false);
+                    setMobileSearchOpen(false);
+                  }
                 }}
                 placeholder="Search dashboard..."
                 aria-label="Search dashboard"
               />
-              {search && (
+              {(Boolean(search) || mobileSearchOpen) && (
                 <button
                   type="button"
                   className="sa-clear-search"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setSearch("");
                     setIsSearchOpen(false);
+                    setMobileSearchOpen(false);
                   }}
-                  aria-label="Clear search"
+                  aria-label="Close search"
+                  title="Close search"
                 >
                   <X size={14} />
                 </button>
@@ -491,6 +584,7 @@ export default function SuperAdminDashboard() {
                           navigateTo(item.path);
                           setSearch("");
                           setIsSearchOpen(false);
+                          setMobileSearchOpen(false);
                         }}
                       >
                         <div className="sa-search-result-icon">
@@ -519,12 +613,20 @@ export default function SuperAdminDashboard() {
 
           {/* Date badge */}
           <span className="sa-header-date" title="Today's Date">
-            {new Intl.DateTimeFormat("en-US", {
-              weekday: "short",
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            }).format(new Date())}
+            <span className="sa-date-full">
+              {new Intl.DateTimeFormat("en-US", {
+                weekday: "short",
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }).format(new Date())}
+            </span>
+            <span className="sa-date-short">
+              {new Intl.DateTimeFormat("en-US", {
+                month: "short",
+                day: "numeric",
+              }).format(new Date())}
+            </span>
           </span>
 
           {/* Profile circle icon for Super Admin */}
@@ -538,7 +640,9 @@ export default function SuperAdminDashboard() {
         {/* Welcome bar: Title on left, Review Approvals button on right */}
         <div className="sa-welcome-bar">
           <div className="sa-welcome-text">
-            <h1>Welcome to Super Admin Dashboard</h1>
+            <h1>
+              Welcome to Super Admin Dashboard <span className="sa-wave-hand" role="img" aria-label="wave">👋</span>
+            </h1>
             <p className="sa-subtitle">
               Monitor your business operations and financial performance.
             </p>
@@ -734,29 +838,121 @@ export default function SuperAdminDashboard() {
               </div>
             </div>
 
-            <div className="sa-panel">
+            <div className="sa-panel sa-quotation-performance-panel">
               <div className="sa-panel-heading">
                 <div>
-                  <h2>Recent Activity</h2>
-                  <p>Latest system events</p>
+                  <h2>Quotation Performance</h2>
+                  <p>Quotation status distribution</p>
                 </div>
 
                 <button
                   type="button"
                   className="sa-text-button"
-                  onClick={() => navigateTo("/super-admin/audit-logs")}
-                  style={{ cursor: "default", opacity: 0.7 }}
-                  title="Not available yet"
+                  onClick={() => navigateTo("/quotations")}
+                  title="View Quotations"
                 >
-                  View Logs <ChevronRight size={15} />
+                  View Quotations <ChevronRight size={15} />
                 </button>
               </div>
 
-              <EmptyState
-                icon={Activity}
-                title="No recent activity"
-                description="System activity will appear here when audit logs are connected."
-              />
+              <div className="sa-qp-content">
+                {/* Segmented Distribution Bar */}
+                <div className="sa-qp-bar-container">
+                  <div className="sa-qp-bar-header">
+                    <span className="sa-qp-bar-title">Overall Distribution</span>
+                    <span className="sa-qp-bar-total">
+                      Total: <strong>{quotationDistribution.total}</strong>
+                    </span>
+                  </div>
+                  <div className="sa-qp-progress-bar">
+                    {quotationDistribution.total === 0 ? (
+                      <div className="sa-qp-segment empty" style={{ width: "100%" }} />
+                    ) : (
+                      <>
+                        {quotationDistribution.approved.pct > 0 && (
+                          <div
+                            className="sa-qp-segment approved"
+                            style={{ width: `${quotationDistribution.approved.pct}%` }}
+                            title={`Approved: ${quotationDistribution.approved.count} (${quotationDistribution.approved.pct}%)`}
+                          />
+                        )}
+                        {quotationDistribution.pending.pct > 0 && (
+                          <div
+                            className="sa-qp-segment pending"
+                            style={{ width: `${quotationDistribution.pending.pct}%` }}
+                            title={`Pending: ${quotationDistribution.pending.count} (${quotationDistribution.pending.pct}%)`}
+                          />
+                        )}
+                        {quotationDistribution.draft.pct > 0 && (
+                          <div
+                            className="sa-qp-segment draft"
+                            style={{ width: `${quotationDistribution.draft.pct}%` }}
+                            title={`Draft: ${quotationDistribution.draft.count} (${quotationDistribution.draft.pct}%)`}
+                          />
+                        )}
+                        {quotationDistribution.rejected.pct > 0 && (
+                          <div
+                            className="sa-qp-segment rejected"
+                            style={{ width: `${quotationDistribution.rejected.pct}%` }}
+                            title={`Rejected: ${quotationDistribution.rejected.count} (${quotationDistribution.rejected.pct}%)`}
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Grid Cards */}
+                <div className="sa-qp-grid">
+                  <div className="sa-qp-card draft">
+                    <div className="sa-qp-card-header">
+                      <span className="sa-qp-dot draft" />
+                      <span className="sa-qp-label">Draft</span>
+                      <span className="sa-qp-pct">{quotationDistribution.draft.pct}%</span>
+                    </div>
+                    <div className="sa-qp-card-body">
+                      <h3>{quotationDistribution.draft.count}</h3>
+                      <p>Not yet submitted</p>
+                    </div>
+                  </div>
+
+                  <div className="sa-qp-card pending">
+                    <div className="sa-qp-card-header">
+                      <span className="sa-qp-dot pending" />
+                      <span className="sa-qp-label">Pending</span>
+                      <span className="sa-qp-pct">{quotationDistribution.pending.pct}%</span>
+                    </div>
+                    <div className="sa-qp-card-body">
+                      <h3>{quotationDistribution.pending.count}</h3>
+                      <p>Awaiting review</p>
+                    </div>
+                  </div>
+
+                  <div className="sa-qp-card approved">
+                    <div className="sa-qp-card-header">
+                      <span className="sa-qp-dot approved" />
+                      <span className="sa-qp-label">Approved</span>
+                      <span className="sa-qp-pct">{quotationDistribution.approved.pct}%</span>
+                    </div>
+                    <div className="sa-qp-card-body">
+                      <h3>{quotationDistribution.approved.count}</h3>
+                      <p>Ready / Accepted</p>
+                    </div>
+                  </div>
+
+                  <div className="sa-qp-card rejected">
+                    <div className="sa-qp-card-header">
+                      <span className="sa-qp-dot rejected" />
+                      <span className="sa-qp-label">Rejected</span>
+                      <span className="sa-qp-pct">{quotationDistribution.rejected.pct}%</span>
+                    </div>
+                    <div className="sa-qp-card-body">
+                      <h3>{quotationDistribution.rejected.count}</h3>
+                      <p>Declined / Rework</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 

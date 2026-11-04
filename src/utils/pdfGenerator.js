@@ -146,11 +146,16 @@ function containImage(doc, imageData, x, y, maxWidth, maxHeight) {
 function itemValues(item, index, currency) {
   const price = numericValue(item.unit_price ?? item.Price ?? item.price);
   const taxRate = numericValue(item.tax_rate ?? item.taxRate);
+  const lineTax = (price * taxRate) / 100;
   const lineTotal =
-    item.line_total ?? item.total ?? price * (1 + taxRate / 100);
+    item.line_total != null &&
+      Number(item.line_total) > 0 &&
+      Math.abs(Number(item.line_total) - (price + lineTax)) < 0.01
+      ? numericValue(item.line_total)
+      : price + lineTax;
   const details = [
     valueOrEmpty(item.item_name || item.service_name || item.name) ||
-      `Service ${index + 1}`,
+    `Service ${index + 1}`,
     item.technology ? `Technology: ${item.technology}` : "",
     item.website_type ? `Type: ${item.website_type}` : "",
     item.hosting_domain ? `Hosting & Domain: ${item.hosting_domain}` : "",
@@ -167,7 +172,7 @@ function itemValues(item, index, currency) {
   ];
 }
 
-// Add wrapped section with clean white background (no box)
+// Add wrapped section 
 function addWrappedSection(doc, title, content, y, margin, pageBottom, maxWidth) {
   if (!content) return y;
 
@@ -211,13 +216,13 @@ function drawCustomTemplateSections(doc, customSections, startY, margin, content
     ? customSections
     : typeof customSections === "string"
       ? (() => {
-          try {
-            const p = JSON.parse(customSections);
-            return Array.isArray(p) ? p : [];
-          } catch {
-            return [];
-          }
-        })()
+        try {
+          const p = JSON.parse(customSections);
+          return Array.isArray(p) ? p : [];
+        } catch {
+          return [];
+        }
+      })()
       : [];
 
   sections.forEach((section) => {
@@ -294,13 +299,12 @@ function drawFooter(doc, quotationNumber) {
 }
 
 /**
- * Generate and download a valid A4 quotation PDF from application data.
+ * Internal helper to generate a valid A4 jsPDF quotation document.
  */
-export async function downloadQuotationPdf(
+export async function createQuotationPdfDoc(
   quotation,
   company = {},
-  customer = {},
-  filename = "Quotation.pdf"
+  customer = {}
 ) {
   if (!quotation || typeof quotation !== "object") {
     throw new Error("Quotation data is required to generate the PDF.");
@@ -474,32 +478,32 @@ export async function downloadQuotationPdf(
       "Address",
       valueOrEmpty(
         customer.address ||
-          customer.customer_address ||
-          quotation.customer_address ||
-          quotation.customer?.address ||
-          quotation.client?.address
+        customer.customer_address ||
+        quotation.customer_address ||
+        quotation.customer?.address ||
+        quotation.client?.address
       ),
     ],
     [
       "Email",
       valueOrEmpty(
         customer.email ||
-          customer.customer_email ||
-          quotation.customer_email ||
-          quotation.email ||
-          quotation.customer?.email ||
-          quotation.client?.email
+        customer.customer_email ||
+        quotation.customer_email ||
+        quotation.email ||
+        quotation.customer?.email ||
+        quotation.client?.email
       ),
     ],
     [
       "Phone",
       valueOrEmpty(
         customer.phone ||
-          customer.customer_phone ||
-          quotation.customer_phone ||
-          quotation.phone ||
-          quotation.customer?.phone ||
-          quotation.client?.phone
+        customer.customer_phone ||
+        quotation.customer_phone ||
+        quotation.phone ||
+        quotation.customer?.phone ||
+        quotation.client?.phone
       ),
     ],
   ].filter(([, value]) => value);
@@ -509,8 +513,7 @@ export async function downloadQuotationPdf(
     [
       "Duration",
       quotation.estimated_duration || quotation.project_duration
-        ? `${quotation.estimated_duration || quotation.project_duration} ${
-            quotation.duration_unit || quotation.project_duration_unit || ""
+        ? `${quotation.estimated_duration || quotation.project_duration} ${quotation.duration_unit || quotation.project_duration_unit || ""
           }`.trim()
         : "Not specified",
     ],
@@ -658,32 +661,59 @@ export async function downloadQuotationPdf(
   y = doc.lastAutoTable.finalY + 10;
 
   // 6. FINANCIAL SUMMARY & BANK PAYMENT DETAILS
+  let calcSubtotal = 0;
+  let calcTaxAmount = 0;
+
+  items.forEach((item) => {
+    const price = numericValue(item.unit_price ?? item.Price ?? item.price);
+    const rate = numericValue(item.tax_rate ?? item.taxRate);
+    calcSubtotal += price;
+    calcTaxAmount += (price * rate) / 100;
+  });
+
   const subtotal =
-    quotation.subtotal ??
-    items.reduce(
-      (total, item) =>
-        total + numericValue(item.unit_price ?? item.Price ?? item.price),
-      0
-    );
+    quotation.subtotal !== undefined &&
+      quotation.subtotal !== null &&
+      Number(quotation.subtotal) > 0
+      ? numericValue(quotation.subtotal)
+      : calcSubtotal;
+
   const taxAmount =
-    quotation.tax_amount ??
-    quotation.taxAmount ??
-    items.reduce((total, item) => {
-      const price = numericValue(item.unit_price ?? item.Price ?? item.price);
-      const rate = numericValue(item.tax_rate ?? item.taxRate);
-      return total + (price * rate) / 100;
-    }, 0);
-  const discount = quotation.discount_amount ?? quotation.discount ?? 0;
-  const grandTotal =
-    quotation.grand_total ??
-    quotation.grandTotal ??
-    quotation.total_amount ??
-    numericValue(subtotal) + numericValue(taxAmount) - numericValue(discount);
+    quotation.tax_amount !== undefined &&
+      quotation.tax_amount !== null &&
+      Number(quotation.tax_amount) > 0
+      ? numericValue(quotation.tax_amount)
+      : quotation.taxAmount !== undefined &&
+        quotation.taxAmount !== null &&
+        Number(quotation.taxAmount) > 0
+        ? numericValue(quotation.taxAmount)
+        : calcTaxAmount;
+
+  const discount = numericValue(
+    quotation.discount_amount ?? quotation.discount ?? 0
+  );
+
+  const numSubtotal = numericValue(subtotal);
+  const numTax = numericValue(taxAmount);
+  const numDiscount = numericValue(discount);
+
+  // Total balance calculates from Subtotal + Tax - Discount
+  const grandTotal = Math.max(0, numSubtotal + numTax - numDiscount);
 
   const summaryRows = [
-    ["Subtotal", formatMoney(subtotal, currency)],
-    ["Tax", formatMoney(taxAmount, currency)],
-    ["Discount", `- ${formatMoney(discount, currency)}`],
+    ["Subtotal", formatMoney(numSubtotal, currency)],
+    [
+      "Tax Amount (+)",
+      numTax > 0
+        ? `+ ${formatMoney(numTax, currency)}`
+        : formatMoney(0, currency),
+    ],
+    [
+      "Discount (-)",
+      numDiscount > 0
+        ? `- ${formatMoney(numDiscount, currency)}`
+        : formatMoney(0, currency),
+    ],
   ];
 
   const summaryWidth = 82;
@@ -772,16 +802,19 @@ export async function downloadQuotationPdf(
     y += 5.8;
   });
 
-  // GRAND TOTAL Card
+  // GRAND TOTAL / TOTAL BALANCE Card
   doc.setFillColor(...COLORS.navy);
   doc.roundedRect(summaryX, y, summaryWidth, 13, 1.5, 1.5, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
+  doc.setFontSize(8.2);
   doc.setTextColor(191, 219, 254);
-  doc.text("GRAND TOTAL", summaryX + 4.5, y + 5.2);
+  doc.text("TOTAL BALANCE", summaryX + 4.5, y + 5.2);
+  doc.setFontSize(6.5);
+  doc.setTextColor(147, 197, 253);
+  doc.text("(Grand Total)", summaryX + 4.5, y + 9.2);
   doc.setFontSize(11);
   doc.setTextColor(...COLORS.white);
-  doc.text(formatMoney(grandTotal, currency), pageWidth - PAGE_MARGIN - 4.5, y + 5.2, {
+  doc.text(formatMoney(grandTotal, currency), pageWidth - PAGE_MARGIN - 4.5, y + 6.8, {
     align: "right",
   });
   const summaryEndY = y + 13;
@@ -964,9 +997,22 @@ export async function downloadQuotationPdf(
   drawFooter(
     doc,
     valueOrEmpty(quotation.quotation_number || quotation.quotationNumber) ||
-      "Not specified"
+    "Not specified"
   );
 
+  return doc;
+}
+
+/**
+ * Generate and download a valid A4 quotation PDF from application data.
+ */
+export async function downloadQuotationPdf(
+  quotation,
+  company = {},
+  customer = {},
+  filename = "Quotation.pdf"
+) {
+  const doc = await createQuotationPdfDoc(quotation, company, customer);
   const safeFilename = String(filename || "Quotation.pdf")
     .trim()
     .replace(/[<>:"/\\|?*]/g, "_");
@@ -974,4 +1020,17 @@ export async function downloadQuotationPdf(
     ? safeFilename
     : `${safeFilename}.pdf`;
   doc.save(pdfFilename);
+}
+
+/**
+ * Generate and return an object URL for viewing the quotation PDF.
+ */
+export async function openQuotationPdf(
+  quotation,
+  company = {},
+  customer = {}
+) {
+  const doc = await createQuotationPdfDoc(quotation, company, customer);
+  const blob = doc.output("blob");
+  return URL.createObjectURL(blob);
 }

@@ -710,6 +710,8 @@ export default function QuotationForm({
       discount_amount: totals.discount,
       tax_amount: totals.taxAmount,
       total_amount: totals.total,
+      grand_total: totals.total,
+      total_balance: totals.total,
       notes: formData.notes,
       terms_and_conditions: formData.terms_and_conditions,
       status: initialData?.status || "Draft",

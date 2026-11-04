@@ -116,6 +116,27 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-LK").format(Number(value) || 0);
 }
 
+function toLocalDateStr(value) {
+  if (!value) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+  const date = str.includes("T") ? new Date(str) : new Date(`${str.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return str.slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function resolveQuotationDate(q) {
+  const qDate = toLocalDateStr(q?.quotation_date);
+  const cDate = toLocalDateStr(q?.created_at || q?.createdAt);
+  if (qDate && cDate && qDate < cDate) {
+    return cDate;
+  }
+  return qDate || cDate || "";
+}
+
 function formatDate(value) {
   if (!value) return "—";
   try {
@@ -468,7 +489,7 @@ export default function Reports() {
       // Filter quotations client-side if query dates apply
       if (startDate || endDate) {
         finalQuotations = finalQuotations.filter((q) => {
-          const rawDate = String(q.quotation_date || q.created_at || "").slice(0, 10);
+          const rawDate = resolveQuotationDate(q);
           if (!rawDate) return true;
           if (startDate && rawDate < startDate) return false;
           if (endDate && rawDate > endDate) return false;
@@ -640,7 +661,7 @@ export default function Reports() {
       console.error("Reports loading error:", err);
       setError(
         err.message ||
-          "Unable to load reports. Please check your backend connection."
+        "Unable to load reports. Please check your backend connection."
       );
     } finally {
       setLoading(false);
@@ -678,21 +699,21 @@ export default function Reports() {
     const isQuotation = reportType === "quotations";
     const headers = isQuotation
       ? [
-          "Quotation ID",
-          "Quotation Number",
-          "Customer",
-          "Date",
-          "Total Amount",
-          "Status",
-        ]
+        "Quotation ID",
+        "Quotation Number",
+        "Customer",
+        "Date",
+        "Total Amount",
+        "Status",
+      ]
       : [
-          "Invoice ID",
-          "Invoice Number",
-          "Customer",
-          "Date",
-          "Total Amount",
-          "Payment Status",
-        ];
+        "Invoice ID",
+        "Invoice Number",
+        "Customer",
+        "Date",
+        "Total Amount",
+        "Payment Status",
+      ];
 
     const csvRows = [
       headers,
@@ -827,359 +848,359 @@ export default function Reports() {
           </button>
         </div>
 
-      {/* Filter panel */}
-      <section className="reports-filter-panel" aria-label="Report filters">
-        <div className="report-filter-field">
-          <label htmlFor="report-type">Report type</label>
-          <select
-            id="report-type"
-            value={reportType}
-            onChange={(event) => setReportType(event.target.value)}
-          >
-            <option value="quotations">Quotation Report</option>
-            <option value="invoices">Invoice Report</option>
-          </select>
-        </div>
-
-        <div className="report-filter-field">
-          <label htmlFor="report-start-date">Start date</label>
-          <div className="report-date-input">
-            <CalendarDays size={17} />
-            <input
-              id="report-start-date"
-              type="date"
-              value={startDate}
-              max={endDate || undefined}
-              onChange={(event) => setStartDate(event.target.value)}
-            />
+        {/* Filter panel */}
+        <section className="reports-filter-panel" aria-label="Report filters">
+          <div className="report-filter-field">
+            <label htmlFor="report-type">Report type</label>
+            <select
+              id="report-type"
+              value={reportType}
+              onChange={(event) => setReportType(event.target.value)}
+            >
+              <option value="quotations">Quotation Report</option>
+              <option value="invoices">Invoice Report</option>
+            </select>
           </div>
-        </div>
 
-        <div className="report-filter-field">
-          <label htmlFor="report-end-date">End date</label>
-          <div className="report-date-input">
-            <CalendarDays size={17} />
-            <input
-              id="report-end-date"
-              type="date"
-              value={endDate}
-              min={startDate || undefined}
-              onChange={(event) => setEndDate(event.target.value)}
-            />
+          <div className="report-filter-field">
+            <label htmlFor="report-start-date">Start date</label>
+            <div className="report-date-input">
+              <CalendarDays size={17} />
+              <input
+                id="report-start-date"
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={(event) => setStartDate(event.target.value)}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="report-filter-actions">
-          <button
-            className="report-apply-button"
-            type="button"
-            onClick={fetchReports}
-            disabled={loading}
-          >
-            Apply Filters
-          </button>
-
-          <button
-            className="report-clear-button"
-            type="button"
-            onClick={clearFilters}
-          >
-            Clear
-          </button>
-        </div>
-      </section>
-
-      {/* Fatal connection error notice */}
-      {error && (
-        <div className="reports-error-message" role="alert">
-          <AlertCircle size={20} />
-          <div>
-            <strong>Could not load reports</strong>
-            <p>{error}</p>
-            <span>
-              Check that the backend server is running and accessible at {API_BASE_URL}.
-            </span>
+          <div className="report-filter-field">
+            <label htmlFor="report-end-date">End date</label>
+            <div className="report-date-input">
+              <CalendarDays size={17} />
+              <input
+                id="report-end-date"
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={(event) => setEndDate(event.target.value)}
+              />
+            </div>
           </div>
-          <button type="button" onClick={fetchReports} aria-label="Retry">
-            <RefreshCw size={17} />
-          </button>
-        </div>
-      )}
 
-      {loading ? (
-        <div className="reports-loading" role="status">
-          <LoaderCircle size={30} className="reports-spin" />
-          <p>Loading reports and computing analytics...</p>
-        </div>
-      ) : (
-        <>
-          {/* Summary Metric Cards */}
-          <section className="reports-summary-grid" aria-label="Report summary">
-            {reportType === "quotations" ? (
-              <>
-                <SummaryCard
-                  title="Total Quotations"
-                  value={summary.totalQuotations}
-                  description="All recorded quotations"
-                  icon={FileText}
-                  tone="metric-purple"
-                />
-                <SummaryCard
-                  title="Approved Quotations"
-                  value={summary.approvedQuotations}
-                  description="Client accepted / approved"
-                  icon={CheckCircle2}
-                  tone="metric-green"
-                />
-                <SummaryCard
-                  title="Pending Quotations"
-                  value={summary.pendingQuotations}
-                  description="Awaiting approval / sent"
-                  icon={Wallet}
-                  tone="metric-orange"
-                />
-                <SummaryCard
-                  title="Draft Quotations"
-                  value={summary.draftQuotations}
-                  description="Draft quotations"
-                  icon={Receipt}
-                  tone="metric-blue"
-                />
-                <SummaryCard
-                  title="Total Pipeline Value"
-                  value={summary.totalQuotationValue}
-                  description="Gross value of all quotations"
-                  icon={TrendingUp}
-                  tone="metric-navy"
-                  money
-                />
-                <SummaryCard
-                  title="Approved Value"
-                  value={summary.approvedQuotationValue}
-                  description="Accepted business revenue"
-                  icon={TrendingUp}
-                  tone="metric-green"
-                  money
-                />
-              </>
-            ) : (
-              <>
-                <SummaryCard
-                  title="Total Invoices"
-                  value={summary.totalInvoices}
-                  description="All recorded invoices"
-                  icon={Receipt}
-                  tone="metric-blue"
-                />
-                <SummaryCard
-                  title="Paid Invoices"
-                  value={summary.paidInvoices}
-                  description="Fully paid invoices"
-                  icon={CheckCircle2}
-                  tone="metric-green"
-                />
-                <SummaryCard
-                  title="Unpaid Invoices"
-                  value={summary.unpaidInvoices}
-                  description="Awaiting payment"
-                  icon={Wallet}
-                  tone="metric-orange"
-                />
-                <SummaryCard
-                  title="Overdue Invoices"
-                  value={summary.overdueInvoices}
-                  description="Past their due date"
-                  icon={XCircle}
-                  tone="metric-red"
-                />
-                <SummaryCard
-                  title="Total Invoiced Value"
-                  value={summary.totalInvoiceValue || 0}
-                  description="Gross value of invoices"
-                  icon={TrendingUp}
-                  tone="metric-purple"
-                  money
-                />
-                <SummaryCard
-                  title="Outstanding Amount"
-                  value={summary.outstandingAmount}
-                  description="Amount still outstanding"
-                  icon={TrendingUp}
-                  tone="metric-navy"
-                  money
-                />
-              </>
-            )}
-          </section>
+          <div className="report-filter-actions">
+            <button
+              className="report-apply-button"
+              type="button"
+              onClick={fetchReports}
+              disabled={loading}
+            >
+              Apply Filters
+            </button>
 
-          {/* Charts section */}
-          <section className="reports-charts-grid">
-            <article className="reports-panel">
-              <div className="reports-panel-heading">
-                <div className="reports-panel-icon">
-                  <Activity size={19} />
+            <button
+              className="report-clear-button"
+              type="button"
+              onClick={clearFilters}
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
+        {/* Fatal connection error notice */}
+        {error && (
+          <div className="reports-error-message" role="alert">
+            <AlertCircle size={20} />
+            <div>
+              <strong>Could not load reports</strong>
+              <p>{error}</p>
+              <span>
+                Check that the backend server is running and accessible at {API_BASE_URL}.
+              </span>
+            </div>
+            <button type="button" onClick={fetchReports} aria-label="Retry">
+              <RefreshCw size={17} />
+            </button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="reports-loading" role="status">
+            <LoaderCircle size={30} className="reports-spin" />
+            <p>Loading reports and computing analytics...</p>
+          </div>
+        ) : (
+          <>
+            {/* Summary Metric Cards */}
+            <section className="reports-summary-grid" aria-label="Report summary">
+              {reportType === "quotations" ? (
+                <>
+                  <SummaryCard
+                    title="Total Quotations"
+                    value={summary.totalQuotations}
+                    description="All recorded quotations"
+                    icon={FileText}
+                    tone="metric-purple"
+                  />
+                  <SummaryCard
+                    title="Approved Quotations"
+                    value={summary.approvedQuotations}
+                    description="Client accepted / approved"
+                    icon={CheckCircle2}
+                    tone="metric-green"
+                  />
+                  <SummaryCard
+                    title="Pending Quotations"
+                    value={summary.pendingQuotations}
+                    description="Awaiting approval / sent"
+                    icon={Wallet}
+                    tone="metric-orange"
+                  />
+                  <SummaryCard
+                    title="Draft Quotations"
+                    value={summary.draftQuotations}
+                    description="Draft quotations"
+                    icon={Receipt}
+                    tone="metric-blue"
+                  />
+                  <SummaryCard
+                    title="Total Pipeline Value"
+                    value={summary.totalQuotationValue}
+                    description="Gross value of all quotations"
+                    icon={TrendingUp}
+                    tone="metric-navy"
+                    money
+                  />
+                  <SummaryCard
+                    title="Approved Value"
+                    value={summary.approvedQuotationValue}
+                    description="Accepted business revenue"
+                    icon={TrendingUp}
+                    tone="metric-green"
+                    money
+                  />
+                </>
+              ) : (
+                <>
+                  <SummaryCard
+                    title="Total Invoices"
+                    value={summary.totalInvoices}
+                    description="All recorded invoices"
+                    icon={Receipt}
+                    tone="metric-blue"
+                  />
+                  <SummaryCard
+                    title="Paid Invoices"
+                    value={summary.paidInvoices}
+                    description="Fully paid invoices"
+                    icon={CheckCircle2}
+                    tone="metric-green"
+                  />
+                  <SummaryCard
+                    title="Unpaid Invoices"
+                    value={summary.unpaidInvoices}
+                    description="Awaiting payment"
+                    icon={Wallet}
+                    tone="metric-orange"
+                  />
+                  <SummaryCard
+                    title="Overdue Invoices"
+                    value={summary.overdueInvoices}
+                    description="Past their due date"
+                    icon={XCircle}
+                    tone="metric-red"
+                  />
+                  <SummaryCard
+                    title="Total Invoiced Value"
+                    value={summary.totalInvoiceValue || 0}
+                    description="Gross value of invoices"
+                    icon={TrendingUp}
+                    tone="metric-purple"
+                    money
+                  />
+                  <SummaryCard
+                    title="Outstanding Amount"
+                    value={summary.outstandingAmount}
+                    description="Amount still outstanding"
+                    icon={TrendingUp}
+                    tone="metric-navy"
+                    money
+                  />
+                </>
+              )}
+            </section>
+
+            {/* Charts section */}
+            <section className="reports-charts-grid">
+              <article className="reports-panel">
+                <div className="reports-panel-heading">
+                  <div className="reports-panel-icon">
+                    <Activity size={19} />
+                  </div>
+                  <div>
+                    <h2>
+                      {reportType === "quotations"
+                        ? "Quotation Status Distribution"
+                        : "Invoice Payment Status"}
+                    </h2>
+                    <p>
+                      {reportType === "quotations"
+                        ? "Breakdown of quotations by current stage"
+                        : "Breakdown of payment performance"}
+                    </p>
+                  </div>
                 </div>
+
+                <StatusBreakdownChart summary={summary} reportType={reportType} />
+              </article>
+
+              <article className="reports-panel">
+                <div className="reports-panel-heading">
+                  <div className="reports-panel-icon">
+                    <BarChart3 size={19} />
+                  </div>
+                  <div>
+                    <h2>Monthly Revenue &amp; Income Trends</h2>
+                    <p>
+                      {isUsingLiveCalculated
+                        ? "Monthly trend calculated from active database records"
+                        : "Income returned by backend reports endpoint"}
+                    </p>
+                  </div>
+                </div>
+
+                <MonthlyIncomeChart items={monthlyIncome} />
+              </article>
+            </section>
+
+            {/* Table section */}
+            <section className="reports-panel reports-table-panel">
+              <div className="reports-table-heading">
                 <div>
                   <h2>
                     {reportType === "quotations"
-                      ? "Quotation Status Distribution"
-                      : "Invoice Payment Status"}
+                      ? "Quotation Records"
+                      : "Invoice Records"}
                   </h2>
                   <p>
-                    {reportType === "quotations"
-                      ? "Breakdown of quotations by current stage"
-                      : "Breakdown of payment performance"}
+                    {formatNumber(currentRecords.length)} records · Total value:{" "}
+                    {formatCurrency(totalFilteredValue)}
                   </p>
                 </div>
+
+                <button
+                  className="reports-export-button"
+                  type="button"
+                  onClick={downloadCSV}
+                  disabled={currentRecords.length === 0}
+                >
+                  <ArrowDownToLine size={17} />
+                  Export CSV
+                </button>
               </div>
 
-              <StatusBreakdownChart summary={summary} reportType={reportType} />
-            </article>
-
-            <article className="reports-panel">
-              <div className="reports-panel-heading">
-                <div className="reports-panel-icon">
-                  <BarChart3 size={19} />
-                </div>
-                <div>
-                  <h2>Monthly Revenue &amp; Income Trends</h2>
+              {currentRecords.length === 0 ? (
+                <div className="reports-empty-state">
+                  <FileText size={34} />
+                  <h3>No records available</h3>
                   <p>
-                    {isUsingLiveCalculated
-                      ? "Monthly trend calculated from active database records"
-                      : "Income returned by backend reports endpoint"}
+                    {reportType === "invoices"
+                      ? "No invoice records found. The Invoicing module is currently under development on the backend."
+                      : "No quotation records were found for the selected date range."}
                   </p>
                 </div>
-              </div>
+              ) : (
+                <div className="reports-table-wrapper">
+                  <table className="reports-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Reference</th>
+                        <th>Customer</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentRecords.map((record, index) => {
+                        const isQuotation = reportType === "quotations";
 
-              <MonthlyIncomeChart items={monthlyIncome} />
-            </article>
-          </section>
+                        const id = readValue(
+                          record,
+                          isQuotation ? "quotation_id" : "invoice_id"
+                        );
 
-          {/* Table section */}
-          <section className="reports-panel reports-table-panel">
-            <div className="reports-table-heading">
-              <div>
-                <h2>
-                  {reportType === "quotations"
-                    ? "Quotation Records"
-                    : "Invoice Records"}
-                </h2>
-                <p>
-                  {formatNumber(currentRecords.length)} records · Total value:{" "}
-                  {formatCurrency(totalFilteredValue)}
-                </p>
-              </div>
+                        const reference =
+                          readValue(
+                            record,
+                            isQuotation
+                              ? "quotation_number"
+                              : "invoice_number"
+                          ) || id;
 
-              <button
-                className="reports-export-button"
-                type="button"
-                onClick={downloadCSV}
-                disabled={currentRecords.length === 0}
-              >
-                <ArrowDownToLine size={17} />
-                Export CSV
-              </button>
-            </div>
+                        const customerId = readValue(record, "customer_id");
+                        const customerName = readValue(
+                          record,
+                          "customer_name",
+                          "clientName",
+                          "customer_company"
+                        );
 
-            {currentRecords.length === 0 ? (
-              <div className="reports-empty-state">
-                <FileText size={34} />
-                <h3>No records available</h3>
-                <p>
-                  {reportType === "invoices"
-                    ? "No invoice records found. The Invoicing module is currently under development on the backend."
-                    : "No quotation records were found for the selected date range."}
-                </p>
-              </div>
-            ) : (
-              <div className="reports-table-wrapper">
-                <table className="reports-table">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Reference</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentRecords.map((record, index) => {
-                      const isQuotation = reportType === "quotations";
-
-                      const id = readValue(
-                        record,
-                        isQuotation ? "quotation_id" : "invoice_id"
-                      );
-
-                      const reference =
-                        readValue(
+                        const date = readValue(
                           record,
                           isQuotation
-                            ? "quotation_number"
-                            : "invoice_number"
-                        ) || id;
+                            ? "quotation_date"
+                            : "invoice_date",
+                          "created_at",
+                          "createdAt"
+                        );
 
-                      const customerId = readValue(record, "customer_id");
-                      const customerName = readValue(
-                        record,
-                        "customer_name",
-                        "clientName",
-                        "customer_company"
-                      );
+                        const amount = readValue(
+                          record,
+                          "total_amount",
+                          "totalAmount",
+                          "grand_total",
+                          "grandTotal"
+                        );
 
-                      const date = readValue(
-                        record,
-                        isQuotation
-                          ? "quotation_date"
-                          : "invoice_date",
-                        "created_at",
-                        "createdAt"
-                      );
+                        const status = readValue(
+                          record,
+                          "status",
+                          "payment_status",
+                          "quotation_status"
+                        );
 
-                      const amount = readValue(
-                        record,
-                        "total_amount",
-                        "totalAmount",
-                        "grand_total",
-                        "grandTotal"
-                      );
-
-                      const status = readValue(
-                        record,
-                        "status",
-                        "payment_status",
-                        "quotation_status"
-                      );
-
-                      return (
-                        <tr key={id || `${reference}-${index}`}>
-                          <td className="report-id-cell">{id || "—"}</td>
-                          <td className="report-reference-cell">
-                            {reference || "—"}
-                          </td>
-                          <td>
-                            {customerName ||
-                              (customerId ? `Customer #${customerId}` : "—")}
-                          </td>
-                          <td>{formatDate(date)}</td>
-                          <td className="report-amount-cell">
-                            {formatCurrency(amount)}
-                          </td>
-                          <td>
-                            <StatusBadge status={status} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </>
-      )}
+                        return (
+                          <tr key={id || `${reference}-${index}`}>
+                            <td className="report-id-cell">{id || "—"}</td>
+                            <td className="report-reference-cell">
+                              {reference || "—"}
+                            </td>
+                            <td>
+                              {customerName ||
+                                (customerId ? `Customer #${customerId}` : "—")}
+                            </td>
+                            <td>{formatDate(isQuotation ? resolveQuotationDate(record) : date)}</td>
+                            <td className="report-amount-cell">
+                              {formatCurrency(amount)}
+                            </td>
+                            <td>
+                              <StatusBadge status={status} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </main>
   );

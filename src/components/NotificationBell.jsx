@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, CheckCircle2, Clock, AlertTriangle, XCircle, Info, ExternalLink } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  XCircle,
+  Info,
+  ExternalLink,
+  Check,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  deleteNotification,
+  clearAllNotifications,
 } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./NotificationBell.css";
@@ -57,7 +70,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000); // Poll every 10s for live alerts
+    const interval = setInterval(fetchNotifications, 5000); // Live poll every 5s
 
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -65,14 +78,30 @@ export default function NotificationBell() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
 
     return () => {
       clearInterval(interval);
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
     };
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  const handleMarkSingleRead = async (e, notifId) => {
+    e.stopPropagation();
+    try {
+      await markNotificationRead(notifId);
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.notification_id === notifId ? { ...n, is_read: 1 } : n
+        )
+      );
+    } catch (err) {
+      console.warn("Failed to mark notification read:", err);
+    }
+  };
 
   const handleNotificationClick = async (notif) => {
     try {
@@ -94,13 +123,20 @@ export default function NotificationBell() {
 
     // Route based on role and notification reference
     if (isSuperAdmin) {
-      if (notif.reference_type === "quotation" || notif.title?.toLowerCase().includes("pending")) {
+      if (
+        notif.reference_type === "quotation" ||
+        notif.title?.toLowerCase().includes("pending") ||
+        notif.type === "warning"
+      ) {
         navigate("/super-admin/approvals");
       } else {
         navigate("/super-admin-dashboard");
       }
     } else {
-      if (notif.reference_type === "quotation" || notif.title?.toLowerCase().includes("quotation")) {
+      if (
+        notif.reference_type === "quotation" ||
+        notif.title?.toLowerCase().includes("quotation")
+      ) {
         navigate("/quotations");
       } else {
         navigate("/admin-dashboard");
@@ -114,6 +150,27 @@ export default function NotificationBell() {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
     } catch (err) {
       console.warn("Failed to mark all notifications read:", err);
+    }
+  };
+
+  const handleDeleteSingle = async (e, notifId) => {
+    e.stopPropagation();
+    try {
+      await deleteNotification(notifId);
+      setNotifications((prev) =>
+        prev.filter((n) => n.notification_id !== notifId)
+      );
+    } catch (err) {
+      console.warn("Failed to delete notification:", err);
+    }
+  };
+
+  const handleClearAll = async () => {
+    try {
+      await clearAllNotifications();
+      setNotifications([]);
+    } catch (err) {
+      console.warn("Failed to clear all notifications:", err);
     }
   };
 
@@ -140,15 +197,26 @@ export default function NotificationBell() {
             <h4>
               Notifications {unreadCount > 0 ? `(${unreadCount} Unread)` : ""}
             </h4>
-            {unreadCount > 0 && (
+            <div className="notif-header-actions">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="notif-mark-all-btn"
+                  onClick={handleMarkAllRead}
+                >
+                  Mark all as read
+                </button>
+              )}
               <button
                 type="button"
-                className="notif-mark-all-btn"
-                onClick={handleMarkAllRead}
+                className="notif-close-btn"
+                onClick={() => setIsOpen(false)}
+                aria-label="Close notifications"
+                title="Close"
               >
-                Mark all as read
+                <X size={15} />
               </button>
-            )}
+            </div>
           </div>
 
           <ul className="notif-list">
@@ -179,9 +247,33 @@ export default function NotificationBell() {
                     <div className="notif-content">
                       <div className="notif-top-row">
                         <p className="notif-title">{notif.title}</p>
-                        <span className="notif-time">
-                          {formatRelativeTime(notif.created_at)}
-                        </span>
+                        <div className="notif-top-actions">
+                          <span className="notif-time">
+                            {formatRelativeTime(notif.created_at)}
+                          </span>
+                          {!notif.is_read && (
+                            <button
+                              type="button"
+                              className="notif-mark-single-btn"
+                              title="Mark as read"
+                              onClick={(e) =>
+                                handleMarkSingleRead(e, notif.notification_id)
+                              }
+                            >
+                              <Check size={12} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="notif-delete-single-btn"
+                            title="Delete notification"
+                            onClick={(e) =>
+                              handleDeleteSingle(e, notif.notification_id)
+                            }
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
                       </div>
                       <p className="notif-message">{notif.message}</p>
                       {isPendingForSuperAdmin && (
@@ -200,6 +292,20 @@ export default function NotificationBell() {
               })
             )}
           </ul>
+
+          {notifications.length > 0 && (
+            <div className="notif-footer">
+              <button
+                type="button"
+                className="notif-clear-all-btn"
+                onClick={handleClearAll}
+                title="Clear all notifications"
+              >
+                <Trash2 size={13} />
+                <span>Clear all</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

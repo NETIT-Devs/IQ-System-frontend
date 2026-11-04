@@ -62,6 +62,28 @@ function formatCurrency(amount, currency = "LKR") {
   }).format(Number(amount) || 0);
 }
 
+// Convert any date value or UTC ISO string to local YYYY-MM-DD
+function toLocalDateStr(value) {
+  if (!value) return "";
+  const str = String(value).trim();
+  if (!str) return "";
+  const date = str.includes("T") ? new Date(str) : new Date(`${str.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return str.slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function resolveIssuedDate(q) {
+  const qDate = toLocalDateStr(q?.quotation_date);
+  const cDate = toLocalDateStr(q?.created_at || q?.createdAt);
+  if (qDate && cDate && qDate < cDate) {
+    return cDate;
+  }
+  return qDate || cDate || "";
+}
+
 // Format dates for display in the quotation table
 function formatDate(value) {
   if (!value) return "—";
@@ -207,8 +229,8 @@ export default function Quotations() {
           id: q.quotation_number || "—",
           clientName: q.customer_name || "—",
           project: q.items?.[0]?.item_name || "—",
-          issuedDate: String(q.quotation_date || "").slice(0, 10),
-          validUntil: String(q.valid_until || "").slice(0, 10),
+          issuedDate: resolveIssuedDate(q),
+          validUntil: toLocalDateStr(q.valid_until),
           total: Number(q.total_amount ?? 0),
           status: displayStatus,
           rejection_reason: q.rejection_reason || null,
@@ -323,6 +345,11 @@ export default function Quotations() {
   const [showTemplateSettingsModal, setShowTemplateSettingsModal] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
 
+  // Custom in-app Delete Confirmation Modal State
+  const [quotationToDelete, setQuotationToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   // Open edit modal
   function openEditModal(quotation) {
     setSelectedQuotation(quotation);
@@ -406,26 +433,38 @@ export default function Quotations() {
     setShowFormModal(true);
   }
 
-  // Delete a quotation with confirmation and backend integration
-  async function handleDelete(quotation) {
-    const targetId = quotation.quotation_id || quotation.id;
+  // Open in-app delete confirmation modal (no native browser confirm)
+  function handleDelete(quotation) {
+    setDeleteError("");
+    setQuotationToDelete(quotation);
+  }
+
+  // Handle confirmed delete
+  async function handleConfirmDelete() {
+    if (!quotationToDelete) return;
+    const targetId = quotationToDelete.quotation_id || quotationToDelete.id;
     if (!targetId) {
-      alert("This quotation is missing its backend ID and cannot be deleted.");
+      setDeleteError("This quotation is missing its backend ID and cannot be deleted.");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete quotation ${quotation.id || quotation.quotation_number}? This cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
     try {
+      setIsDeleting(true);
+      setDeleteError("");
       await deleteQuotation(targetId);
+      setQuotationToDelete(null);
       await loadQuotations();
     } catch (err) {
-      alert(err?.message || "Failed to delete quotation from backend.");
+      setDeleteError(err?.message || "Failed to delete quotation from backend.");
+    } finally {
+      setIsDeleting(false);
     }
+  }
+
+  function handleCancelDelete() {
+    if (isDeleting) return;
+    setQuotationToDelete(null);
+    setDeleteError("");
   }
 
   // Quotation summary cards - 4 cards: Total Quotations, Approved Quotations, Reject Quotations, Draft
@@ -1017,6 +1056,74 @@ export default function Quotations() {
             setShowFormModal(true);
           }}
         />
+      )}
+
+      {/* Custom in-app Delete Confirmation Modal */}
+      {quotationToDelete && (
+        <div
+          className="quotation-modal-overlay"
+          onClick={handleCancelDelete}
+        >
+          <div
+            className="quotation-delete-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+          >
+            <div className="quotation-delete-icon-wrap">
+              <Trash2 size={24} />
+            </div>
+
+            <h3 id="delete-dialog-title" className="quotation-delete-title">
+              Delete Quotation
+            </h3>
+
+            <p className="quotation-delete-desc">
+              Are you sure you want to delete quotation{" "}
+              <strong>
+                {quotationToDelete.quotation_number ||
+                  quotationToDelete.id ||
+                  "this quotation"}
+              </strong>
+              {quotationToDelete.customer_name || quotationToDelete.clientName ? (
+                <>
+                  {" "}for{" "}
+                  <strong>
+                    {quotationToDelete.customer_name ||
+                      quotationToDelete.clientName}
+                  </strong>
+                </>
+              ) : null}
+              ? This action cannot be undone.
+            </p>
+
+            {deleteError && (
+              <div className="quotation-delete-error" role="alert">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="quotation-delete-actions">
+              <button
+                type="button"
+                className="quotation-delete-btn cancel"
+                disabled={isDeleting}
+                onClick={handleCancelDelete}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="quotation-delete-btn confirm"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

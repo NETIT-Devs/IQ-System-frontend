@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import {
   Search,
   RefreshCw,
@@ -14,14 +15,18 @@ import {
   Layers,
   User,
   Filter,
+  Menu,
 } from "lucide-react";
 import {
   getQuotations,
+  getQuotationById,
+  getCompanyDetails,
+  getCustomers,
   approveQuotation,
   rejectQuotation,
 } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
-import QuotationDetails from "./QuotationDetails";
+import { openQuotationPdf } from "../utils/pdfGenerator";
 import "./Approvals.css";
 
 function formatCurrency(amount, currency = "LKR") {
@@ -102,6 +107,7 @@ function SummaryCard({ label, value, icon, note, tone = "blue", active = false, 
 }
 
 export default function Approvals() {
+  const { openSidebar } = useOutletContext() || {};
   const user = getAuthenticatedUser();
   const role = String(user?.role || "").trim().toLowerCase();
   const isSuperAdmin = role === "super admin";
@@ -116,7 +122,8 @@ export default function Approvals() {
   const [actionLoading, setActionLoading] = useState(false);
 
   // Modal states
-  const [viewingId, setViewingId] = useState(null);
+  const [viewingPdfId, setViewingPdfId] = useState(null);
+  const [approvingQuotation, setApprovingQuotation] = useState(null);
   const [rejectingQuotation, setRejectingQuotation] = useState(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionError, setRejectionError] = useState("");
@@ -234,28 +241,124 @@ export default function Approvals() {
     }
   }, [statusFilter, filteredQuotations.length]);
 
-  // Approve action
-  const handleApprove = async (quotation) => {
+  // View Quotation PDF directly
+  const handleViewPdf = async (quotation) => {
+    const rawId = quotation.quotation_id || quotation.id;
+    const previewWindow = window.open("about:blank", "_blank");
+    if (previewWindow) {
+      previewWindow.document.write(
+        `<!DOCTYPE html><html><head><title>Loading Quotation PDF...</title><style>body{background:#0b1932;color:#ffffff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;} .spinner{width:36px;height:36px;border:3px solid rgba(255,255,255,0.2);border-top-color:#38bdf8;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;} @keyframes spin{to{transform:rotate(360deg);}}</style></head><body><div style="text-align:center"><div class="spinner"></div><p style="font-size:16px;font-weight:600;margin:0 0 6px;">Opening Quotation PDF...</p><p style="color:#94a3b8;font-size:13px;margin:0;">Please wait while the PDF is prepared.</p></div></body></html>`
+      );
+    }
+
+    try {
+      setViewingPdfId(rawId);
+
+      let targetQuotation = quotation;
+      try {
+        const full = await getQuotationById(rawId);
+        if (full) targetQuotation = full;
+      } catch (e) {
+        console.warn("Could not fetch full quotation details, using row data:", e);
+      }
+
+      let company = {};
+      try {
+        company = (await getCompanyDetails()) || {};
+      } catch {
+        // ignore
+      }
+
+      let customer = {};
+      try {
+        const customersList = await getCustomers();
+        if (Array.isArray(customersList)) {
+          customer =
+            customersList.find(
+              (c) => String(c.customer_id) === String(targetQuotation.customer_id)
+            ) || {};
+        }
+      } catch {
+        // ignore
+      }
+
+      const customerData = {
+        customer_name:
+          targetQuotation.customer_name ||
+          targetQuotation.clientName ||
+          customer.customer_name ||
+          "",
+        company_name:
+          targetQuotation.customer_company ||
+          targetQuotation.company_name ||
+          customer.company_name ||
+          "",
+        email:
+          targetQuotation.customer_email ||
+          targetQuotation.email ||
+          customer.email ||
+          "",
+        phone:
+          targetQuotation.customer_phone ||
+          targetQuotation.phone ||
+          customer.phone ||
+          "",
+        address:
+          targetQuotation.customer_address ||
+          targetQuotation.address ||
+          customer.address ||
+          "",
+      };
+
+      const blobUrl = await openQuotationPdf(
+        targetQuotation,
+        company,
+        customerData
+      );
+
+      if (previewWindow && !previewWindow.closed) {
+        previewWindow.location.href = blobUrl;
+      } else {
+        window.open(blobUrl, "_blank");
+      }
+    } catch (err) {
+      console.error("Failed to open quotation PDF:", err);
+      if (previewWindow && !previewWindow.closed) {
+        previewWindow.document.body.innerHTML = `<div style="text-align:center;padding:50px;color:#ef4444;font-family:sans-serif;"><h3>Failed to generate Quotation PDF</h3><p>${err?.message || "Please try again."}</p></div>`;
+      }
+      setFeedback("Failed to generate Quotation PDF. Please try again.");
+    } finally {
+      setViewingPdfId(null);
+    }
+  };
+
+  // Open approve confirmation modal
+  const handleApprove = (quotation) => {
     if (!isSuperAdmin) {
       setFeedback("Only Super Admin can authorize quotation approvals.");
       return;
     }
+    setApprovingQuotation(quotation);
+  };
 
+  // Submit approve action
+  const handleConfirmApprove = async () => {
+    if (!approvingQuotation) return;
+    const quotation = approvingQuotation;
     const qNum = quotation.quotation_number || `ID #${quotation.quotation_id}`;
-    if (!window.confirm(`Are you sure you want to approve quotation ${qNum}?`)) {
-      return;
-    }
 
     try {
       setActionLoading(true);
       setFeedback("");
       const res = await approveQuotation(quotation.quotation_id);
+      setApprovingQuotation(null);
       setFeedback(
         res?.message || `Quotation ${qNum} has been approved successfully!`
       );
       await loadData();
     } catch (err) {
       setFeedback(err.message || "Failed to approve quotation.");
+      setApprovingQuotation(null);
     } finally {
       setActionLoading(false);
     }
@@ -301,12 +404,24 @@ export default function Approvals() {
     <main className="approvals-page">
       {/* Header bar */}
       <div className="approvals-header">
-        <div>
-          <p className="approvals-eyebrow">Administration / Approvals</p>
-          <h1>Review &amp; Approvals</h1>
-          <p className="approvals-subtitle">
-            Authorize or reject admin submissions, verify project scope and pricing before clients receive documents.
-          </p>
+        <div className="approvals-header-left">
+          {openSidebar && (
+            <button
+              type="button"
+              className="approval-menu-button"
+              aria-label="Open navigation menu"
+              onClick={openSidebar}
+            >
+              <Menu size={20} />
+            </button>
+          )}
+          <div>
+            <p className="approvals-eyebrow">Administration / Approvals</p>
+            <h1>Review &amp; Approvals</h1>
+            <p className="approvals-subtitle">
+              Authorize or reject admin submissions, verify project scope and pricing before clients receive documents.
+            </p>
+          </div>
         </div>
 
         <button
@@ -653,11 +768,16 @@ export default function Approvals() {
                               <button
                                 type="button"
                                 className="approval-btn-action approval-btn-view"
-                                onClick={() => setViewingId(q.quotation_id)}
-                                title="View Quotation Details & Items"
+                                onClick={() => handleViewPdf(q)}
+                                disabled={viewingPdfId === (q.quotation_id || q.id)}
+                                title="Open Quotation PDF"
                               >
-                                <Eye size={13} />
-                                <span>View</span>
+                                {viewingPdfId === (q.quotation_id || q.id) ? (
+                                  <RefreshCw size={13} className="approval-spin" />
+                                ) : (
+                                  <Eye size={13} />
+                                )}
+                                <span>{viewingPdfId === (q.quotation_id || q.id) ? "Opening..." : "View"}</span>
                               </button>
 
                               {cat === "pending" && (
@@ -715,12 +835,80 @@ export default function Approvals() {
         </section>
       )}
 
-      {/* View Details Modal */}
-      {viewingId && (
-        <QuotationDetails
-          activeId={viewingId}
-          onClose={() => setViewingId(null)}
-        />
+{/* Quotation PDF opens directly in browser view */}
+
+      {/* Approve Confirmation Modal */}
+      {approvingQuotation && (
+        <div className="approval-confirm-overlay">
+          <div className="approval-confirm-card">
+            <div className="approval-confirm-header">
+              <div className="approval-confirm-header-title">
+                <CheckCircle2 size={18} color="#22c55e" />
+                <h3>
+                  Approve Quotation: {approvingQuotation.quotation_number || `ID #${approvingQuotation.quotation_id}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="approval-modal-close-btn"
+                onClick={() => setApprovingQuotation(null)}
+                disabled={actionLoading}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="approval-confirm-body">
+              <p className="approval-confirm-prompt">
+                Are you sure you want to approve quotation{" "}
+                <strong>{approvingQuotation.quotation_number || `ID #${approvingQuotation.quotation_id}`}</strong>?
+              </p>
+
+              <div className="approval-confirm-details">
+                {approvingQuotation.customer_name && (
+                  <div className="approval-confirm-row">
+                    <span>Customer:</span>
+                    <strong>{approvingQuotation.customer_name}</strong>
+                  </div>
+                )}
+                {(approvingQuotation.grand_total || approvingQuotation.total_amount) && (
+                  <div className="approval-confirm-row">
+                    <span>Total Amount:</span>
+                    <strong>
+                      {formatCurrency(approvingQuotation.grand_total || approvingQuotation.total_amount)}
+                    </strong>
+                  </div>
+                )}
+              </div>
+
+              <p className="approval-confirm-note">
+                Once approved, this quotation will be officially authorized and marked as approved.
+              </p>
+            </div>
+
+            <div className="approval-confirm-footer">
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-view"
+                onClick={() => setApprovingQuotation(null)}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-approve"
+                onClick={handleConfirmApprove}
+                disabled={actionLoading}
+              >
+                <Check size={14} />
+                <span>{actionLoading ? "Approving..." : "Approve"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Rejection Modal */}

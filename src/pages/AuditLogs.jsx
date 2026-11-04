@@ -37,6 +37,20 @@ function formatTimestamp(ts) {
   }
 }
 
+function getLocalDateString(ts) {
+  if (!ts) return "";
+  try {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
 function getActionBadgeClass(action) {
   const a = String(action || "").toLowerCase();
   if (a.includes("delet")) return "audit-action-deleted";
@@ -60,6 +74,7 @@ export default function AuditLogs() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [roleFilter, setRoleFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState("");
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -122,7 +137,12 @@ export default function AuditLogs() {
         }
       }
 
-      // Search term filter
+      // Date filter
+      const localDate = getLocalDateString(log.created_at);
+      const formattedTs = formatTimestamp(log.created_at);
+      const matchesDate = !dateFilter || localDate === dateFilter;
+
+      // Search term filter (includes date/timestamp search)
       const matchesSearch =
         !q ||
         [
@@ -131,13 +151,16 @@ export default function AuditLogs() {
           log.action,
           log.record_id,
           log.details,
+          log.created_at,
+          localDate,
+          formattedTs,
         ]
           .filter(Boolean)
           .some((val) => String(val).toLowerCase().includes(q));
 
-      return matchesCategory && matchesRole && matchesSearch;
+      return matchesCategory && matchesRole && matchesDate && matchesSearch;
     });
-  }, [logs, search, categoryFilter, roleFilter]);
+  }, [logs, search, categoryFilter, roleFilter, dateFilter]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -198,6 +221,8 @@ export default function AuditLogs() {
             className="audit-refresh-btn"
             onClick={loadLogs}
             disabled={loading}
+            aria-label="Refresh logs"
+            title="Refresh logs"
           >
             <RefreshCw size={14} className={loading ? "spin" : ""} />
             <span>Refresh Logs</span>
@@ -277,7 +302,7 @@ export default function AuditLogs() {
               <Search size={15} color="#64748b" />
               <input
                 type="search"
-                placeholder="Search by initiator, action, record ID, or details..."
+                placeholder="Search by initiator, action, record ID, date, or details..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -291,6 +316,28 @@ export default function AuditLogs() {
                 </button>
               )}
             </label>
+
+            <div className="audit-date-filter">
+              <input
+                type="date"
+                className="audit-date-input"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                aria-label="Filter by date"
+                title="Filter by date"
+              />
+              {dateFilter && (
+                <button
+                  type="button"
+                  className="audit-date-clear"
+                  onClick={() => setDateFilter("")}
+                  aria-label="Clear date filter"
+                  title="Clear date"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
             <select
               className="audit-filter-select"

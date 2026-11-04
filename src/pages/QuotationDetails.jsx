@@ -72,17 +72,23 @@ function formatMoney(amount, currency = "LKR") {
 export default function QuotationDetails({
   quotation: propQuotation = null,
   quotationId = null,
+  activeId: propActiveId = null,
   onClose,
   onEdit,
 }) {
   const [quotation, setQuotation] = useState(propQuotation);
   const [companyDetails, setCompanyDetails] = useState({});
   const [customerDetails, setCustomerDetails] = useState({});
-  const [loading, setLoading] = useState(!propQuotation && Boolean(quotationId));
+  const activeId = propQuotation?.quotation_id || quotationId || propActiveId;
+  const [loading, setLoading] = useState(!propQuotation && Boolean(activeId));
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState("");
 
-  const activeId = propQuotation?.quotation_id || quotationId;
+  useEffect(() => {
+    if (propQuotation) {
+      setQuotation(propQuotation);
+    }
+  }, [propQuotation]);
 
   // Load fresh quotation and company details from backend
   useEffect(() => {

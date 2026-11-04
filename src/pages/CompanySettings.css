@@ -30,13 +30,26 @@
 
 .cs-menu-button {
   display: none;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 8px;
-  color: #0f172a;
-  cursor: pointer;
   align-items: center;
   justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #163b73;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.18s ease;
+}
+
+.cs-menu-button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 .cs-eyebrow {
@@ -974,16 +987,30 @@
 
 @media (max-width: 768px) {
   .cs-page {
-    padding: 16px;
+    padding: 17px 13px 12px;
   }
 
   .cs-menu-button {
-    display: flex;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 9px;
+    margin-top: 2px;
   }
 
   .cs-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .cs-header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
   }
 
   .cs-header-actions {
@@ -1478,3 +1505,21 @@
   border: 1px dashed #cbd5e1;
 }
 
+
+@media (max-width: 420px) {
+  .cs-page {
+    padding-right: 9px;
+    padding-left: 9px;
+  }
+
+  .cs-menu-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .cs-header-left {
+    gap: 8px;
+  }
+}

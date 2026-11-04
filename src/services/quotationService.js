@@ -316,6 +316,29 @@ export async function markAllNotificationsRead() {
   return await handleResponse(response);
 }
 
+// Delete single notification
+export async function deleteNotification(id) {
+  const response = await fetch(`${API_BASE_URL}/api/notifications/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+
+  return await handleResponse(response);
+}
+
+// Clear all notifications
+export async function clearAllNotifications() {
+  const response = await fetch(
+    `${API_BASE_URL}/api/notifications/clear-all`,
+    {
+      method: "DELETE",
+      headers: getHeaders(),
+    }
+  );
+
+  return await handleResponse(response);
+}
+
 // Fetch audit logs (Super Admin only)
 export async function getAuditLogs() {
   const response = await fetch(`${API_BASE_URL}/api/audit-logs`, {

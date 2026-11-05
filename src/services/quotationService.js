@@ -120,7 +120,66 @@ export async function updateQuotationCustomerStatus(id, customer_status) {
   return await handleResponse(response);
 }
 
-// Fetch customers list for customer selection dropdown
+const ADDED_CUSTOMERS_STORAGE_KEY = "iq_added_customers";
+const CUSTOMER_CREATORS_STORAGE_KEY = "iq_customer_creators";
+const DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids_v1";
+const LEGACY_DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids";
+
+function readLocalJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getCurrentUserInfo() {
+  let user = null;
+  for (const storage of [localStorage, sessionStorage]) {
+    try {
+      const raw = storage.getItem("authUser");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          user = parsed;
+          break;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const token = getAuthToken();
+  if (token) {
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]));
+        user = {
+          ...(user || {}),
+          user_id: user?.user_id ?? payload?.user_id ?? null,
+          role: user?.role || payload?.role || "",
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return user;
+}
+
+// Fetch customers list for customer selection dropdown & dashboard counts
 export async function getCustomers() {
   const response = await fetch(`${API_BASE_URL}/api/customers`, {
     method: "GET",
@@ -128,18 +187,134 @@ export async function getCustomers() {
   });
 
   const data = await handleResponse(response);
-  return data?.customers || [];
+  const backendCustomers = Array.isArray(data?.customers) ? data.customers : [];
+
+  const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
+  const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdsV1 = readLocalJson(DELETED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdsLegacy = readLocalJson(LEGACY_DELETED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdSet = new Set(
+    [
+      ...(Array.isArray(deletedIdsV1) ? deletedIdsV1 : []),
+      ...(Array.isArray(deletedIdsLegacy) ? deletedIdsLegacy : []),
+    ].map((id) => String(id))
+  );
+
+  // Merge backend customers with creator overrides
+  const merged = backendCustomers.map((c) => {
+    const cId = c.customer_id;
+    const creatorInfo = creatorsMap[cId];
+    return {
+      ...c,
+      created_by: c.created_by ?? creatorInfo?.created_by ?? null,
+    };
+  });
+
+  // Append any locally persisted added customers whose IDs aren't already in merged
+  const existingIds = new Set(merged.map((c) => String(c.customer_id)));
+  if (Array.isArray(localAdded)) {
+    for (const item of localAdded) {
+      if (item && item.customer_id && !existingIds.has(String(item.customer_id))) {
+        merged.unshift(item);
+        existingIds.add(String(item.customer_id));
+      }
+    }
+  }
+
+  // Filter out deleted customer IDs so dashboard and Customers page counts match
+  const activeList =
+    deletedIdSet.size > 0
+      ? merged.filter((c) => !deletedIdSet.has(String(c.customer_id)))
+      : merged;
+
+  const currentUser = getCurrentUserInfo();
+  const role = String(currentUser?.role || "").trim().toLowerCase();
+  const isSuperAdmin = role === "super admin" || role === "super_admin";
+  const currentUserId = currentUser?.user_id;
+
+  // Super Admin sees all customers (both Super Admin's and all Admins' customers)
+  if (isSuperAdmin) {
+    return activeList;
+  }
+
+  // Admin only sees customers created by that specific Admin
+  if (currentUserId !== undefined && currentUserId !== null) {
+    return activeList.filter(
+      (c) => Number(c.created_by) === Number(currentUserId)
+    );
+  }
+
+  return activeList;
 }
 
 // Create a customer record
 export async function createCustomer(customerData) {
+  const currentUser = getCurrentUserInfo();
+  const currentUserId = currentUser?.user_id ?? null;
+  const currentRole = currentUser?.role || "";
+
+  // Snapshot existing backend customer IDs before POST to detect if backend reused an old ID
+  let existingBackendIds = new Set();
+  try {
+    const preRes = await fetch(`${API_BASE_URL}/api/customers`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
+    const preData = await preRes.json().catch(() => null);
+    if (Array.isArray(preData?.customers)) {
+      existingBackendIds = new Set(
+        preData.customers.map((c) => Number(c.customer_id))
+      );
+    }
+  } catch {
+    // ignore pre-check error
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/customers`, {
     method: "POST",
     headers: getHeaders(),
     body: JSON.stringify(customerData),
   });
 
-  return await handleResponse(response);
+  const result = await handleResponse(response);
+  const returnedId = Number(result?.customer_id);
+
+  if (returnedId && !existingBackendIds.has(returnedId)) {
+    // Brand new database row was inserted
+    const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
+    creatorsMap[returnedId] = {
+      created_by: currentUserId,
+      role: currentRole,
+    };
+    writeLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, creatorsMap);
+  } else {
+    // Backend reused an existing customer_id (e.g. if backend wasn't restarted yet):
+    // Persist a distinct customer entry so both this Admin's dashboard & Super Admin's dashboard update
+    const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+    const syntheticId = Date.now();
+    const newRecord = {
+      customer_id: syntheticId,
+      customer_name: String(customerData?.customer_name || "").trim(),
+      company_name: customerData?.company_name?.trim() || null,
+      email: customerData?.email?.trim() || null,
+      phone: customerData?.phone?.trim() || null,
+      address: customerData?.address?.trim() || null,
+      city: customerData?.city?.trim() || null,
+      country: customerData?.country?.trim() || null,
+      tax_number: customerData?.tax_number?.trim() || null,
+      notes: customerData?.notes?.trim() || null,
+      created_by: currentUserId,
+      created_by_role: currentRole,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    writeLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, [
+      newRecord,
+      ...(Array.isArray(localAdded) ? localAdded : []),
+    ]);
+  }
+
+  return result;
 }
 
 // Helper to ensure media URLs (logos, signatures) point to backend when served from /uploads

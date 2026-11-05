@@ -172,34 +172,37 @@
   gap: 7px;
   width: auto;
   min-width: 125px;
-  max-width: 165px;
-  height: 33px;
-  min-height: 33px;
+  max-width: 160px;
+  height: 35px;
+  min-height: 35px;
   margin: 12px auto 0;
   padding: 0 16px;
-  border: 1px solid #234778;
+  border: 1.5px solid #000000;
   border-radius: 10px;
-  background: #11284a;
-  color: #ffffff;
+  background: #0b1932 !important;
+  color: #ffffff !important;
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 160ms ease, border-color 160ms ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
 }
 
 .quotation-signout svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .quotation-signout:hover {
-  border-color: #3b6fb5;
-  background: #183e74;
-  color: #ffffff;
+  border-color: #000000;
+  background: #112445 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
 }
 
 /* Main area and top bar */
@@ -467,53 +470,70 @@
 }
 
 .quotation-stat-icon {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 10px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.quotation-stat-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9px;
 }
 
 .quotation-stat-card:hover .quotation-stat-icon {
-  transform: scale(1.06);
+  transform: translateY(-1px) scale(1.04);
 }
 
 .quotation-stat-icon.blue {
-  border: 1.5px solid #bfdbfe;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  color: #2563eb;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 45%, #dbeafe 100%);
+  color: #1d4ed8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(29, 78, 216, 0.16);
 }
 
 .quotation-stat-icon.green {
-  border: 1.5px solid #a7f3d0;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  color: #059669;
-  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.26);
+  background: linear-gradient(145deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%);
+  color: #047857;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(4, 120, 87, 0.16);
 }
 
 .quotation-stat-icon.red {
-  border: 1.5px solid #fecaca;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  color: #dc2626;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: linear-gradient(145deg, #ffffff 0%, #fef2f2 45%, #fee2e2 100%);
+  color: #b91c1c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(185, 28, 28, 0.16);
 }
 
 .quotation-stat-icon.orange,
 .quotation-stat-icon.amber {
-  border: 1.5px solid #fed7aa;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  color: #ea580c;
-  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: linear-gradient(145deg, #ffffff 0%, #fffbeb 45%, #fef3c7 100%);
+  color: #b45309;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(180, 83, 9, 0.16);
 }
 
 .quotation-stat-icon.purple {
-  border: 1.5px solid #e9d5ff;
-  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
-  color: #7c3aed;
-  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 45%, #ede9fe 100%);
+  color: #6d28d9;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(109, 40, 217, 0.16);
 }
 
 .quotation-stat-content {
@@ -524,8 +544,8 @@
 .quotation-stat-content p {
   margin: 1px 0 10px;
   color: #738197;
-  font-size: 10px;
-  font-weight: 550;
+  font-size: 12.5px;
+  font-weight: 600;
   line-height: 1.5;
   text-transform: none;
   letter-spacing: normal;
@@ -622,14 +642,17 @@
 
 .quotation-search {
   display: flex;
-  flex: 1 1 280px;
+  flex: 0 1 320px;
+  max-width: 320px;
+  width: 320px;
+  margin-right: auto;
   align-items: center;
-  gap: 10px;
-  min-width: 220px;
-  height: 38px;
-  padding: 0 14px;
+  gap: 8px;
+  min-width: 200px;
+  height: 35px;
+  padding: 0 12px;
   border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #ffffff;
   color: #64748b;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
@@ -772,7 +795,8 @@
 .quotation-dropdown-menu {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
+  left: auto;
   z-index: 100;
   min-width: 220px;
   padding: 6px;
@@ -941,14 +965,14 @@
 }
 
 .quotation-table thead {
-  background: #f7f9fd;
+  background: #0b1932;
 }
 
 .quotation-table th {
   height: 47px;
   padding: 0 13px;
-  border-bottom: 1px solid #e9edf5;
-  color: #8491a5;
+  border-bottom: 1px solid #0b1932;
+  color: #ffffff;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.65px;
@@ -1719,7 +1743,19 @@
     gap: 10px;
   }
 
+  .quotation-stat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+  }
+
+  .quotation-stat-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
   .quotation-stat-content p {
+    font-size: 11.5px;
     margin: 0 0 4px;
   }
 
@@ -1808,8 +1844,18 @@
   }
 
   .quotation-stat-icon {
-    width: 35px;
-    height: 35px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+  }
+
+  .quotation-stat-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .quotation-stat-content p {
+    font-size: 11px;
   }
 
   .quotation-stat-label {
@@ -1856,8 +1902,10 @@
 
   .quotation-search {
     flex-basis: 100%;
-    height: 39px;
-    border-radius: 0;
+    max-width: 100%;
+    width: 100%;
+    height: 38px;
+    border-radius: 10px;
   }
 
   .quotation-filter-select {

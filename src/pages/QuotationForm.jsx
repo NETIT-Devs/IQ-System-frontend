@@ -142,6 +142,16 @@ export default function QuotationForm({
     return role.includes("super");
   }, [authUser]);
 
+  const canDownloadFormPdf = useMemo(() => {
+    if (isSuperAdmin) return true;
+    const status = String(initialData?.status || "").trim().toLowerCase();
+    const approval = String(initialData?.approval_status || "").trim().toLowerCase();
+    return Boolean(
+      initialData?.quotation_id &&
+        (status === "approved" || approval === "approved")
+    );
+  }, [isSuperAdmin, initialData]);
+
   // Form state
   const [formData, setFormData] = useState({
     quotation_number: initialData?.quotation_number || quotationNumber,
@@ -644,6 +654,7 @@ export default function QuotationForm({
 
   // Direct PDF Download Handler from Current Form
   const handleDownloadPdf = async () => {
+    if (!canDownloadFormPdf) return;
     setFormError("");
 
     if (!formData.quotation_number.trim()) {
@@ -1346,8 +1357,17 @@ export default function QuotationForm({
                 type="button"
                 className="qf-btn qf-btn-pdf"
                 onClick={handleDownloadPdf}
-                disabled={downloadingPdf || saving || dependenciesLoading}
-                title="Download formatted business PDF using current form details"
+                disabled={downloadingPdf || saving || dependenciesLoading || !canDownloadFormPdf}
+                title={
+                  !canDownloadFormPdf
+                    ? "Available after Super Admin approval"
+                    : "Download formatted business PDF using current form details"
+                }
+                style={
+                  !canDownloadFormPdf
+                    ? { opacity: 0.5, cursor: "not-allowed" }
+                    : undefined
+                }
               >
                 <Download size={15} />
                 {downloadingPdf ? "Generating PDF..." : "Download PDF"}

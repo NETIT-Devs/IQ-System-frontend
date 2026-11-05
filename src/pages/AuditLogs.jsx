@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   ClipboardList,
@@ -14,6 +14,8 @@ import {
   Menu,
   X,
   Filter,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { getAuditLogs } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
@@ -75,6 +77,21 @@ export default function AuditLogs() {
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [roleFilter, setRoleFilter] = useState("All");
   const [dateFilter, setDateFilter] = useState("");
+  const [openAuditDropdown, setOpenAuditDropdown] = useState(null); // null | "category" | "role"
+  const auditDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (
+        auditDropdownRef.current &&
+        !auditDropdownRef.current.contains(e.target)
+      ) {
+        setOpenAuditDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -250,7 +267,7 @@ export default function AuditLogs() {
       <section className="audit-stats-grid">
         <div className="audit-stat-card">
           <div className="audit-stat-icon blue">
-            <ClipboardList size={22} />
+            <ClipboardList size={18} strokeWidth={1.9} />
           </div>
           <div className="audit-stat-info">
             <p>Total Events</p>
@@ -261,7 +278,7 @@ export default function AuditLogs() {
 
         <div className="audit-stat-card">
           <div className="audit-stat-icon purple">
-            <FileText size={22} />
+            <FileText size={18} strokeWidth={1.9} />
           </div>
           <div className="audit-stat-info">
             <p>Quotation Activities</p>
@@ -272,7 +289,7 @@ export default function AuditLogs() {
 
         <div className="audit-stat-card">
           <div className="audit-stat-icon emerald">
-            <Users size={22} />
+            <Users size={18} strokeWidth={1.9} />
           </div>
           <div className="audit-stat-info">
             <p>Admin / User Events</p>
@@ -283,7 +300,7 @@ export default function AuditLogs() {
 
         <div className="audit-stat-card">
           <div className="audit-stat-icon amber">
-            <LogIn size={22} />
+            <LogIn size={18} strokeWidth={1.9} />
           </div>
           <div className="audit-stat-info">
             <p>User Sign-ins</p>
@@ -339,28 +356,142 @@ export default function AuditLogs() {
               )}
             </div>
 
-            <select
-              className="audit-filter-select"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="All">All Categories</option>
-              <option value="quotations">Quotation Workflows</option>
-              <option value="approvals">Submissions &amp; Approvals</option>
-              <option value="users">Admin &amp; User Management</option>
-              <option value="auth">Sign-ins &amp; Authentication</option>
-              <option value="customers">Customer Records</option>
-            </select>
+            <div className="audit-dropdowns-group" ref={auditDropdownRef}>
+              {/* 1. All Categories Dropdown */}
+              <div className="audit-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`audit-dropdown-btn ${openAuditDropdown === "category" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenAuditDropdown((prev) =>
+                      prev === "category" ? null : "category"
+                    )
+                  }
+                  aria-expanded={openAuditDropdown === "category"}
+                >
+                  <span className="audit-dropdown-label">
+                    {categoryFilter === "quotations"
+                      ? "Quotation Workflows"
+                      : categoryFilter === "approvals"
+                      ? "Submissions & Approvals"
+                      : categoryFilter === "users"
+                      ? "Admin & User Management"
+                      : categoryFilter === "auth"
+                      ? "Sign-ins & Authentication"
+                      : categoryFilter === "customers"
+                      ? "Customer Records"
+                      : "All Categories"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`audit-dropdown-chevron ${openAuditDropdown === "category" ? "open" : ""}`}
+                  />
+                </button>
 
-            <select
-              className="audit-filter-select"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="All">All Initiator Roles</option>
-              <option value="Super Admin">Super Admin</option>
-              <option value="Admin">Admin</option>
-            </select>
+                {openAuditDropdown === "category" && (
+                  <div className="audit-dropdown-menu" role="listbox">
+                    <div className="audit-dropdown-header">
+                      <span>Filter by Category</span>
+                    </div>
+                    <div className="audit-dropdown-list">
+                      {[
+                        { value: "All", label: "All Categories", color: "#64748b" },
+                        { value: "quotations", label: "Quotation Workflows", color: "#7c3aed" },
+                        { value: "approvals", label: "Submissions & Approvals", color: "#16a34a" },
+                        { value: "users", label: "Admin & User Management", color: "#2563eb" },
+                        { value: "auth", label: "Sign-ins & Authentication", color: "#ea580c" },
+                        { value: "customers", label: "Customer Records", color: "#0d9488" },
+                      ].map((opt) => {
+                        const isSelected = categoryFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`audit-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setCategoryFilter(opt.value);
+                              setOpenAuditDropdown(null);
+                            }}
+                          >
+                            <div className="audit-dropdown-item-left">
+                              <span
+                                className="audit-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="audit-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="audit-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. All Initiator Roles Dropdown */}
+              <div className="audit-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`audit-dropdown-btn ${openAuditDropdown === "role" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenAuditDropdown((prev) =>
+                      prev === "role" ? null : "role"
+                    )
+                  }
+                  aria-expanded={openAuditDropdown === "role"}
+                >
+                  <span className="audit-dropdown-label">
+                    {roleFilter === "Super Admin"
+                      ? "Super Admin"
+                      : roleFilter === "Admin"
+                      ? "Admin"
+                      : "All Initiator Roles"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`audit-dropdown-chevron ${openAuditDropdown === "role" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openAuditDropdown === "role" && (
+                  <div className="audit-dropdown-menu" role="listbox">
+                    <div className="audit-dropdown-header">
+                      <span>Filter by Initiator Role</span>
+                    </div>
+                    <div className="audit-dropdown-list">
+                      {[
+                        { value: "All", label: "All Initiator Roles", color: "#64748b" },
+                        { value: "Super Admin", label: "Super Admin", color: "#4338ca" },
+                        { value: "Admin", label: "Admin", color: "#2563eb" },
+                      ].map((opt) => {
+                        const isSelected = roleFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`audit-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setRoleFilter(opt.value);
+                              setOpenAuditDropdown(null);
+                            }}
+                          >
+                            <div className="audit-dropdown-item-left">
+                              <span
+                                className="audit-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="audit-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="audit-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <span className="audit-count">

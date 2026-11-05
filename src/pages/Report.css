@@ -1,4 +1,3 @@
-
 /* Reports & Analytics page styles */
 
 .reports-page {
@@ -646,66 +645,79 @@
 
 /* Modern styled stat card icons with gradient and soft shadow */
 .report-metric-icon {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 10px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .report-metric-icon svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.2px;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9px;
 }
 
 .report-metric-card:hover .report-metric-icon {
-  transform: scale(1.06);
+  transform: translateY(-1px) scale(1.04);
 }
 
 .metric-blue {
-  border: 1.5px solid #bfdbfe;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  color: #2563eb;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 45%, #dbeafe 100%);
+  color: #1d4ed8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(29, 78, 216, 0.16);
 }
 
 .metric-purple {
-  border: 1.5px solid #e9d5ff;
-  background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
-  color: #7c3aed;
-  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #faf5ff 45%, #ede9fe 100%);
+  color: #6d28d9;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(109, 40, 217, 0.16);
 }
 
 .metric-green {
-  border: 1.5px solid #a7f3d0;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  color: #059669;
-  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.26);
+  background: linear-gradient(145deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%);
+  color: #047857;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(4, 120, 87, 0.16);
 }
 
 .metric-orange,
 .metric-amber {
-  border: 1.5px solid #fed7aa;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  color: #ea580c;
-  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: linear-gradient(145deg, #ffffff 0%, #fffbeb 45%, #fef3c7 100%);
+  color: #b45309;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(180, 83, 9, 0.16);
 }
 
 .metric-red {
-  border: 1.5px solid #fecaca;
-  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  color: #dc2626;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: linear-gradient(145deg, #ffffff 0%, #fef2f2 45%, #fee2e2 100%);
+  color: #b91c1c;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(185, 28, 28, 0.16);
 }
 
 .metric-navy {
-  border: 1.5px solid #cbd5e1;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  color: #1e293b;
-  box-shadow: 0 2px 6px rgba(30, 41, 59, 0.12);
+  border: 1px solid rgba(100, 116, 139, 0.26);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 45%, #e2e8f0 100%);
+  color: #0f172a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(15, 23, 42, 0.14);
 }
 
 .report-metric-content {
@@ -716,8 +728,8 @@
 .report-metric-title {
   margin: 1px 0 10px;
   color: #738197;
-  font-size: 10px;
-  font-weight: 550;
+  font-size: 12.5px;
+  font-weight: 600;
   line-height: 1.5;
   text-transform: none;
   letter-spacing: normal;
@@ -1101,12 +1113,12 @@
   background: #fff5f5;
 }
 
-.reports-error-message > svg {
+.reports-error-message>svg {
   flex-shrink: 0;
   margin-top: 2px;
 }
 
-.reports-error-message > div {
+.reports-error-message>div {
   min-width: 0;
   flex: 1;
 }
@@ -1248,13 +1260,13 @@
   }
 
   .report-metric-icon {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
   }
 
   .report-metric-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .report-metric-description {
@@ -1263,7 +1275,7 @@
   }
 
   .report-metric-title {
-    font-size: 11px;
+    font-size: 11.5px;
     line-height: 1.5;
   }
 
@@ -1466,19 +1478,19 @@
   }
 
   .report-metric-icon {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
     border-radius: 9px;
   }
 
   .report-metric-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .report-metric-title {
     margin: 0 0 4px;
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 600;
     line-height: 1.3;
     overflow-wrap: anywhere;
@@ -1558,18 +1570,18 @@
   }
 
   .report-metric-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
   }
 
   .report-metric-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 14.5px;
+    height: 14.5px;
   }
 
   .report-metric-title {
-    font-size: 9.5px;
+    font-size: 10.5px;
     margin: 0 0 4px;
     line-height: 1.25;
   }
@@ -1589,5 +1601,208 @@
   .report-metric-note {
     font-size: 8.5px;
     line-height: 1.3;
+  }
+}
+
+
+/* Reports Table Header Bar - Deep Navy Blue with White Text */
+.reports-table thead {
+  background: #0b1932;
+}
+
+.reports-table th {
+  background: #0b1932;
+  color: #ffffff;
+}
+
+/* Modern Professional Custom Dropdown for Reports Page */
+.reports-filter-panel {
+  overflow: visible;
+}
+
+.report-dropdown-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.report-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+}
+
+.report-dropdown-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.report-dropdown-btn.active,
+.report-dropdown-btn:focus-visible {
+  border-color: #163b73;
+  outline: none !important;
+  box-shadow: 0 1px 4px rgba(22, 59, 115, 0.15) !important;
+  background: #f8fafc;
+}
+
+.report-dropdown-label {
+  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: 0.1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.report-dropdown-chevron {
+  color: #64748b;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.report-dropdown-chevron.open {
+  transform: rotate(180deg);
+}
+
+.report-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 120;
+  min-width: 215px;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  animation: reportDropdownFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes reportDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.report-dropdown-header {
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.report-dropdown-header span {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.report-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.report-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #1e293b;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.report-dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.report-dropdown-item.selected {
+  background: #eff6ff;
+  color: #163b73;
+  font-weight: 600;
+}
+
+.report-dropdown-item-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.report-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.report-dropdown-item-text {
+  font-size: 12px;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.report-dropdown-check {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .report-dropdown-btn {
+    height: 34px;
+    min-height: 34px;
+    border-radius: 8px;
+    font-size: 11.5px;
+  }
+
+  .report-dropdown-label {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .report-dropdown-btn {
+    height: 32px;
+    min-height: 32px;
+    font-size: 11px;
+    border-radius: 7px;
+  }
+
+  .report-dropdown-label {
+    font-size: 11px;
   }
 }

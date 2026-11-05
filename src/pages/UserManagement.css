@@ -216,18 +216,18 @@
   }
 
   .um-stat-icon {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
   }
 
   .um-stat-icon svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .um-stat-info p {
-    font-size: 10px;
+    font-size: 11.5px;
     font-weight: 600;
     margin: 0 0 4px;
     line-height: 1.35;
@@ -281,18 +281,18 @@
   }
 
   .um-stat-icon {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 8px;
   }
 
   .um-stat-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 14.5px;
+    height: 14.5px;
   }
 
   .um-stat-info p {
-    font-size: 9px;
+    font-size: 10.5px;
     margin: 0 0 3px;
   }
 
@@ -328,51 +328,60 @@
 }
 
 .um-stat-icon {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   flex-shrink: 0;
-  border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 10px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .um-stat-icon svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2.2px;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.9px;
 }
 
 .um-stat-card:hover .um-stat-icon {
-  transform: scale(1.06);
+  transform: translateY(-1px) scale(1.04);
 }
 
 .um-stat-icon.blue {
-  border: 1.5px solid #bfdbfe;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  color: #2563eb;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 45%, #dbeafe 100%);
+  color: #1d4ed8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(29, 78, 216, 0.16);
 }
 
 .um-stat-icon.navy {
-  border: 1.5px solid #c7d2fe;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border: 1px solid rgba(99, 102, 241, 0.24);
+  background: linear-gradient(145deg, #ffffff 0%, #eef2ff 45%, #e0e7ff 100%);
   color: #4338ca;
-  box-shadow: 0 2px 6px rgba(67, 56, 202, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(67, 56, 202, 0.16);
 }
 
 .um-stat-icon.green {
-  border: 1.5px solid #a7f3d0;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-  color: #059669;
-  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.26);
+  background: linear-gradient(145deg, #ffffff 0%, #ecfdf5 45%, #d1fae5 100%);
+  color: #047857;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(4, 120, 87, 0.16);
 }
 
 .um-stat-icon.amber {
-  border: 1.5px solid #fed7aa;
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  color: #ea580c;
-  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: linear-gradient(145deg, #ffffff 0%, #fffbeb 45%, #fef3c7 100%);
+  color: #b45309;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 8px -2px rgba(180, 83, 9, 0.16);
 }
 
 .um-stat-info {
@@ -383,8 +392,8 @@
 .um-stat-info p {
   margin: 1px 0 10px;
   color: #738197;
-  font-size: 10px;
-  font-weight: 550;
+  font-size: 12.5px;
+  font-weight: 600;
   line-height: 1.5;
   text-transform: none;
   letter-spacing: normal;
@@ -1105,4 +1114,289 @@
 .um-delete-actions {
   display: flex;
   gap: 10px;
+}
+
+
+/* Modern Professional Custom Dropdowns for User Management Page */
+.um-panel {
+  overflow: visible;
+}
+
+.um-dropdowns-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.um-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.um-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1e293b;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
+}
+
+.um-dropdown-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.um-dropdown-btn.active,
+.um-dropdown-btn:focus-visible {
+  border-color: #163b73;
+  outline: none;
+  box-shadow: 0 1px 4px rgba(22, 59, 115, 0.15);
+  background: #f8fafc;
+}
+
+.um-dropdown-label {
+  color: #1e293b;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: 0.1px;
+}
+
+.um-dropdown-chevron {
+  color: #64748b;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.um-dropdown-chevron.open {
+  transform: rotate(180deg);
+}
+
+.um-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 120;
+  min-width: 215px;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.14), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
+  animation: umDropdownFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes umDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.um-dropdown-header {
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.um-dropdown-header span {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.um-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.um-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #1e293b;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.um-dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.um-dropdown-item.selected {
+  background: #eff6ff;
+  color: #163b73;
+  font-weight: 600;
+}
+
+.um-dropdown-item-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.um-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.um-dropdown-item-text {
+  font-size: 12px;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.um-dropdown-check {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .um-dropdowns-group,
+  .um-dropdown-wrap,
+  .um-dropdown-btn {
+    width: 100%;
+  }
+
+  .um-dropdown-menu {
+    left: 0;
+    right: 0;
+    min-width: 100%;
+  }
+}
+
+
+/* User Management Table Header Bar - Deep Navy Blue with White Text */
+.um-table thead {
+  background: #0b1932;
+}
+
+.um-table th {
+  background: #0b1932;
+  color: #ffffff;
+  border-bottom-color: #0b1932;
+}
+
+/* Mobile Responsive 4 Stat Cards - Reduced Height */
+@media (max-width: 768px) {
+  .um-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .um-stat-card {
+    min-height: auto;
+    padding: 11px 10px;
+    gap: 9px;
+    border-radius: 12px;
+  }
+
+  .um-stat-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+  }
+
+  .um-stat-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .um-stat-info p {
+    font-size: 10px;
+    margin: 0 0 3px;
+    line-height: 1.3;
+  }
+
+  .um-stat-info h3 {
+    font-size: 17px;
+    margin: 0 0 2px;
+    line-height: 1.15;
+  }
+
+  .um-stat-note {
+    font-size: 9px;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 480px) {
+  .um-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .um-stat-card {
+    min-height: auto;
+    padding: 10px 8px;
+    gap: 7px;
+    border-radius: 11px;
+  }
+
+  .um-stat-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+
+  .um-stat-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .um-stat-info p {
+    font-size: 9px;
+    margin: 0 0 2px;
+    line-height: 1.25;
+  }
+
+  .um-stat-info h3 {
+    font-size: 15px;
+    margin: 0 0 2px;
+    line-height: 1.15;
+  }
+
+  .um-stat-note {
+    font-size: 8.5px;
+    margin-top: 2px;
+    line-height: 1.25;
+  }
 }

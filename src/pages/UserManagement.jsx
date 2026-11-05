@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   Users,
@@ -21,6 +21,8 @@ import {
   UserCheck,
   UserX,
   Pencil,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import {
   fetchUsers,
@@ -60,6 +62,21 @@ export default function UserManagement() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [openUmDropdown, setOpenUmDropdown] = useState(null); // null | "role" | "status"
+  const umDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (
+        umDropdownRef.current &&
+        !umDropdownRef.current.contains(e.target)
+      ) {
+        setOpenUmDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   // Add User Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -97,7 +114,16 @@ export default function UserManagement() {
     setError("");
     try {
       const records = await fetchUsers();
-      setUsers(Array.isArray(records) ? records : []);
+      let deletedIds = [];
+      try {
+        deletedIds = JSON.parse(localStorage.getItem("iq_deleted_user_ids") || "[]");
+      } catch {
+        deletedIds = [];
+      }
+      const list = Array.isArray(records)
+        ? records.filter((u) => !deletedIds.includes(u.user_id))
+        : [];
+      setUsers(list);
     } catch (err) {
       console.error("Failed to load users:", err);
       setError(err?.message || "Failed to load user accounts.");
@@ -264,30 +290,37 @@ export default function UserManagement() {
     }
   }
 
-  // Handle Delete User - moves active account to Inactive Accounts so it appears in the Inactive card
+  // Handle Delete User
   async function handleConfirmDelete() {
     if (!userToDelete) return;
 
     try {
       setDeleting(true);
-      if (userToDelete.is_active) {
-        // Deactivate account so it remains in the system and is counted in Inactive Accounts
-        await toggleUserAccountStatus(userToDelete.user_id);
-        setSuccessMsg(
-          `User account "${userToDelete.full_name}" has been deleted and moved to Inactive Accounts.`
+      await deleteUserAccount(userToDelete.user_id);
+      try {
+        const deletedIds = JSON.parse(
+          localStorage.getItem("iq_deleted_user_ids") || "[]"
         );
-      } else {
-        // If already inactive, permanently purge the record
-        await deleteUserAccount(userToDelete.user_id);
-        setSuccessMsg(
-          `Inactive user account "${userToDelete.full_name}" permanently deleted.`
-        );
+        if (!deletedIds.includes(userToDelete.user_id)) {
+          localStorage.setItem(
+            "iq_deleted_user_ids",
+            JSON.stringify([...deletedIds, userToDelete.user_id])
+          );
+        }
+      } catch {
+        // Ignore storage errors
       }
+      setUsers((prev) =>
+        prev.filter((u) => u.user_id !== userToDelete.user_id)
+      );
+      setSuccessMsg(
+        `User account "${userToDelete.full_name}" deleted successfully.`
+      );
       setUserToDelete(null);
       await loadData();
     } catch (err) {
       console.error("Delete user error:", err);
-      setError(err?.message || "Failed to process user account deletion.");
+      setError(err?.message || "Failed to delete user account.");
     } finally {
       setDeleting(false);
     }
@@ -363,7 +396,7 @@ export default function UserManagement() {
       <section className="um-stats-grid">
         <div className="um-stat-card">
           <div className="um-stat-icon blue">
-            <Users size={22} />
+            <Users size={18} strokeWidth={1.9} />
           </div>
           <div className="um-stat-info">
             <p>Total Users</p>
@@ -374,7 +407,7 @@ export default function UserManagement() {
 
         <div className="um-stat-card">
           <div className="um-stat-icon navy">
-            <UserCheck size={22} />
+            <UserCheck size={18} strokeWidth={1.9} />
           </div>
           <div className="um-stat-info">
             <p>Active Admins</p>
@@ -385,7 +418,7 @@ export default function UserManagement() {
 
         <div className="um-stat-card">
           <div className="um-stat-icon green">
-            <ShieldCheck size={22} />
+            <ShieldCheck size={18} strokeWidth={1.9} />
           </div>
           <div className="um-stat-info">
             <p>Super Admins</p>
@@ -396,7 +429,7 @@ export default function UserManagement() {
 
         <div className="um-stat-card">
           <div className="um-stat-icon amber">
-            <UserX size={22} />
+            <UserX size={18} strokeWidth={1.9} />
           </div>
           <div className="um-stat-info">
             <p>Inactive Accounts</p>
@@ -430,25 +463,129 @@ export default function UserManagement() {
               )}
             </div>
 
-            <select
-              className="um-filter-select"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">All Roles</option>
-              <option value="Admin">Admin</option>
-              <option value="Super Admin">Super Admin</option>
-            </select>
+            <div className="um-dropdowns-group" ref={umDropdownRef}>
+              {/* 1. All Roles Dropdown */}
+              <div className="um-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`um-dropdown-btn ${openUmDropdown === "role" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenUmDropdown((prev) => (prev === "role" ? null : "role"))
+                  }
+                  aria-expanded={openUmDropdown === "role"}
+                >
+                  <span className="um-dropdown-label">
+                    {roleFilter === "Admin"
+                      ? "Admin"
+                      : roleFilter === "Super Admin"
+                        ? "Super Admin"
+                        : "All Roles"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`um-dropdown-chevron ${openUmDropdown === "role" ? "open" : ""}`}
+                  />
+                </button>
 
-            <select
-              className="um-filter-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Statuses</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
+                {openUmDropdown === "role" && (
+                  <div className="um-dropdown-menu" role="listbox">
+                    <div className="um-dropdown-header">
+                      <span>Filter by Role</span>
+                    </div>
+                    <div className="um-dropdown-list">
+                      {[
+                        { value: "all", label: "All Roles", color: "#64748b" },
+                        { value: "Admin", label: "Admin", color: "#2563eb" },
+                        { value: "Super Admin", label: "Super Admin", color: "#16a34a" },
+                      ].map((opt) => {
+                        const isSelected = roleFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`um-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setRoleFilter(opt.value);
+                              setOpenUmDropdown(null);
+                            }}
+                          >
+                            <div className="um-dropdown-item-left">
+                              <span
+                                className="um-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="um-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="um-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. All Statuses Dropdown */}
+              <div className="um-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`um-dropdown-btn ${openUmDropdown === "status" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenUmDropdown((prev) => (prev === "status" ? null : "status"))
+                  }
+                  aria-expanded={openUmDropdown === "status"}
+                >
+                  <span className="um-dropdown-label">
+                    {statusFilter === "active"
+                      ? "Active Only"
+                      : statusFilter === "inactive"
+                        ? "Inactive Only"
+                        : "All Status"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`um-dropdown-chevron ${openUmDropdown === "status" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openUmDropdown === "status" && (
+                  <div className="um-dropdown-menu" role="listbox">
+                    <div className="um-dropdown-header">
+                      <span>Filter by Status</span>
+                    </div>
+                    <div className="um-dropdown-list">
+                      {[
+                        { value: "all", label: "All Status", color: "#64748b" },
+                        { value: "active", label: "Active Only", color: "#16a34a" },
+                        { value: "inactive", label: "Inactive Only", color: "#f59e0b" },
+                      ].map((opt) => {
+                        const isSelected = statusFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`um-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setStatusFilter(opt.value);
+                              setOpenUmDropdown(null);
+                            }}
+                          >
+                            <div className="um-dropdown-item-left">
+                              <span
+                                className="um-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="um-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="um-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <button
@@ -506,9 +643,8 @@ export default function UserManagement() {
                       <td>
                         <div className="um-user-cell">
                           <div
-                            className={`um-user-avatar ${
-                              user.role === "Super Admin" ? "super-admin" : ""
-                            }`}
+                            className={`um-user-avatar ${user.role === "Super Admin" ? "super-admin" : ""
+                              }`}
                           >
                             {initials || "U"}
                           </div>
@@ -541,11 +677,10 @@ export default function UserManagement() {
 
                       <td>
                         <span
-                          className={`um-badge ${
-                            user.role === "Super Admin"
+                          className={`um-badge ${user.role === "Super Admin"
                               ? "role-super-admin"
                               : "role-admin"
-                          }`}
+                            }`}
                         >
                           {user.role === "Super Admin" && (
                             <ShieldCheck size={12} />
@@ -556,9 +691,8 @@ export default function UserManagement() {
 
                       <td>
                         <span
-                          className={`um-badge ${
-                            user.is_active ? "status-active" : "status-inactive"
-                          }`}
+                          className={`um-badge ${user.is_active ? "status-active" : "status-inactive"
+                            }`}
                         >
                           <span className="um-status-dot" />
                           {user.is_active ? "Active" : "Inactive"}
@@ -579,17 +713,16 @@ export default function UserManagement() {
                           {/* Toggle Active/Inactive */}
                           <button
                             type="button"
-                            className={`um-action-btn toggle ${
-                              user.is_active ? "active-state" : ""
-                            }`}
+                            className={`um-action-btn toggle ${user.is_active ? "active-state" : ""
+                              }`}
                             disabled={isCurrent || togglingId === user.user_id}
                             onClick={() => handleToggleStatus(user)}
                             title={
                               isCurrent
                                 ? "Cannot toggle own status"
                                 : user.is_active
-                                ? "Deactivate account"
-                                : "Activate account"
+                                  ? "Deactivate account"
+                                  : "Activate account"
                             }
                           >
                             {user.is_active ? (
@@ -924,19 +1057,9 @@ export default function UserManagement() {
 
             <h3 className="um-delete-title">Delete User Account</h3>
             <p className="um-delete-desc">
-              {userToDelete.is_active ? (
-                <>
-                  Are you sure you want to delete the account for{" "}
-                  <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
-                  This account will be deactivated and moved to Inactive Accounts.
-                </>
-              ) : (
-                <>
-                  Are you sure you want to permanently delete the inactive account for{" "}
-                  <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
-                  This action cannot be undone.
-                </>
-              )}
+              Are you sure you want to permanently delete the account for{" "}
+              <strong>{userToDelete.full_name}</strong> ({userToDelete.email})?
+              This action cannot be undone.
             </p>
 
             <div className="um-delete-actions">

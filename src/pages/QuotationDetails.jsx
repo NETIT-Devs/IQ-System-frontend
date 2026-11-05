@@ -20,6 +20,7 @@ import {
   updateQuotationCustomerStatus,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import "./QuotationDetails.css";
 
 // Format date into human-readable representation
@@ -83,6 +84,12 @@ export default function QuotationDetails({
   const [loading, setLoading] = useState(!propQuotation && Boolean(activeId));
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [error, setError] = useState("");
+
+  const authUser = getAuthenticatedUser();
+  const isSuperAdmin =
+    String(authUser?.role || "").trim().toLowerCase() === "super admin" ||
+    authUser?.role === "super_admin";
+  const canDownloadPdf = isSuperAdmin || getDetailsStatus(quotation) === "Approved";
 
   useEffect(() => {
     if (propQuotation) {
@@ -196,7 +203,7 @@ export default function QuotationDetails({
 
   // Handle direct PDF export
   const handleDownloadPdf = async () => {
-    if (!quotation) return;
+    if (!quotation || !canDownloadPdf) return;
 
     try {
       setDownloadingPdf(true);
@@ -313,115 +320,6 @@ export default function QuotationDetails({
             </div>
           ) : quotation ? (
             <>
-              {/* Separate Customer Response Tracker Bar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "12px",
-                  padding: "12px 16px",
-                  marginBottom: "16px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "700", color: "#334155" }}>
-                    Customer Response:
-                  </span>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "3px 9px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                      fontWeight: "700",
-                      background:
-                        currentCustStatus === "Customer Accepted"
-                          ? "#dcfce7"
-                          : currentCustStatus === "Sent to Customer"
-                          ? "#e0f2fe"
-                          : currentCustStatus === "Customer Rejected"
-                          ? "#fee2e2"
-                          : "#f1f5f9",
-                      color:
-                        currentCustStatus === "Customer Accepted"
-                          ? "#15803d"
-                          : currentCustStatus === "Sent to Customer"
-                          ? "#0369a1"
-                          : currentCustStatus === "Customer Rejected"
-                          ? "#b91c1c"
-                          : "#475569",
-                      border: "1px solid currentColor",
-                    }}
-                  >
-                    {currentCustStatus}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus("Sent to Customer")}
-                    disabled={updatingStatus || currentCustStatus === "Sent to Customer"}
-                    style={{
-                      padding: "5px 12px",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      borderRadius: "6px",
-                      border: "1px solid #bae6fd",
-                      background: currentCustStatus === "Sent to Customer" ? "#bae6fd" : "#e0f2fe",
-                      color: "#0369a1",
-                      cursor: currentCustStatus === "Sent to Customer" ? "default" : "pointer",
-                      opacity: updatingStatus ? 0.6 : 1,
-                    }}
-                  >
-                    📤 Sent to Customer
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus("Customer Accepted")}
-                    disabled={updatingStatus || currentCustStatus === "Customer Accepted"}
-                    style={{
-                      padding: "5px 12px",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      borderRadius: "6px",
-                      border: "1px solid #bbf7d0",
-                      background: currentCustStatus === "Customer Accepted" ? "#bbf7d0" : "#dcfce7",
-                      color: "#15803d",
-                      cursor: currentCustStatus === "Customer Accepted" ? "default" : "pointer",
-                      opacity: updatingStatus ? 0.6 : 1,
-                    }}
-                  >
-                    ✅ Customer Accepted
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleUpdateStatus("Customer Rejected")}
-                    disabled={updatingStatus || currentCustStatus === "Customer Rejected"}
-                    style={{
-                      padding: "5px 12px",
-                      fontSize: "12px",
-                      fontWeight: "600",
-                      borderRadius: "6px",
-                      border: "1px solid #fecaca",
-                      background: currentCustStatus === "Customer Rejected" ? "#fecaca" : "#fee2e2",
-                      color: "#b91c1c",
-                      cursor: currentCustStatus === "Customer Rejected" ? "default" : "pointer",
-                      opacity: updatingStatus ? 0.6 : 1,
-                    }}
-                  >
-                    ❌ Customer Rejected
-                  </button>
-                </div>
-              </div>
-
               {/* Overview Metrics Bar */}
               <div className="qd-overview-bar">
                 <div className="qd-overview-card">
@@ -475,15 +373,15 @@ export default function QuotationDetails({
                       {(quotation.customer_company ||
                         quotation.company_name ||
                         customerDetails.company_name) && (
-                        <tr>
-                          <td className="qd-data-label">Company:</td>
-                          <td className="qd-data-val">
-                            {quotation.customer_company ||
-                              quotation.company_name ||
-                              customerDetails.company_name}
-                          </td>
-                        </tr>
-                      )}
+                          <tr>
+                            <td className="qd-data-label">Company:</td>
+                            <td className="qd-data-val">
+                              {quotation.customer_company ||
+                                quotation.company_name ||
+                                customerDetails.company_name}
+                            </td>
+                          </tr>
+                        )}
                       <tr>
                         <td className="qd-data-label">Customer ID:</td>
                         <td className="qd-data-val">{quotation.customer_id}</td>
@@ -491,39 +389,39 @@ export default function QuotationDetails({
                       {(quotation.customer_email ||
                         quotation.email ||
                         customerDetails.email) && (
-                        <tr>
-                          <td className="qd-data-label">Email:</td>
-                          <td className="qd-data-val">
-                            {quotation.customer_email ||
-                              quotation.email ||
-                              customerDetails.email}
-                          </td>
-                        </tr>
-                      )}
+                          <tr>
+                            <td className="qd-data-label">Email:</td>
+                            <td className="qd-data-val">
+                              {quotation.customer_email ||
+                                quotation.email ||
+                                customerDetails.email}
+                            </td>
+                          </tr>
+                        )}
                       {(quotation.customer_phone ||
                         quotation.phone ||
                         customerDetails.phone) && (
-                        <tr>
-                          <td className="qd-data-label">Phone:</td>
-                          <td className="qd-data-val">
-                            {quotation.customer_phone ||
-                              quotation.phone ||
-                              customerDetails.phone}
-                          </td>
-                        </tr>
-                      )}
+                          <tr>
+                            <td className="qd-data-label">Phone:</td>
+                            <td className="qd-data-val">
+                              {quotation.customer_phone ||
+                                quotation.phone ||
+                                customerDetails.phone}
+                            </td>
+                          </tr>
+                        )}
                       {(quotation.customer_address ||
                         quotation.address ||
                         customerDetails.address) && (
-                        <tr>
-                          <td className="qd-data-label">Address:</td>
-                          <td className="qd-data-val">
-                            {quotation.customer_address ||
-                              quotation.address ||
-                              customerDetails.address}
-                          </td>
-                        </tr>
-                      )}
+                          <tr>
+                            <td className="qd-data-label">Address:</td>
+                            <td className="qd-data-val">
+                              {quotation.customer_address ||
+                                quotation.address ||
+                                customerDetails.address}
+                            </td>
+                          </tr>
+                        )}
                     </tbody>
                   </table>
                 </div>
@@ -608,24 +506,24 @@ export default function QuotationDetails({
                               {(item.technology ||
                                 item.website_type ||
                                 item.hosting_domain) && (
-                                <div className="qd-tags-row">
-                                  {item.technology && (
-                                    <span className="qd-tag">
-                                      Tech: {item.technology}
-                                    </span>
-                                  )}
-                                  {item.website_type && (
-                                    <span className="qd-tag">
-                                      Type: {item.website_type}
-                                    </span>
-                                  )}
-                                  {item.hosting_domain && (
-                                    <span className="qd-tag">
-                                      Hosting: {item.hosting_domain}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
+                                  <div className="qd-tags-row">
+                                    {item.technology && (
+                                      <span className="qd-tag">
+                                        Tech: {item.technology}
+                                      </span>
+                                    )}
+                                    {item.website_type && (
+                                      <span className="qd-tag">
+                                        Type: {item.website_type}
+                                      </span>
+                                    )}
+                                    {item.hosting_domain && (
+                                      <span className="qd-tag">
+                                        Hosting: {item.hosting_domain}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
 
                               {item.description && (
                                 <p className="qd-item-desc">{item.description}</p>
@@ -726,7 +624,17 @@ export default function QuotationDetails({
               type="button"
               className="qd-btn qd-btn-pdf"
               onClick={handleDownloadPdf}
-              disabled={downloadingPdf || !quotation}
+              disabled={downloadingPdf || !quotation || !canDownloadPdf}
+              title={
+                !canDownloadPdf
+                  ? "Available after Super Admin approval"
+                  : "Download PDF"
+              }
+              style={
+                !canDownloadPdf
+                  ? { opacity: 0.5, cursor: "not-allowed" }
+                  : undefined
+              }
             >
               <Download size={16} />
               {downloadingPdf ? "Generating PDF..." : "Download PDF"}

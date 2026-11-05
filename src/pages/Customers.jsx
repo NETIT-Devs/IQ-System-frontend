@@ -1,54 +1,78 @@
-import { useEffect, useMemo, useState } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useOutletContext } from "react-router-dom";
 import {
   Users,
   Search,
   UserPlus,
   Star,
-  Globe,
-  FileText,
   CheckCircle2,
   Send,
   XCircle,
   Eye,
-  Plus,
   Menu,
   Phone,
   Mail,
-  MapPin,
-  Building,
-  TrendingUp,
   X,
-  FileCheck,
+  Pencil,
+  Trash2,
+  UserCheck,
+  UserX,
+  FileText,
+  Receipt,
   Calendar,
-  Layers,
+  Building2,
+  MapPin,
+  ChevronDown,
+  Check,
 } from "lucide-react";
+import API_BASE_URL from "../services/api";
 import {
   getCustomers,
   createCustomer,
   getQuotations,
   updateQuotationCustomerStatus,
 } from "../services/quotationService";
+import QuotationDetails from "./QuotationDetails";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Customers.css";
 
 const PINNED_STORAGE_KEY = "iq_pinned_daily_customers";
+const UNPINNED_STORAGE_KEY = "iq_unpinned_regular_customers";
+const CUSTOMER_EDITS_STORAGE_KEY = "iq_customer_edits_v1";
+const DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids_v1";
+const INVOICE_STATUS_STORAGE_KEY = "iq_customer_invoice_statuses_v1";
 
-function getPinnedCustomerIds() {
+function readJsonStorage(key, fallback) {
   try {
-    const raw = localStorage.getItem(PINNED_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function savePinnedCustomerIds(ids) {
+function writeJsonStorage(key, value) {
   try {
-    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(ids));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // ignore
+    // ignore storage errors
   }
+}
+
+function getPinnedCustomerIds() {
+  return readJsonStorage(PINNED_STORAGE_KEY, []);
+}
+
+function savePinnedCustomerIds(ids) {
+  writeJsonStorage(PINNED_STORAGE_KEY, ids);
+}
+
+function getAuthToken() {
+  return (
+    localStorage.getItem("authToken") ||
+    sessionStorage.getItem("authToken") ||
+    ""
+  );
 }
 
 function formatCurrency(amount) {
@@ -59,9 +83,68 @@ function formatCurrency(amount) {
   })}`;
 }
 
+function formatDisplayDate(dateStr) {
+  if (!dateStr) return "—";
+  try {
+    const str = String(dateStr).trim();
+    const d = str.includes("T") ? new Date(str) : new Date(`${str.slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return str.slice(0, 10);
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return String(dateStr);
+  }
+}
+
+// Normalize Quotation status into Accepted, Sent, or Rejected
+function classifyQuotationStatus(q) {
+  const custStatus = String(q?.customer_status || "").trim().toLowerCase();
+  const sysStatus = String(q?.status || "").trim().toLowerCase();
+
+  if (
+    custStatus === "customer accepted" ||
+    custStatus === "accepted" ||
+    sysStatus === "accepted"
+  ) {
+    return "accepted";
+  }
+  if (
+    custStatus === "customer rejected" ||
+    custStatus === "rejected" ||
+    sysStatus === "rejected"
+  ) {
+    return "rejected";
+  }
+  if (
+    custStatus === "sent to customer" ||
+    custStatus === "sent" ||
+    sysStatus === "approved" ||
+    sysStatus === "pending approval"
+  ) {
+    return "sent";
+  }
+  return "sent";
+}
+
+// Normalize Invoice status into Paid, Partial, or Unpaid
+function classifyInvoiceStatus(inv) {
+  const raw = String(inv?.payment_status || inv?.status || "Unpaid")
+    .trim()
+    .toLowerCase();
+  if (raw === "paid" || raw === "completed" || raw === "settled") {
+    return "paid";
+  }
+  if (raw.includes("partial") || raw === "partly paid") {
+    return "partial";
+  }
+  return "unpaid";
+}
+
 export default function Customers() {
   const { openSidebar } = useOutletContext() || {};
-  const navigate = useNavigate();
 
   const authUser = getAuthenticatedUser();
   const isSuperAdmin =
@@ -72,17 +155,62 @@ export default function Customers() {
 
   const [customers, setCustomers] = useState([]);
   const [quotations, setQuotations] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search & 4 Filter Dropdowns
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all"); // all | regular | new
+  const [statusFilter, setStatusFilter] = useState("all"); // all | active | inactive
+  const [quoteStatusFilter, setQuoteStatusFilter] = useState("all"); // all | accepted | sent | rejected
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("all"); // all | paid | partial | unpaid
+  const [openFilterMenu, setOpenFilterMenu] = useState(null); // null | "type" | "status" | "quote" | "invoice"
+  const filtersContainerRef = useRef(null);
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (
+        filtersContainerRef.current &&
+        !filtersContainerRef.current.contains(e.target)
+      ) {
+        setOpenFilterMenu(null);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  // Pinned / Starred Regular Customers & Local Persisted Overrides
   const [pinnedIds, setPinnedIds] = useState(getPinnedCustomerIds);
+  const [unpinnedIds, setUnpinnedIds] = useState(() =>
+    readJsonStorage(UNPINNED_STORAGE_KEY, [])
+  );
+  const [customerEdits, setCustomerEdits] = useState(() =>
+    readJsonStorage(CUSTOMER_EDITS_STORAGE_KEY, {})
+  );
+  const [deletedCustomerIds, setDeletedCustomerIds] = useState(() =>
+    readJsonStorage(DELETED_CUSTOMERS_STORAGE_KEY, [])
+  );
+  const [invoiceStatusOverrides, setInvoiceStatusOverrides] = useState(() =>
+    readJsonStorage(INVOICE_STATUS_STORAGE_KEY, {})
+  );
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
 
-  // New Customer Form State
+  // View Specific Quotation or Invoice from Customer View Modal
+  const [viewingQuotation, setViewingQuotation] = useState(null);
+  const [viewingInvoice, setViewingInvoice] = useState(null);
+
+  // Edit & Delete Customer Modals
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+
+  // New Customer Form State (unchanged)
   const [newCustomer, setNewCustomer] = useState({
     customer_name: "",
     company_name: "",
@@ -95,16 +223,47 @@ export default function Customers() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Load Customers & Quotations
+  // Fetch invoices safely if backend endpoint exists or local storage has records
+  async function fetchInvoicesSafe() {
+    try {
+      const token = getAuthToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE_URL}/api/invoices`, {
+        method: "GET",
+        headers,
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const list =
+          data?.invoices ||
+          data?.data ||
+          (Array.isArray(data) ? data : []);
+        if (Array.isArray(list) && list.length > 0) {
+          return list;
+        }
+      }
+    } catch {
+      // Fallback silently if /api/invoices is not active yet
+    }
+
+    const localInv = readJsonStorage("iq_invoices", null) || readJsonStorage("invoices", []);
+    return Array.isArray(localInv) ? localInv : [];
+  }
+
+  // Load Customers, Quotations & Invoices
   async function loadData() {
     try {
       setLoading(true);
-      const [custList, quoteList] = await Promise.all([
+      const [custList, quoteList, invList] = await Promise.all([
         getCustomers(),
         getQuotations(),
+        fetchInvoicesSafe(),
       ]);
       setCustomers(Array.isArray(custList) ? custList : []);
       setQuotations(Array.isArray(quoteList) ? quoteList : []);
+      setInvoices(Array.isArray(invList) ? invList : []);
     } catch (err) {
       console.error("Failed to load customer records:", err);
     } finally {
@@ -116,32 +275,49 @@ export default function Customers() {
     loadData();
   }, []);
 
-  // Toggle Pinned / Daily Client
-  function togglePin(customerId) {
-    const next = pinnedIds.includes(customerId)
-      ? pinnedIds.filter((id) => id !== customerId)
-      : [...pinnedIds, customerId];
-    setPinnedIds(next);
-    savePinnedCustomerIds(next);
+  // Toggle Star Mark for Regular Customer (supports both manual pin & unpinning auto-regular)
+  function togglePin(customerId, currentlyRegular) {
+    if (currentlyRegular) {
+      const nextPinned = pinnedIds.filter((id) => id !== customerId);
+      const nextUnpinned = unpinnedIds.includes(customerId)
+        ? unpinnedIds
+        : [...unpinnedIds, customerId];
+      setPinnedIds(nextPinned);
+      setUnpinnedIds(nextUnpinned);
+      savePinnedCustomerIds(nextPinned);
+      writeJsonStorage(UNPINNED_STORAGE_KEY, nextUnpinned);
+    } else {
+      const nextPinned = pinnedIds.includes(customerId)
+        ? pinnedIds
+        : [...pinnedIds, customerId];
+      const nextUnpinned = unpinnedIds.filter((id) => id !== customerId);
+      setPinnedIds(nextPinned);
+      setUnpinnedIds(nextUnpinned);
+      savePinnedCustomerIds(nextPinned);
+      writeJsonStorage(UNPINNED_STORAGE_KEY, nextUnpinned);
+    }
   }
 
-  // Handle Manual Quotation Customer Status Update (from modal)
+  // Toggle Active / Inactive customer status directly or via Edit
+  function toggleCustomerActiveStatus(customerId, currentStatus) {
+    const nextStatus = currentStatus === "Inactive" ? "Active" : "Inactive";
+    const nextEdits = {
+      ...customerEdits,
+      [customerId]: {
+        ...(customerEdits[customerId] || {}),
+        status: nextStatus,
+      },
+    };
+    setCustomerEdits(nextEdits);
+    writeJsonStorage(CUSTOMER_EDITS_STORAGE_KEY, nextEdits);
+  }
+
+  // Handle Manual Quotation Customer Status Update (from View modal)
   async function handleStatusChange(quotationId, newCustomerStatus) {
     try {
       setUpdatingStatusId(quotationId);
       await updateQuotationCustomerStatus(quotationId, newCustomerStatus);
       await loadData();
-      setSelectedCustomer((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          quotes: (prev.quotes || []).map((q) =>
-            (q.quotation_id || q.id) === quotationId
-              ? { ...q, customer_status: newCustomerStatus }
-              : q
-          ),
-        };
-      });
     } catch (err) {
       alert(err?.message || "Failed to update quotation customer status.");
     } finally {
@@ -149,7 +325,31 @@ export default function Customers() {
     }
   }
 
-  // Handle Add Customer Form Submit
+  // Handle Manual Invoice Status Update (Paid / Partial / Unpaid)
+  async function handleInvoiceStatusChange(invoiceKey, newStatus) {
+    const next = {
+      ...invoiceStatusOverrides,
+      [invoiceKey]: newStatus,
+    };
+    setInvoiceStatusOverrides(next);
+    writeJsonStorage(INVOICE_STATUS_STORAGE_KEY, next);
+
+    // Also try updating backend if endpoint exists
+    try {
+      const token = getAuthToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch(`${API_BASE_URL}/api/invoices/${invoiceKey}/status`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status: newStatus, payment_status: newStatus }),
+      });
+    } catch {
+      // Persisted locally via invoiceStatusOverrides
+    }
+  }
+
+  // Handle Add Customer Form Submit (unchanged)
   async function handleAddCustomer(e) {
     e.preventDefault();
     setFormError("");
@@ -180,149 +380,331 @@ export default function Customers() {
     }
   }
 
-  // Augment Customers with Real-time Quotation Stats
+  // Handle Edit Customer Submit
+  async function handleEditCustomerSubmit(e) {
+    e.preventDefault();
+    if (!editingCustomer) return;
+    setEditError("");
+
+    if (!String(editingCustomer.customer_name || "").trim()) {
+      setEditError("Customer name is required.");
+      return;
+    }
+
+    try {
+      setSavingEdit(true);
+      const cId = editingCustomer.customer_id;
+
+      // Try backend PUT if available
+      try {
+        const token = getAuthToken();
+        const headers = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        await fetch(`${API_BASE_URL}/api/customers/${cId}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify(editingCustomer),
+        });
+      } catch {
+        // Fallback to local persistence
+      }
+
+      const nextEdits = {
+        ...customerEdits,
+        [cId]: {
+          customer_name: editingCustomer.customer_name.trim(),
+          company_name: editingCustomer.company_name?.trim() || "",
+          email: editingCustomer.email?.trim() || "",
+          phone: editingCustomer.phone?.trim() || "",
+          address: editingCustomer.address?.trim() || "",
+          city: editingCustomer.city?.trim() || "",
+          notes: editingCustomer.notes?.trim() || "",
+          status: editingCustomer.status || "Active",
+        },
+      };
+      setCustomerEdits(nextEdits);
+      writeJsonStorage(CUSTOMER_EDITS_STORAGE_KEY, nextEdits);
+
+      // Update Regular / New star state if changed in edit form
+      if (editingCustomer.customer_type === "Regular") {
+        const nextPinned = pinnedIds.includes(cId) ? pinnedIds : [...pinnedIds, cId];
+        const nextUnpinned = unpinnedIds.filter((id) => id !== cId);
+        setPinnedIds(nextPinned);
+        setUnpinnedIds(nextUnpinned);
+        savePinnedCustomerIds(nextPinned);
+        writeJsonStorage(UNPINNED_STORAGE_KEY, nextUnpinned);
+      } else if (editingCustomer.customer_type === "New") {
+        const nextPinned = pinnedIds.filter((id) => id !== cId);
+        const nextUnpinned = unpinnedIds.includes(cId) ? unpinnedIds : [...unpinnedIds, cId];
+        setPinnedIds(nextPinned);
+        setUnpinnedIds(nextUnpinned);
+        savePinnedCustomerIds(nextPinned);
+        writeJsonStorage(UNPINNED_STORAGE_KEY, nextUnpinned);
+      }
+
+      setEditingCustomer(null);
+    } catch (err) {
+      setEditError(err?.message || "Failed to update customer.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  // Handle Delete Customer Confirm
+  async function handleConfirmDeleteCustomer() {
+    if (!customerToDelete) return;
+    const cId = customerToDelete.customer_id;
+
+    try {
+      const token = getAuthToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      await fetch(`${API_BASE_URL}/api/customers/${cId}`, {
+        method: "DELETE",
+        headers,
+      });
+    } catch {
+      // Fallback to local persistence
+    }
+
+    const nextDeleted = deletedCustomerIds.includes(cId)
+      ? deletedCustomerIds
+      : [...deletedCustomerIds, cId];
+    setDeletedCustomerIds(nextDeleted);
+    writeJsonStorage(DELETED_CUSTOMERS_STORAGE_KEY, nextDeleted);
+
+    if (selectedCustomerId === cId) {
+      setSelectedCustomerId(null);
+    }
+    setCustomerToDelete(null);
+  }
+
+  // Augment Customers with Real-time Quotation & Invoice Stats
   const enrichedCustomers = useMemo(() => {
-    return customers.map((c) => {
-      const cId = c.customer_id;
-      const clientQuotes = quotations.filter((q) => q.customer_id === cId);
+    return customers
+      .filter((rawCust) => !deletedCustomerIds.includes(rawCust.customer_id))
+      .map((rawCust) => {
+        const cId = rawCust.customer_id;
+        const editOverride = customerEdits[cId] || {};
+        const c = { ...rawCust, ...editOverride };
 
-      const approvedQuotes = clientQuotes.filter(
-        (q) =>
-          q.customer_status === "Customer Accepted" ||
-          q.customer_status === "Accepted"
-      );
-      const sentQuotes = clientQuotes.filter(
-        (q) =>
-          q.customer_status === "Sent to Customer" ||
-          q.customer_status === "Sent"
-      );
-      const rejectedQuotes = clientQuotes.filter(
-        (q) =>
-          q.customer_status === "Customer Rejected" ||
-          q.customer_status === "Rejected"
-      );
+        const cName = String(c.customer_name || "").trim().toLowerCase();
+        const cEmail = String(c.email || "").trim().toLowerCase();
 
-      const approvedTotal = approvedQuotes.reduce(
-        (sum, q) => sum + (Number(q.total_amount) || Number(q.total) || 0),
-        0
-      );
-
-      // Check if website client (items have website_type or title has web/website)
-      const hasWebProjects =
-        Number(c.website_projects_count) > 0 ||
-        clientQuotes.some((q) => {
-          const items = q.items || [];
-          return (
-            items.some(
-              (it) =>
-                it.website_type ||
-                (it.item_name && /web|site/i.test(it.item_name))
-            ) || /web|site/i.test(q.project_name || "")
-          );
+        // Match customer quotations by ID, name, or email
+        const clientQuotes = quotations.filter((q) => {
+          if (q.customer_id && Number(q.customer_id) === Number(cId)) return true;
+          const qName = String(q.customer_name || q.clientName || "")
+            .trim()
+            .toLowerCase();
+          if (cName && qName && qName === cName) return true;
+          const qEmail = String(q.customer_email || q.email || "")
+            .trim()
+            .toLowerCase();
+          if (cEmail && qEmail && qEmail === cEmail) return true;
+          return false;
         });
 
-      // Recognize repeat customers (2+ services) by ID, name, or email
-      const cName = String(c.customer_name || "").trim().toLowerCase();
-      const cEmail = String(c.email || "").trim().toLowerCase();
+        const approvedQuotes = clientQuotes.filter(
+          (q) =>
+            q.customer_status === "Customer Accepted" ||
+            q.customer_status === "Accepted"
+        );
+        const rejectedQuotes = clientQuotes.filter(
+          (q) =>
+            q.customer_status === "Customer Rejected" ||
+            q.customer_status === "Rejected"
+        );
+        const sentQuotes = clientQuotes.filter(
+          (q) =>
+            !approvedQuotes.includes(q) && !rejectedQuotes.includes(q)
+        );
 
-      const matchingQuotes = quotations.filter((q) => {
-        if (q.customer_id && q.customer_id === cId) return true;
-        const qName = String(q.customer_name || q.clientName || "").trim().toLowerCase();
-        if (cName && qName && qName === cName) return true;
-        const qEmail = String(q.customer_email || q.email || "").trim().toLowerCase();
-        if (cEmail && qEmail && qEmail === cEmail) return true;
-        return false;
+        const approvedTotal = approvedQuotes.reduce(
+          (sum, q) => sum + (Number(q.total_amount) || Number(q.total) || 0),
+          0
+        );
+
+        // Match customer invoices from backend/localStorage
+        const directInvoices = invoices.filter((inv) => {
+          if (inv.customer_id && Number(inv.customer_id) === Number(cId))
+            return true;
+          const invName = String(inv.customer_name || inv.clientName || "")
+            .trim()
+            .toLowerCase();
+          if (cName && invName && invName === cName) return true;
+          const invEmail = String(inv.customer_email || inv.email || "")
+            .trim()
+            .toLowerCase();
+          if (cEmail && invEmail && invEmail === cEmail) return true;
+          return false;
+        });
+
+        // Only use actual invoice records (do not link or derive invoices from quotations)
+        const clientInvoices = directInvoices.map((inv) => {
+          const key = inv.invoice_id || inv.id || inv.invoice_number;
+          const overrideStatus = invoiceStatusOverrides[key];
+          const finalStatus =
+            overrideStatus || inv.payment_status || inv.status || "Unpaid";
+          return {
+            ...inv,
+            invoice_key: key,
+            status: finalStatus,
+            payment_status: finalStatus,
+          };
+        });
+
+        const paidInvoices = clientInvoices.filter(
+          (inv) => classifyInvoiceStatus(inv) === "paid"
+        );
+        const partialInvoices = clientInvoices.filter(
+          (inv) => classifyInvoiceStatus(inv) === "partial"
+        );
+        const unpaidInvoices = clientInvoices.filter(
+          (inv) => classifyInvoiceStatus(inv) === "unpaid"
+        );
+
+        // Count total services across quotations & invoices to auto-detect Regular Customers
+        const totalServiceItems = clientQuotes.reduce(
+          (sum, q) => sum + (Array.isArray(q.items) ? q.items.length : 0),
+          0
+        );
+
+        const serviceActivityCount = Math.max(
+          clientQuotes.length + directInvoices.length,
+          clientQuotes.length,
+          clientInvoices.length,
+          totalServiceItems,
+          Number(c.total_quotations) || 0
+        );
+
+        const autoRegular =
+          serviceActivityCount >= 2 ||
+          (clientQuotes.length >= 1 && clientInvoices.length >= 1) ||
+          (c.notes && /daily|frequent|regular/i.test(c.notes));
+
+        const isRegularCustomer = unpinnedIds.includes(cId)
+          ? false
+          : pinnedIds.includes(cId) || autoRegular;
+
+        // Customer Active / Inactive status
+        const normalizedStatus =
+          String(c.status || "Active").trim().toLowerCase() === "inactive" ||
+          c.is_active === false ||
+          c.is_active === 0
+            ? "Inactive"
+            : "Active";
+
+        return {
+          ...c,
+          quotes: clientQuotes,
+          invoices: clientInvoices,
+          total_quotations: clientQuotes.length,
+          approved_quotations: approvedQuotes.length,
+          sent_quotations: sentQuotes.length,
+          rejected_quotations: rejectedQuotes.length,
+          total_approved_amount: approvedTotal,
+          total_invoices: clientInvoices.length,
+          paid_invoices: paidInvoices.length,
+          partial_invoices: partialInvoices.length,
+          unpaid_invoices: unpaidInvoices.length,
+          isRegularCustomer,
+          customer_type: isRegularCustomer ? "Regular" : "New",
+          status: normalizedStatus,
+        };
       });
+  }, [
+    customers,
+    quotations,
+    invoices,
+    pinnedIds,
+    unpinnedIds,
+    customerEdits,
+    deletedCustomerIds,
+    invoiceStatusOverrides,
+  ]);
 
-      const serviceCount = Math.max(
-        clientQuotes.length,
-        matchingQuotes.length,
-        Number(c.total_quotations) || 0
-      );
+  // Keep selectedCustomer in sync with real-time updates
+  const selectedCustomer = useMemo(() => {
+    if (!selectedCustomerId) return null;
+    return (
+      enrichedCustomers.find((c) => c.customer_id === selectedCustomerId) ||
+      null
+    );
+  }, [enrichedCustomers, selectedCustomerId]);
 
-      const isDailyClient =
-        pinnedIds.includes(cId) ||
-        serviceCount >= 2 ||
-        (c.notes && /daily|frequent|regular/i.test(c.notes));
-
-      return {
-        ...c,
-        quotes: clientQuotes,
-        total_quotations: clientQuotes.length || Number(c.total_quotations) || 0,
-        approved_quotations:
-          approvedQuotes.length || Number(c.approved_quotations) || 0,
-        sent_quotations: sentQuotes.length || Number(c.sent_quotations) || 0,
-        rejected_quotations:
-          rejectedQuotes.length || Number(c.rejected_quotations) || 0,
-        total_approved_amount:
-          approvedTotal || Number(c.total_approved_amount) || 0,
-        hasWebProjects,
-        isDailyClient,
-      };
-    });
-  }, [customers, quotations, pinnedIds]);
-
-  // Overall Statistics
+  // 4 Summary Cards Statistics: Total, Active, Inactive, Regular Customers
   const stats = useMemo(() => {
     const totalClients = enrichedCustomers.length;
-    const dailyClients = enrichedCustomers.filter((c) => c.isDailyClient).length;
-    const totalApprovedQuotes = enrichedCustomers.reduce(
-      (sum, c) => sum + c.approved_quotations,
-      0
-    );
-    const totalApprovedVal = enrichedCustomers.reduce(
-      (sum, c) => sum + Number(c.total_approved_amount),
-      0
-    );
-    const totalSentQuotes = enrichedCustomers.reduce(
-      (sum, c) => sum + c.sent_quotations,
-      0
-    );
-    const totalRejectedQuotes = enrichedCustomers.reduce(
-      (sum, c) => sum + c.rejected_quotations,
-      0
-    );
+    const activeClients = enrichedCustomers.filter(
+      (c) => c.status === "Active"
+    ).length;
+    const inactiveClients = enrichedCustomers.filter(
+      (c) => c.status === "Inactive"
+    ).length;
+    const regularClients = enrichedCustomers.filter(
+      (c) => c.isRegularCustomer
+    ).length;
 
     return {
       totalClients,
-      dailyClients,
-      totalApprovedQuotes,
-      totalApprovedVal,
-      totalSentQuotes,
-      totalRejectedQuotes,
+      activeClients,
+      inactiveClients,
+      regularClients,
     };
-  }, [enrichedCustomers]);
-
-  // Daily / Website Clients to display prominently at the top
-  const dailyWebClients = useMemo(() => {
-    return enrichedCustomers.filter((c) => c.isDailyClient);
   }, [enrichedCustomers]);
 
   // Filtered Customers for main table
   const filteredCustomers = useMemo(() => {
-    return enrichedCustomers.filter((c) => {
+    return enrichedCustomers.filter((c, index) => {
+      const qTerm = searchTerm.trim().toLowerCase();
       const matchSearch =
-        !searchTerm ||
-        c.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.phone?.includes(searchTerm);
+        !qTerm ||
+        c.customer_name?.toLowerCase().includes(qTerm) ||
+        c.company_name?.toLowerCase().includes(qTerm) ||
+        c.email?.toLowerCase().includes(qTerm) ||
+        c.phone?.toLowerCase().includes(qTerm) ||
+        String(index + 1) === qTerm ||
+        String(c.customer_id) === qTerm;
 
       if (!matchSearch) return false;
 
-      if (typeFilter === "daily") return c.isDailyClient;
-      if (typeFilter === "web") return c.hasWebProjects;
-      if (typeFilter === "approved") return c.approved_quotations > 0;
-      if (typeFilter === "sent") return c.sent_quotations > 0;
-      if (typeFilter === "rejected") return c.rejected_quotations > 0;
+      // 1. Customer Type Filter (All Types / Regular / New)
+      if (typeFilter === "regular" && !c.isRegularCustomer) return false;
+      if (typeFilter === "new" && c.isRegularCustomer) return false;
+
+      // 2. Customer Status Filter (All Status / Active / Inactive)
+      if (statusFilter === "active" && c.status !== "Active") return false;
+      if (statusFilter === "inactive" && c.status !== "Inactive") return false;
+
+      // 3. Quotations Status Filter (All Quotations Status / Accepted / Sent / Rejected)
+      if (quoteStatusFilter === "accepted" && c.approved_quotations === 0)
+        return false;
+      if (quoteStatusFilter === "sent" && c.sent_quotations === 0) return false;
+      if (quoteStatusFilter === "rejected" && c.rejected_quotations === 0)
+        return false;
+
+      // 4. Invoice Status Filter (All Invoice Status / Paid / Partial / Unpaid)
+      if (invoiceStatusFilter === "paid" && c.paid_invoices === 0) return false;
+      if (invoiceStatusFilter === "partial" && c.partial_invoices === 0)
+        return false;
+      if (invoiceStatusFilter === "unpaid" && c.unpaid_invoices === 0)
+        return false;
 
       return true;
     });
-  }, [enrichedCustomers, searchTerm, typeFilter]);
+  }, [
+    enrichedCustomers,
+    searchTerm,
+    typeFilter,
+    statusFilter,
+    quoteStatusFilter,
+    invoiceStatusFilter,
+  ]);
 
   return (
     <div className="cust-page">
-      {/* Top Header Bar */}
+      {/* Top Header Bar (Unchanged) */}
       <header className="cust-topbar">
         <div className="cust-topbar-left">
           {openSidebar && (
@@ -352,7 +734,10 @@ export default function Customers() {
           </span>
 
           <div className="cust-header-profile" title={userRoleTitle}>
-            <span className="cust-profile-avatar" aria-label={`${userRoleTitle} profile`}>
+            <span
+              className="cust-profile-avatar"
+              aria-label={`${userRoleTitle} profile`}
+            >
               {userInitials}
             </span>
           </div>
@@ -360,12 +745,13 @@ export default function Customers() {
       </header>
 
       <div className="cust-content">
-        {/* Welcome / Title Row right below topbar */}
+        {/* Welcome / Title Row right below topbar (Unchanged) */}
         <div className="cust-welcome-bar">
           <div className="cust-welcome-text">
             <h1>Customers &amp; Quotation Responses</h1>
             <p className="cust-subtitle">
-              Monitor customer responses (Sent, Approved, Rejected) and daily website clients.
+              Monitor customer responses (Sent, Approved, Rejected) and daily
+              website clients.
             </p>
           </div>
 
@@ -380,11 +766,11 @@ export default function Customers() {
           </button>
         </div>
 
-        {/* 4 Summary Stat Cards matching Overview Card Size (Customer Sent card removed) */}
+        {/* 4 Summary Stat Cards: Total, Active, Inactive, Regular Customers */}
         <section className="cust-stats-grid" aria-label="Customer statistics">
           <div className="cust-stat-card">
             <div className="cust-stat-icon blue">
-              <Users size={22} strokeWidth={2} />
+              <Users size={18} strokeWidth={1.9} />
             </div>
             <div className="cust-stat-info">
               <p>Total Customers</p>
@@ -394,231 +780,683 @@ export default function Customers() {
           </div>
 
           <div className="cust-stat-card">
-            <div className="cust-stat-icon purple">
-              <Globe size={22} strokeWidth={2} />
-            </div>
-            <div className="cust-stat-info">
-              <p>Daily / Web Clients</p>
-              <h3>{stats.dailyClients}</h3>
-              <span>Regular website clients</span>
-            </div>
-          </div>
-
-          <div className="cust-stat-card">
             <div className="cust-stat-icon green">
-              <CheckCircle2 size={22} strokeWidth={2} />
+              <UserCheck size={18} strokeWidth={1.9} />
             </div>
             <div className="cust-stat-info">
-              <p>Customer Approved</p>
-              <h3>{stats.totalApprovedQuotes}</h3>
-              <span>{formatCurrency(stats.totalApprovedVal)}</span>
+              <p>Active Customers</p>
+              <h3>{stats.activeClients}</h3>
+              <span>Currently active accounts</span>
             </div>
           </div>
 
           <div className="cust-stat-card">
             <div className="cust-stat-icon red">
-              <XCircle size={22} strokeWidth={2} />
+              <UserX size={18} strokeWidth={1.9} />
             </div>
             <div className="cust-stat-info">
-              <p>Customer Rejected</p>
-              <h3>{stats.totalRejectedQuotes}</h3>
-              <span>Quotations declined</span>
+              <p>Inactive Customers</p>
+              <h3>{stats.inactiveClients}</h3>
+              <span>Inactive client accounts</span>
+            </div>
+          </div>
+
+          <div className="cust-stat-card">
+            <div className="cust-stat-icon navy">
+              <Star size={18} strokeWidth={1.9} />
+            </div>
+            <div className="cust-stat-info">
+              <p>Regular Customers</p>
+              <h3>{stats.regularClients}</h3>
+              <span>Multi-service &amp; starred clients</span>
             </div>
           </div>
         </section>
 
-      {/* Main Customers Table Panel */}
-      <section className="cust-panel" aria-label="Customer list">
-        <div className="cust-toolbar">
-          <label className="cust-search-box">
-            <Search size={16} color="#64748b" />
-            <input
-              type="search"
-              placeholder="Search by customer name, company, email, or phone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Search customers"
-            />
-          </label>
+        {/* Main Customers Table Panel */}
+        <section className="cust-panel" aria-label="Customer list">
+          {/* Search Bar & 4 Filter Dropdowns */}
+          <div className="cust-toolbar">
+            <label className="cust-search-box">
+              <Search size={16} color="#64748b" />
+              <input
+                type="search"
+                placeholder="Search by customer #, name, company, email, or phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Search customers"
+              />
+            </label>
 
-          <div className="cust-filters">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="cust-select"
-              aria-label="Filter customer type"
-            >
-              <option value="all">All Customers</option>
-              <option value="daily">⭐ Daily / Web Clients</option>
-              <option value="web">🌐 Website Projects</option>
-              <option value="approved">✅ Has Approved Quotations</option>
-              <option value="sent">📤 Has Sent Quotations</option>
-              <option value="rejected">❌ Has Rejected Quotations</option>
-            </select>
+            <div className="cust-filters" ref={filtersContainerRef}>
+              {/* 1. Customer Type Dropdown */}
+              <div className="cust-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`cust-dropdown-btn ${openFilterMenu === "type" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenFilterMenu((prev) => (prev === "type" ? null : "type"))
+                  }
+                  aria-expanded={openFilterMenu === "type"}
+                >
+                  <span className="cust-dropdown-label">
+                    {typeFilter === "regular"
+                      ? "Regular Customers"
+                      : typeFilter === "new"
+                      ? "New Customers"
+                      : "All Types"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`cust-dropdown-chevron ${openFilterMenu === "type" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openFilterMenu === "type" && (
+                  <div className="cust-dropdown-menu" role="listbox">
+                    <div className="cust-dropdown-header">
+                      <span>Filter by Customer Type</span>
+                    </div>
+                    <div className="cust-dropdown-list">
+                      {[
+                        { value: "all", label: "All Types", color: "#64748b" },
+                        { value: "regular", label: "Regular Customers", color: "#f59e0b" },
+                        { value: "new", label: "New Customers", color: "#2563eb" },
+                      ].map((opt) => {
+                        const isSelected = typeFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setTypeFilter(opt.value);
+                              setOpenFilterMenu(null);
+                            }}
+                          >
+                            <div className="cust-dropdown-item-left">
+                              <span
+                                className="cust-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="cust-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Customer Status Dropdown */}
+              <div className="cust-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`cust-dropdown-btn ${openFilterMenu === "status" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenFilterMenu((prev) => (prev === "status" ? null : "status"))
+                  }
+                  aria-expanded={openFilterMenu === "status"}
+                >
+                  <span className="cust-dropdown-label">
+                    {statusFilter === "active"
+                      ? "Active"
+                      : statusFilter === "inactive"
+                      ? "Inactive"
+                      : "All Status"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`cust-dropdown-chevron ${openFilterMenu === "status" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openFilterMenu === "status" && (
+                  <div className="cust-dropdown-menu" role="listbox">
+                    <div className="cust-dropdown-header">
+                      <span>Filter by Customer Status</span>
+                    </div>
+                    <div className="cust-dropdown-list">
+                      {[
+                        { value: "all", label: "All Status", color: "#64748b" },
+                        { value: "active", label: "Active", color: "#16a34a" },
+                        { value: "inactive", label: "Inactive", color: "#dc2626" },
+                      ].map((opt) => {
+                        const isSelected = statusFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setStatusFilter(opt.value);
+                              setOpenFilterMenu(null);
+                            }}
+                          >
+                            <div className="cust-dropdown-item-left">
+                              <span
+                                className="cust-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="cust-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Quotations Status Dropdown */}
+              <div className="cust-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`cust-dropdown-btn ${openFilterMenu === "quote" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenFilterMenu((prev) => (prev === "quote" ? null : "quote"))
+                  }
+                  aria-expanded={openFilterMenu === "quote"}
+                >
+                  <span className="cust-dropdown-label">
+                    {quoteStatusFilter === "accepted"
+                      ? "Approved / Accepted"
+                      : quoteStatusFilter === "sent"
+                      ? "Sent"
+                      : quoteStatusFilter === "rejected"
+                      ? "Rejected"
+                      : "All Quotations Status"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`cust-dropdown-chevron ${openFilterMenu === "quote" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openFilterMenu === "quote" && (
+                  <div className="cust-dropdown-menu" role="listbox">
+                    <div className="cust-dropdown-header">
+                      <span>Filter by Quotations Status</span>
+                    </div>
+                    <div className="cust-dropdown-list">
+                      {[
+                        { value: "all", label: "All Quotations Status", color: "#64748b" },
+                        { value: "accepted", label: "Approved / Accepted", color: "#16a34a" },
+                        { value: "sent", label: "Sent", color: "#0284c7" },
+                        { value: "rejected", label: "Rejected", color: "#dc2626" },
+                      ].map((opt) => {
+                        const isSelected = quoteStatusFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setQuoteStatusFilter(opt.value);
+                              setOpenFilterMenu(null);
+                            }}
+                          >
+                            <div className="cust-dropdown-item-left">
+                              <span
+                                className="cust-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="cust-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Invoice Status Dropdown */}
+              <div className="cust-dropdown-wrap">
+                <button
+                  type="button"
+                  className={`cust-dropdown-btn ${openFilterMenu === "invoice" ? "active" : ""}`}
+                  onClick={() =>
+                    setOpenFilterMenu((prev) => (prev === "invoice" ? null : "invoice"))
+                  }
+                  aria-expanded={openFilterMenu === "invoice"}
+                >
+                  <span className="cust-dropdown-label">
+                    {invoiceStatusFilter === "paid"
+                      ? "Paid"
+                      : invoiceStatusFilter === "partial"
+                      ? "Partial"
+                      : invoiceStatusFilter === "unpaid"
+                      ? "Unpaid"
+                      : "All Invoice Status"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`cust-dropdown-chevron ${openFilterMenu === "invoice" ? "open" : ""}`}
+                  />
+                </button>
+
+                {openFilterMenu === "invoice" && (
+                  <div className="cust-dropdown-menu" role="listbox">
+                    <div className="cust-dropdown-header">
+                      <span>Filter by Invoice Status</span>
+                    </div>
+                    <div className="cust-dropdown-list">
+                      {[
+                        { value: "all", label: "All Invoice Status", color: "#64748b" },
+                        { value: "paid", label: "Paid", color: "#16a34a" },
+                        { value: "partial", label: "Partial", color: "#f59e0b" },
+                        { value: "unpaid", label: "Unpaid", color: "#dc2626" },
+                      ].map((opt) => {
+                        const isSelected = invoiceStatusFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                            onClick={() => {
+                              setInvoiceStatusFilter(opt.value);
+                              setOpenFilterMenu(null);
+                            }}
+                          >
+                            <div className="cust-dropdown-item-left">
+                              <span
+                                className="cust-dropdown-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="cust-dropdown-item-text">{opt.label}</span>
+                            </div>
+                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div className="cust-table-wrap">
-          <table className="cust-table">
-            <thead>
-              <tr>
-                <th>CLIENT &amp; COMPANY</th>
-                <th>CONTACT DETAILS</th>
-                <th>CATEGORY</th>
-                <th>QUOTATIONS BREAKDOWN</th>
-                <th>APPROVED REVENUE</th>
-                <th>ACTIONS</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
+          <div className="cust-table-wrap">
+            <table className="cust-table">
+              <thead>
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
-                    Loading customer records from database...
-                  </td>
+                  <th>CUSTOMER / COMPANY</th>
+                  <th>CONTACT DETAILS</th>
+                  <th>CUSTOMER TYPE</th>
+                  <th>STATUS</th>
+                  <th>QUOTATIONS</th>
+                  <th>INVOICES</th>
+                  <th>ACTIONS</th>
                 </tr>
-              ) : filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: "center", padding: "40px 0", color: "#64748b" }}>
-                    No customers found matching your search or filters.
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((client) => {
-                  const isPinned = pinnedIds.includes(client.customer_id);
+              </thead>
 
-                  return (
-                    <tr key={client.customer_id}>
-                      <td>
-                        <div className="cust-client-cell">
-                          <button
-                            type="button"
-                            className={`cust-star-btn ${isPinned ? "active" : ""}`}
-                            title={isPinned ? "Unpin Daily Client" : "Pin as Daily Client"}
-                            onClick={() => togglePin(client.customer_id)}
-                          >
-                            <Star size={16} fill={isPinned ? "#f59e0b" : "none"} />
-                          </button>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      style={{
+                        textAlign: "center",
+                        padding: "44px 0",
+                        color: "#64748b",
+                      }}
+                    >
+                      Loading customer records from database...
+                    </td>
+                  </tr>
+                ) : filteredCustomers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      style={{
+                        textAlign: "center",
+                        padding: "44px 0",
+                        color: "#64748b",
+                      }}
+                    >
+                      No customers found matching your search or filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCustomers.map((client) => {
+                    const isRegular = client.isRegularCustomer;
+                    const qTotal = client.total_quotations;
+                    const qAccPct =
+                      qTotal > 0 ? (client.approved_quotations / qTotal) * 100 : 0;
+                    const qSentPct =
+                      qTotal > 0 ? (client.sent_quotations / qTotal) * 100 : 0;
+                    const qRejPct =
+                      qTotal > 0 ? (client.rejected_quotations / qTotal) * 100 : 0;
 
-                          <div className="cust-table-avatar">
-                            {client.customer_name.charAt(0).toUpperCase()}
-                          </div>
+                    const invTotal = client.total_invoices;
+                    const invPaidPct =
+                      invTotal > 0 ? (client.paid_invoices / invTotal) * 100 : 0;
+                    const invPartPct =
+                      invTotal > 0
+                        ? (client.partial_invoices / invTotal) * 100
+                        : 0;
+                    const invUnpaidPct =
+                      invTotal > 0 ? (client.unpaid_invoices / invTotal) * 100 : 0;
 
-                          <div className="cust-client-meta">
-                            <strong>{client.customer_name}</strong>
-                            <span>{client.company_name || client.city || "—"}</span>
-                          </div>
-                        </div>
-                      </td>
+                    return (
+                      <tr key={client.customer_id}>
+                        {/* 1. Customer Name / Company Name + Star Mark */}
+                        <td>
+                          <div className="cust-client-cell">
+                            <button
+                              type="button"
+                              className={`cust-star-btn ${
+                                isRegular ? "active" : ""
+                              }`}
+                              title={
+                                isRegular
+                                  ? "Regular Customer (Click to unmark)"
+                                  : "Mark as Regular Customer"
+                              }
+                              onClick={() =>
+                                togglePin(client.customer_id, isRegular)
+                              }
+                            >
+                              <Star
+                                size={16}
+                                fill={isRegular ? "#f59e0b" : "none"}
+                              />
+                            </button>
 
-                      <td>
-                        <div style={{ fontSize: "12px", color: "#475569" }}>
-                          {client.email ? (
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                              <Mail size={12} color="#64748b" /> {client.email}
+                            <div className="cust-table-avatar">
+                              {(client.customer_name || "C")
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
+
+                            <div className="cust-client-meta">
+                              <strong>{client.customer_name}</strong>
+                              <span>
+                                {client.company_name || client.city || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 3. Contact Details (Email / Phone) */}
+                        <td>
+                          <div className="cust-contact-cell">
+                            {client.email ? (
+                              <div className="cust-contact-line">
+                                <Mail size={12} color="#2563eb" />
+                                <span>{client.email}</span>
+                              </div>
+                            ) : (
+                              <div className="cust-contact-empty">No email</div>
+                            )}
+                            {client.phone ? (
+                              <div className="cust-contact-line">
+                                <Phone size={12} color="#64748b" />
+                                <span>{client.phone}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </td>
+
+                        {/* 4. Customer Type (Regular / New) */}
+                        <td>
+                          {isRegular ? (
+                            <span className="cust-type-badge regular">
+                              <Star size={11} fill="currentColor" /> Regular
+                            </span>
                           ) : (
-                            <div style={{ color: "#94a3b8" }}>No email</div>
+                            <span className="cust-type-badge new">New</span>
                           )}
-                          {client.phone && (
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
-                              <Phone size={12} color="#64748b" /> {client.phone}
+                        </td>
+
+                        {/* 5. Customer Status (Active / Inactive) */}
+                        <td>
+                          <button
+                            type="button"
+                            className={`cust-status-badge ${
+                              client.status === "Active" ? "active" : "inactive"
+                            }`}
+                            onClick={() =>
+                              toggleCustomerActiveStatus(
+                                client.customer_id,
+                                client.status
+                              )
+                            }
+                            title="Click to toggle Active / Inactive status"
+                          >
+                            <span className="cust-status-dot" />
+                            {client.status}
+                          </button>
+                        </td>
+
+                        {/* 6. Quotations Count & Colored Progress Bar */}
+                        <td>
+                          <div className="cust-metric-bar-box">
+                            <div className="cust-metric-bar-head">
+                              <span className="cust-metric-count">
+                                {qTotal}{" "}
+                                {qTotal === 1 ? "Quotation" : "Quotations"}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      </td>
 
-                      <td>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-                          {client.hasWebProjects && (
-                            <span className="cust-tag-web" style={{ fontSize: "10.5px" }}>
-                              <Globe size={10} /> Website Client
-                            </span>
-                          )}
-                          {client.isDailyClient && (
-                            <span className="cust-tag-daily" style={{ fontSize: "10.5px" }}>
-                              <Star size={10} fill="#b45309" /> Daily Client
-                            </span>
-                          )}
-                          {!client.hasWebProjects && !client.isDailyClient && (
-                            <span style={{ color: "#64748b", fontSize: "11px" }}>Standard Client</span>
-                          )}
-                        </div>
-                      </td>
+                            <div
+                              className="cust-progress-track"
+                              title={`Accepted: ${client.approved_quotations} | Sent: ${client.sent_quotations} | Rejected: ${client.rejected_quotations}`}
+                            >
+                              {qTotal > 0 ? (
+                                <>
+                                  {qAccPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-green"
+                                      style={{ width: `${qAccPct}%` }}
+                                    />
+                                  )}
+                                  {qSentPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-blue"
+                                      style={{ width: `${qSentPct}%` }}
+                                    />
+                                  )}
+                                  {qRejPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-red"
+                                      style={{ width: `${qRejPct}%` }}
+                                    />
+                                  )}
+                                </>
+                              ) : (
+                                <div className="cust-progress-seg seg-empty" />
+                              )}
+                            </div>
 
-                      <td>
-                        <div className="quote-pills">
-                          <span className="quote-pill approved" title="Approved Quotations">
-                            <CheckCircle2 size={12} /> {client.approved_quotations}
-                          </span>
-                          <span className="quote-pill sent" title="Sent to Customer">
-                            <Send size={12} /> {client.sent_quotations}
-                          </span>
-                          <span className="quote-pill rejected" title="Rejected Quotations">
-                            <XCircle size={12} /> {client.rejected_quotations}
-                          </span>
-                          <span className="quote-pill total" title="Total Quotations">
-                            Total: {client.total_quotations}
-                          </span>
-                        </div>
-                      </td>
+                            <div className="cust-metric-legend">
+                              <span className="legend-tag green">
+                                Acc: {client.approved_quotations}
+                              </span>
+                              <span className="legend-tag blue">
+                                Sent: {client.sent_quotations}
+                              </span>
+                              <span className="legend-tag red">
+                                Rej: {client.rejected_quotations}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
 
-                      <td>
-                        <strong style={{ color: "#0f172a", fontSize: "13px" }}>
-                          {formatCurrency(client.total_approved_amount)}
-                        </strong>
-                      </td>
+                        {/* 7. Invoices Count & Colored Progress Bar */}
+                        <td>
+                          <div className="cust-metric-bar-box">
+                            <div className="cust-metric-bar-head">
+                              <span className="cust-metric-count">
+                                {invTotal}{" "}
+                                {invTotal === 1 ? "Invoice" : "Invoices"}
+                              </span>
+                            </div>
 
-                      <td>
-                        <div className="cust-action-group">
-                          <button
-                            type="button"
-                            className="cust-action-btn"
-                            title="View Customer Details and Quotations"
-                            aria-label={`View ${client.customer_name}`}
-                            onClick={() => setSelectedCustomer(client)}
-                          >
-                            <Eye size={15} />
-                          </button>
+                            <div
+                              className="cust-progress-track"
+                              title={`Paid: ${client.paid_invoices} | Partial: ${client.partial_invoices} | Unpaid: ${client.unpaid_invoices}`}
+                            >
+                              {invTotal > 0 ? (
+                                <>
+                                  {invPaidPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-green"
+                                      style={{ width: `${invPaidPct}%` }}
+                                    />
+                                  )}
+                                  {invPartPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-amber"
+                                      style={{ width: `${invPartPct}%` }}
+                                    />
+                                  )}
+                                  {invUnpaidPct > 0 && (
+                                    <div
+                                      className="cust-progress-seg seg-red"
+                                      style={{ width: `${invUnpaidPct}%` }}
+                                    />
+                                  )}
+                                </>
+                              ) : (
+                                <div className="cust-progress-seg seg-empty" />
+                              )}
+                            </div>
 
-                          <button
-                            type="button"
-                            className="cust-action-btn"
-                            title="Create New Quotation for this client"
-                            aria-label={`New Quotation for ${client.customer_name}`}
-                            onClick={() => navigate("/quotations")}
-                          >
-                            <Plus size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                            <div className="cust-metric-legend">
+                              <span className="legend-tag green">
+                                Paid: {client.paid_invoices}
+                              </span>
+                              <span className="legend-tag amber">
+                                Part: {client.partial_invoices}
+                              </span>
+                              <span className="legend-tag red">
+                                Unpaid: {client.unpaid_invoices}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 8. Actions: View (Professional Blue), Edit, Delete */}
+                        <td>
+                          <div className="cust-action-group">
+                            <button
+                              type="button"
+                              className="cust-action-btn view-blue"
+                              title="View Customer Quotations & Invoices"
+                              aria-label={`View ${client.customer_name}`}
+                              onClick={() =>
+                                setSelectedCustomerId(client.customer_id)
+                              }
+                            >
+                              <Eye size={15} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="cust-action-btn edit-btn"
+                              title="Edit Customer"
+                              aria-label={`Edit ${client.customer_name}`}
+                              onClick={() =>
+                                setEditingCustomer({
+                                  customer_id: client.customer_id,
+                                  customer_name: client.customer_name || "",
+                                  company_name: client.company_name || "",
+                                  email: client.email || "",
+                                  phone: client.phone || "",
+                                  address: client.address || "",
+                                  city: client.city || "",
+                                  notes: client.notes || "",
+                                  customer_type: client.customer_type || "New",
+                                  status: client.status || "Active",
+                                })
+                              }
+                            >
+                              <Pencil size={14} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="cust-action-btn delete-btn"
+                              title="Delete Customer"
+                              aria-label={`Delete ${client.customer_name}`}
+                              onClick={() => setCustomerToDelete(client)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
-      {/* Customer Details & Quotations History Modal */}
+      {/* Customer Details, Quotations & Invoices History Modal */}
       {selectedCustomer && (
-        <div className="cust-modal-overlay">
-          <div className="cust-modal">
+        <div
+          className="cust-modal-overlay"
+          onClick={() => setSelectedCustomerId(null)}
+        >
+          <div
+            className="cust-modal cust-modal-wide"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="cust-modal-header">
-              <div>
-                <h3>{selectedCustomer.customer_name}</h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  {selectedCustomer.company_name ? `${selectedCustomer.company_name} • ` : ""}
-                  Customer ID #{selectedCustomer.customer_id}
-                </span>
+              <div className="cust-modal-title-group">
+                <div className="cust-modal-avatar">
+                  {(selectedCustomer.customer_name || "C")
+                    .charAt(0)
+                    .toUpperCase()}
+                </div>
+                <div>
+                  <div className="cust-modal-name-row">
+                    <h3>{selectedCustomer.customer_name}</h3>
+                    <span
+                      className={`cust-type-badge ${
+                        selectedCustomer.isRegularCustomer ? "regular" : "new"
+                      }`}
+                    >
+                      {selectedCustomer.isRegularCustomer ? (
+                        <>
+                          <Star size={10} fill="currentColor" /> Regular
+                        </>
+                      ) : (
+                        "New"
+                      )}
+                    </span>
+                    <span
+                      className={`cust-status-badge ${
+                        selectedCustomer.status === "Active"
+                          ? "active"
+                          : "inactive"
+                      }`}
+                    >
+                      <span className="cust-status-dot" />
+                      {selectedCustomer.status}
+                    </span>
+                  </div>
+                  <span className="cust-modal-sub">
+                    {selectedCustomer.company_name
+                      ? `${selectedCustomer.company_name} • `
+                      : ""}
+                    Customer ID #{selectedCustomer.customer_id}
+                  </span>
+                </div>
               </div>
               <button
                 type="button"
                 className="cust-modal-close"
-                onClick={() => setSelectedCustomer(null)}
+                onClick={() => setSelectedCustomerId(null)}
               >
                 <X size={20} />
               </button>
@@ -626,187 +1464,341 @@ export default function Customers() {
 
             <div className="cust-modal-body">
               {/* Profile summary */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  background: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "8px",
-                  marginBottom: "20px",
-                  fontSize: "12px",
-                }}
-              >
+              <div className="cust-profile-summary-grid">
                 <div>
-                  <span style={{ color: "#64748b", display: "block" }}>Email</span>
-                  <strong style={{ color: "#0f172a" }}>{selectedCustomer.email || "—"}</strong>
+                  <span>Email</span>
+                  <strong>{selectedCustomer.email || "—"}</strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748b", display: "block" }}>Phone</span>
-                  <strong style={{ color: "#0f172a" }}>{selectedCustomer.phone || "—"}</strong>
+                  <span>Phone</span>
+                  <strong>{selectedCustomer.phone || "—"}</strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748b", display: "block" }}>Address</span>
-                  <strong style={{ color: "#0f172a" }}>
-                    {[selectedCustomer.address, selectedCustomer.city, selectedCustomer.country]
+                  <span>Address</span>
+                  <strong>
+                    {[
+                      selectedCustomer.address,
+                      selectedCustomer.city,
+                      selectedCustomer.country,
+                    ]
                       .filter(Boolean)
                       .join(", ") || "—"}
                   </strong>
                 </div>
                 <div>
-                  <span style={{ color: "#64748b", display: "block" }}>Total Approved Business</span>
-                  <strong style={{ color: "#16a34a" }}>
+                  <span>Total Approved Business</span>
+                  <strong className="cust-approved-val">
                     {formatCurrency(selectedCustomer.total_approved_amount)}
                   </strong>
                 </div>
               </div>
 
-              {/* Quotations List with manual status update */}
-              <h4 style={{ margin: "0 0 12px", color: "#0f172a", fontSize: "14px" }}>
-                Quotations for this Customer ({selectedCustomer.quotes?.length || 0})
-              </h4>
-
-              {selectedCustomer.quotes?.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "24px", color: "#64748b", background: "#f8fafc", borderRadius: "6px" }}>
-                  No quotations created for this customer yet.
+              {/* Section 1: Quotations for this Customer */}
+              <div className="cust-modal-section">
+                <div className="cust-modal-section-head">
+                  <h4>
+                    <FileText size={16} color="#1d4ed8" />
+                    Quotations for this Customer (
+                    {selectedCustomer.quotes?.length || 0})
+                  </h4>
                 </div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table className="cust-table" style={{ fontSize: "12px" }}>
-                    <thead>
-                      <tr>
-                        <th>QUOTATION #</th>
-                        <th>DATE</th>
-                        <th>AMOUNT</th>
-                        <th>SYSTEM STATUS</th>
-                        <th>CUSTOMER STATUS</th>
-                        <th>CUSTOMER ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedCustomer.quotes.map((q) => {
-                        const isSystemApproved = q.status === "Approved" || q.status === "Accepted";
-                        const custStatus = q.customer_status || "Not Sent";
-                        const isCustAccepted = custStatus === "Customer Accepted" || custStatus === "Accepted";
-                        const isCustSent = custStatus === "Sent to Customer" || custStatus === "Sent";
-                        const isCustRejected = custStatus === "Customer Rejected" || custStatus === "Rejected";
 
-                        return (
-                          <tr key={q.quotation_id || q.id}>
-                            <td>
-                              <strong style={{ color: "#1d4ed8" }}>
-                                {q.quotation_number || q.id}
-                              </strong>
-                            </td>
-                            <td>{q.quotation_date || q.issuedDate || "—"}</td>
-                            <td>
-                              <strong>
-                                {formatCurrency(q.total_amount || q.total)}
-                              </strong>
-                            </td>
-                            <td>
-                              <span
-                                className={`quote-pill ${
-                                  isSystemApproved
-                                    ? "approved"
-                                    : q.status === "Pending Approval"
-                                    ? "sent"
-                                    : q.status === "Rejected"
-                                    ? "rejected"
-                                    : "total"
-                                }`}
-                              >
-                                {q.status || "Draft"}
-                              </span>
-                            </td>
-                            <td>
-                              <span
-                                className={`quote-pill ${
-                                  isCustAccepted
-                                    ? "approved"
-                                    : isCustSent
-                                    ? "sent"
+                {selectedCustomer.quotes?.length === 0 ? (
+                  <div className="cust-empty-subbox">
+                    No quotations created for this customer yet.
+                  </div>
+                ) : (
+                  <div className="cust-subtable-wrap">
+                    <table className="cust-table cust-subtable">
+                      <thead>
+                        <tr>
+                          <th>QUOTATION ID</th>
+                          <th>DATE</th>
+                          <th>AMOUNT</th>
+                          <th>STATUS</th>
+                          <th>CUSTOMER RESPONSE</th>
+                          <th>VIEW</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedCustomer.quotes.map((q) => {
+                          const qId = q.quotation_id || q.id;
+                          const custStatus = q.customer_status || "Not Sent";
+                          const isCustAccepted =
+                            custStatus === "Customer Accepted" ||
+                            custStatus === "Accepted";
+                          const isCustSent =
+                            custStatus === "Sent to Customer" ||
+                            custStatus === "Sent";
+                          const isCustRejected =
+                            custStatus === "Customer Rejected" ||
+                            custStatus === "Rejected";
+
+                          return (
+                            <tr key={qId}>
+                              <td>
+                                <strong className="cust-doc-id">
+                                  {q.quotation_number || `#${qId}`}
+                                </strong>
+                              </td>
+                              <td>
+                                {formatDisplayDate(
+                                  q.quotation_date ||
+                                    q.issuedDate ||
+                                    q.created_at
+                                )}
+                              </td>
+                              <td>
+                                <strong>
+                                  {formatCurrency(q.total_amount || q.total)}
+                                </strong>
+                              </td>
+                              <td>
+                                <span
+                                  className={`quote-pill ${
+                                    isCustAccepted
+                                      ? "approved"
+                                      : isCustRejected
+                                      ? "rejected"
+                                      : isCustSent
+                                      ? "sent"
+                                      : "total"
+                                  }`}
+                                >
+                                  {isCustAccepted
+                                    ? "Accepted"
                                     : isCustRejected
-                                    ? "rejected"
-                                    : "total"
-                                }`}
-                              >
-                                {custStatus}
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{ display: "flex", gap: "4px" }}>
-                                <button
-                                  type="button"
-                                  disabled={updatingStatusId === (q.quotation_id || q.id) || isCustSent}
-                                  onClick={() => handleStatusChange(q.quotation_id || q.id, "Sent to Customer")}
-                                  style={{
-                                    padding: "3px 8px",
-                                    fontSize: "11px",
-                                    borderRadius: "4px",
-                                    border: "1px solid #bae6fd",
-                                    background: isCustSent ? "#bae6fd" : "#e0f2fe",
-                                    color: "#0369a1",
-                                    cursor: isCustSent ? "default" : "pointer",
-                                  }}
-                                  title="Mark as Sent to Customer"
-                                >
-                                  📤 Sent
-                                </button>
+                                    ? "Rejected"
+                                    : isCustSent
+                                    ? "Sent"
+                                    : q.status || "Draft"}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="cust-response-btns">
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      updatingStatusId === qId || isCustSent
+                                    }
+                                    onClick={() =>
+                                      handleStatusChange(
+                                        qId,
+                                        "Sent to Customer"
+                                      )
+                                    }
+                                    className={`cust-resp-btn sent ${
+                                      isCustSent ? "active" : ""
+                                    }`}
+                                    title="Mark as Sent to Customer"
+                                  >
+                                    Sent
+                                  </button>
 
-                                <button
-                                  type="button"
-                                  disabled={updatingStatusId === (q.quotation_id || q.id) || isCustAccepted}
-                                  onClick={() => handleStatusChange(q.quotation_id || q.id, "Customer Accepted")}
-                                  style={{
-                                    padding: "3px 8px",
-                                    fontSize: "11px",
-                                    borderRadius: "4px",
-                                    border: "1px solid #bbf7d0",
-                                    background: isCustAccepted ? "#bbf7d0" : "#dcfce7",
-                                    color: "#15803d",
-                                    cursor: isCustAccepted ? "default" : "pointer",
-                                  }}
-                                  title="Mark as Customer Accepted"
-                                >
-                                  ✅ Accepted
-                                </button>
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      updatingStatusId === qId || isCustAccepted
+                                    }
+                                    onClick={() =>
+                                      handleStatusChange(
+                                        qId,
+                                        "Customer Accepted"
+                                      )
+                                    }
+                                    className={`cust-resp-btn accepted ${
+                                      isCustAccepted ? "active" : ""
+                                    }`}
+                                    title="Mark as Customer Accepted"
+                                  >
+                                    Accept
+                                  </button>
 
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      updatingStatusId === qId || isCustRejected
+                                    }
+                                    onClick={() =>
+                                      handleStatusChange(
+                                        qId,
+                                        "Customer Rejected"
+                                      )
+                                    }
+                                    className={`cust-resp-btn rejected ${
+                                      isCustRejected ? "active" : ""
+                                    }`}
+                                    title="Mark as Customer Rejected"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              </td>
+                              <td>
                                 <button
                                   type="button"
-                                  disabled={updatingStatusId === (q.quotation_id || q.id) || isCustRejected}
-                                  onClick={() => handleStatusChange(q.quotation_id || q.id, "Customer Rejected")}
-                                  style={{
-                                    padding: "3px 8px",
-                                    fontSize: "11px",
-                                    borderRadius: "4px",
-                                    border: "1px solid #fecaca",
-                                    background: isCustRejected ? "#fecaca" : "#fee2e2",
-                                    color: "#b91c1c",
-                                    cursor: isCustRejected ? "default" : "pointer",
-                                  }}
-                                  title="Mark as Customer Rejected"
+                                  className="cust-doc-view-btn"
+                                  onClick={() => setViewingQuotation(q)}
+                                  title="View Quotation Details"
                                 >
-                                  ❌ Rejected
+                                  <Eye size={14} />
+                                  <span>View</span>
                                 </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Section 2: Invoices for this Customer */}
+              <div className="cust-modal-section" style={{ marginTop: "24px" }}>
+                <div className="cust-modal-section-head">
+                  <h4>
+                    <Receipt size={16} color="#1d4ed8" />
+                    Invoices for this Customer (
+                    {selectedCustomer.invoices?.length || 0})
+                  </h4>
                 </div>
-              )}
+
+                {selectedCustomer.invoices?.length === 0 ? (
+                  <div className="cust-empty-subbox">
+                    No invoices recorded for this customer yet.
+                  </div>
+                ) : (
+                  <div className="cust-subtable-wrap">
+                    <table className="cust-table cust-subtable">
+                      <thead>
+                        <tr>
+                          <th>INVOICE ID</th>
+                          <th>DATE</th>
+                          <th>AMOUNT</th>
+                          <th>STATUS</th>
+                          <th>PAYMENT STATUS</th>
+                          <th>VIEW</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedCustomer.invoices.map((inv) => {
+                          const invKey = inv.invoice_key;
+                          const invClass = classifyInvoiceStatus(inv);
+                          const isPaid = invClass === "paid";
+                          const isPartial = invClass === "partial";
+                          const isUnpaid = invClass === "unpaid";
+
+                          return (
+                            <tr key={invKey}>
+                              <td>
+                                <strong className="cust-doc-id">
+                                  {inv.invoice_number || `#${invKey}`}
+                                </strong>
+                              </td>
+                              <td>
+                                {formatDisplayDate(
+                                  inv.invoice_date ||
+                                    inv.issue_date ||
+                                    inv.created_at
+                                )}
+                              </td>
+                              <td>
+                                <strong>
+                                  {formatCurrency(
+                                    inv.total_amount || inv.total || inv.amount
+                                  )}
+                                </strong>
+                              </td>
+                              <td>
+                                <span
+                                  className={`quote-pill ${
+                                    isPaid
+                                      ? "approved"
+                                      : isPartial
+                                      ? "partial"
+                                      : "rejected"
+                                  }`}
+                                >
+                                  {isPaid
+                                    ? "Paid"
+                                    : isPartial
+                                    ? "Partial"
+                                    : "Unpaid"}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="cust-response-btns">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleInvoiceStatusChange(invKey, "Paid")
+                                    }
+                                    className={`cust-resp-btn accepted ${
+                                      isPaid ? "active" : ""
+                                    }`}
+                                    title="Mark Invoice as Paid"
+                                  >
+                                    Paid
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleInvoiceStatusChange(
+                                        invKey,
+                                        "Partial"
+                                      )
+                                    }
+                                    className={`cust-resp-btn partial ${
+                                      isPartial ? "active" : ""
+                                    }`}
+                                    title="Mark Invoice as Partial"
+                                  >
+                                    Partial
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleInvoiceStatusChange(
+                                        invKey,
+                                        "Unpaid"
+                                      )
+                                    }
+                                    className={`cust-resp-btn rejected ${
+                                      isUnpaid ? "active" : ""
+                                    }`}
+                                    title="Mark Invoice as Unpaid"
+                                  >
+                                    Unpaid
+                                  </button>
+                                </div>
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="cust-doc-view-btn"
+                                  onClick={() => setViewingInvoice(inv)}
+                                  title="View Invoice Details"
+                                >
+                                  <Eye size={14} />
+                                  <span>View</span>
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="cust-modal-footer">
               <button
                 type="button"
                 className="cust-btn-secondary"
-                onClick={() => setSelectedCustomer(null)}
+                onClick={() => setSelectedCustomerId(null)}
               >
                 Close
               </button>
@@ -815,7 +1807,385 @@ export default function Customers() {
         </div>
       )}
 
-      {/* Add New Customer Modal */}
+      {/* Full Quotation Details Preview Modal (opened from Customer View Modal) */}
+      {viewingQuotation && (
+        <QuotationDetails
+          quotation={viewingQuotation}
+          quotationId={viewingQuotation.quotation_id || viewingQuotation.id}
+          onClose={() => setViewingQuotation(null)}
+        />
+      )}
+
+      {/* Full Invoice Details Preview Modal (opened from Customer View Modal) */}
+      {viewingInvoice && (
+        <div
+          className="cust-modal-overlay"
+          style={{ zIndex: 1100 }}
+          onClick={() => setViewingInvoice(null)}
+        >
+          <div
+            className="cust-modal"
+            style={{ maxWidth: "660px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cust-modal-header cust-invoice-view-header">
+              <div>
+                <span className="cust-inv-badge">INVOICE RECORD</span>
+                <h3>
+                  {viewingInvoice.invoice_number ||
+                    `#${viewingInvoice.invoice_key}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="cust-modal-close"
+                onClick={() => setViewingInvoice(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="cust-modal-body">
+              <div className="cust-profile-summary-grid">
+                <div>
+                  <span>Customer</span>
+                  <strong>{viewingInvoice.customer_name || "—"}</strong>
+                </div>
+                <div>
+                  <span>Company</span>
+                  <strong>{viewingInvoice.company_name || "—"}</strong>
+                </div>
+                <div>
+                  <span>Invoice Date</span>
+                  <strong>
+                    {formatDisplayDate(
+                      viewingInvoice.invoice_date ||
+                        viewingInvoice.issue_date ||
+                        viewingInvoice.created_at
+                    )}
+                  </strong>
+                </div>
+                <div>
+                  <span>Payment Status</span>
+                  <strong
+                    style={{
+                      color:
+                        classifyInvoiceStatus(viewingInvoice) === "paid"
+                          ? "#15803d"
+                          : classifyInvoiceStatus(viewingInvoice) === "partial"
+                          ? "#b45309"
+                          : "#b91c1c",
+                    }}
+                  >
+                    {viewingInvoice.status || "Unpaid"}
+                  </strong>
+                </div>
+              </div>
+
+              {Array.isArray(viewingInvoice.items) &&
+              viewingInvoice.items.length > 0 ? (
+                <div className="cust-subtable-wrap" style={{ marginTop: "14px" }}>
+                  <table className="cust-table cust-subtable">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>SERVICE / DESCRIPTION</th>
+                        <th>QTY</th>
+                        <th>AMOUNT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewingInvoice.items.map((it, idx) => (
+                        <tr key={idx}>
+                          <td>{idx + 1}</td>
+                          <td>
+                            <strong>
+                              {it.item_name ||
+                                it.service_name ||
+                                it.description ||
+                                "Service Item"}
+                            </strong>
+                          </td>
+                          <td>{it.quantity || 1}</td>
+                          <td>
+                            <strong>
+                              {formatCurrency(
+                                it.total_price ||
+                                  it.line_total ||
+                                  it.unit_price ||
+                                  0
+                              )}
+                            </strong>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+
+              <div className="cust-invoice-total-bar">
+                <span>Total Invoice Amount</span>
+                <strong>
+                  {formatCurrency(
+                    viewingInvoice.total_amount ||
+                      viewingInvoice.total ||
+                      viewingInvoice.amount
+                  )}
+                </strong>
+              </div>
+            </div>
+
+            <div className="cust-modal-footer">
+              <button
+                type="button"
+                className="cust-btn-primary"
+                onClick={() => setViewingInvoice(null)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {editingCustomer && (
+        <div
+          className="cust-modal-overlay"
+          onClick={() => setEditingCustomer(null)}
+        >
+          <div
+            className="cust-modal"
+            style={{ maxWidth: "560px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cust-modal-header">
+              <h3>Edit Customer Details</h3>
+              <button
+                type="button"
+                className="cust-modal-close"
+                onClick={() => setEditingCustomer(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditCustomerSubmit}>
+              <div className="cust-modal-body">
+                {editError && (
+                  <div className="cust-form-error">{editError}</div>
+                )}
+
+                <div className="cust-form-grid">
+                  <div className="cust-field">
+                    <label>Customer Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingCustomer.customer_name}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          customer_name: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Company Name</label>
+                    <input
+                      type="text"
+                      value={editingCustomer.company_name}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          company_name: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Email Address</label>
+                    <input
+                      type="email"
+                      value={editingCustomer.email}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          email: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Phone Number</label>
+                    <input
+                      type="text"
+                      value={editingCustomer.phone}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          phone: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Customer Type</label>
+                    <select
+                      value={editingCustomer.customer_type}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          customer_type: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="Regular">Regular Customer</option>
+                      <option value="New">New Customer</option>
+                    </select>
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Status</label>
+                    <select
+                      value={editingCustomer.status}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          status: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  <div className="cust-field">
+                    <label>City</label>
+                    <input
+                      type="text"
+                      value={editingCustomer.city}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          city: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field">
+                    <label>Address</label>
+                    <input
+                      type="text"
+                      value={editingCustomer.address}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          address: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="cust-field cust-field-full">
+                    <label>Notes</label>
+                    <textarea
+                      rows={2}
+                      value={editingCustomer.notes}
+                      onChange={(e) =>
+                        setEditingCustomer({
+                          ...editingCustomer,
+                          notes: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="cust-modal-footer">
+                <button
+                  type="button"
+                  className="cust-btn-secondary"
+                  onClick={() => setEditingCustomer(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="cust-btn-primary"
+                  disabled={savingEdit}
+                >
+                  {savingEdit ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Customer Confirmation Modal */}
+      {customerToDelete && (
+        <div
+          className="cust-modal-overlay"
+          onClick={() => setCustomerToDelete(null)}
+        >
+          <div
+            className="cust-modal"
+            style={{ maxWidth: "420px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="cust-modal-header">
+              <h3>Delete Customer</h3>
+              <button
+                type="button"
+                className="cust-modal-close"
+                onClick={() => setCustomerToDelete(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="cust-modal-body">
+              <p style={{ margin: 0, fontSize: "13.5px", color: "#334155", lineHeight: 1.6 }}>
+                Are you sure you want to remove{" "}
+                <strong style={{ color: "#0b1932" }}>
+                  {customerToDelete.customer_name}
+                </strong>
+                {customerToDelete.company_name
+                  ? ` (${customerToDelete.company_name})`
+                  : ""}{" "}
+                from the customer list?
+              </p>
+            </div>
+            <div className="cust-modal-footer">
+              <button
+                type="button"
+                className="cust-btn-secondary"
+                onClick={() => setCustomerToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="cust-btn-danger"
+                onClick={handleConfirmDeleteCustomer}
+              >
+                Delete Customer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Customer Modal (Unchanged) */}
       {showAddModal && (
         <div className="cust-modal-overlay">
           <div className="cust-modal" style={{ maxWidth: "560px" }}>
@@ -856,7 +2226,10 @@ export default function Customers() {
                       placeholder="e.g. John Doe"
                       value={newCustomer.customer_name}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, customer_name: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          customer_name: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -868,7 +2241,10 @@ export default function Customers() {
                       placeholder="e.g. Acme Lanka Ltd"
                       value={newCustomer.company_name}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, company_name: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          company_name: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -880,7 +2256,10 @@ export default function Customers() {
                       placeholder="client@example.com"
                       value={newCustomer.email}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, email: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          email: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -892,7 +2271,10 @@ export default function Customers() {
                       placeholder="+94 77 123 4567"
                       value={newCustomer.phone}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, phone: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          phone: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -904,7 +2286,10 @@ export default function Customers() {
                       placeholder="Colombo"
                       value={newCustomer.city}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, city: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          city: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -916,7 +2301,10 @@ export default function Customers() {
                       placeholder="Street address"
                       value={newCustomer.address}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, address: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          address: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -928,7 +2316,10 @@ export default function Customers() {
                       placeholder="Additional notes about customer requirements..."
                       value={newCustomer.notes}
                       onChange={(e) =>
-                        setNewCustomer({ ...newCustomer, notes: e.target.value })
+                        setNewCustomer({
+                          ...newCustomer,
+                          notes: e.target.value,
+                        })
                       }
                     />
                   </div>

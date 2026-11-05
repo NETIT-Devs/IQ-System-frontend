@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   Activity,
@@ -6,7 +6,9 @@ import {
   ArrowDownToLine,
   BarChart3,
   CalendarDays,
+  Check,
   CheckCircle2,
+  ChevronDown,
   FileText,
   LoaderCircle,
   RefreshCw,
@@ -40,12 +42,68 @@ const EMPTY_SUMMARY = {
   outstandingAmount: 0,
   totalInvoiceValue: 0,
   approvedQuotations: 0,
+  customerAcceptedQuotations: 0,
+  approvedOnlyQuotations: 0,
   pendingQuotations: 0,
   draftQuotations: 0,
   rejectedQuotations: 0,
   totalQuotationValue: 0,
   approvedQuotationValue: 0,
 };
+
+function isCustomerAccepted(q) {
+  const cs = String(q?.customer_status || "").trim().toLowerCase();
+  return cs === "customer accepted" || cs === "accepted";
+}
+
+function isCustomerRejected(q) {
+  const cs = String(q?.customer_status || "").trim().toLowerCase();
+  return cs === "customer rejected" || cs === "rejected";
+}
+
+function resolveQuotationReportStatus(q) {
+  if (!q) return "Draft";
+  if (isCustomerAccepted(q)) {
+    return "Accepted by Customer";
+  }
+  if (isCustomerRejected(q)) {
+    return "Rejected by Customer";
+  }
+
+  const approval = String(q.approval_status || "").trim().toLowerCase();
+  const rawStatus = String(
+    q.status || q.quotation_status || ""
+  ).trim().toLowerCase();
+  const role = String(q.created_by_role || "").trim().toLowerCase();
+  const isSuperCreator = role.includes("super") || q.created_by === 2;
+
+  if (isSuperCreator) {
+    return rawStatus === "draft" ? "Draft" : "Approved";
+  }
+  if (
+    approval === "pending" ||
+    rawStatus.includes("pending") ||
+    rawStatus === "sent"
+  ) {
+    return "Pending Approval";
+  }
+  if (
+    approval === "approved" ||
+    ["approved", "accepted"].includes(rawStatus)
+  ) {
+    return "Approved";
+  }
+  if (
+    approval === "rejected" ||
+    ["rejected", "declined"].includes(rawStatus)
+  ) {
+    return "Rejected";
+  }
+  if (rawStatus === "draft") {
+    return "Draft";
+  }
+  return q.status || "Draft";
+}
 
 // Read the authentication token saved by the login flow
 function getAuthToken() {
@@ -193,7 +251,7 @@ function SummaryCard({ title, value, description, icon: Icon, tone, money }) {
   return (
     <article className="report-metric-card">
       <div className={`report-metric-icon ${tone}`}>
-        <Icon size={22} strokeWidth={2.2} />
+        <Icon size={18} strokeWidth={1.9} />
       </div>
 
       <div className="report-metric-content">
@@ -210,35 +268,43 @@ function SummaryCard({ title, value, description, icon: Icon, tone, money }) {
 // Display donut chart breakdown for either Quotations or Invoices
 function StatusBreakdownChart({ summary, reportType }) {
   if (reportType === "quotations") {
-    const approved = Number(summary.approvedQuotations) || 0;
+    const acceptedByCustomer = Number(summary.customerAcceptedQuotations) || 0;
+    const approved = Number(summary.approvedOnlyQuotations) || 0;
     const pending = Number(summary.pendingQuotations) || 0;
     const draft = Number(summary.draftQuotations) || 0;
     const rejected = Number(summary.rejectedQuotations) || 0;
-    const total = approved + pending + draft + rejected || Number(summary.totalQuotations) || 0;
+    const total =
+      acceptedByCustomer + approved + pending + draft + rejected ||
+      Number(summary.totalQuotations) ||
+      0;
 
+    const acceptedPercent = total ? (acceptedByCustomer / total) * 100 : 0;
     const approvedPercent = total ? (approved / total) * 100 : 0;
     const pendingPercent = total ? (pending / total) * 100 : 0;
     const draftPercent = total ? (draft / total) * 100 : 0;
 
     const segments = [
-      { label: "Approved", value: approved, color: "#16a34a" },
+      { label: "Accepted by Customer", value: acceptedByCustomer, color: "#16a34a" },
+      { label: "Approved", value: approved, color: "#0284c7" },
       { label: "Pending", value: pending, color: "#f59e0b" },
       { label: "Draft", value: draft, color: "#2563eb" },
       { label: "Rejected", value: rejected, color: "#dc2626" },
     ];
 
-    const p1 = approvedPercent;
-    const p2 = p1 + pendingPercent;
-    const p3 = p2 + draftPercent;
+    const p1 = acceptedPercent;
+    const p2 = p1 + approvedPercent;
+    const p3 = p2 + pendingPercent;
+    const p4 = p3 + draftPercent;
 
     const chartStyle = {
       background:
         total > 0
           ? `conic-gradient(
               #16a34a 0% ${p1}%,
-              #f59e0b ${p1}% ${p2}%,
-              #2563eb ${p2}% ${p3}%,
-              #dc2626 ${p3}% 100%
+              #0284c7 ${p1}% ${p2}%,
+              #f59e0b ${p2}% ${p3}%,
+              #2563eb ${p3}% ${p4}%,
+              #dc2626 ${p4}% 100%
             )`
           : "#e8edf5",
     };
@@ -249,7 +315,7 @@ function StatusBreakdownChart({ summary, reportType }) {
           className="payment-donut"
           style={chartStyle}
           role="img"
-          aria-label={`Approved ${approved}, pending ${pending}, draft ${draft}, rejected ${rejected}`}
+          aria-label={`Accepted by Customer ${acceptedByCustomer}, approved ${approved}, pending ${pending}, draft ${draft}, rejected ${rejected}`}
         >
           <div className="payment-donut-inner">
             <strong>{formatNumber(total)}</strong>
@@ -426,8 +492,32 @@ export default function Reports() {
 
   // Default to quotations report so real live data immediately populates
   const [reportType, setReportType] = useState("quotations");
+  const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
+  const reportDropdownRef = useRef(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        reportDropdownRef.current &&
+        !reportDropdownRef.current.contains(event.target)
+      ) {
+        setReportDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setReportDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -523,8 +613,12 @@ export default function Reports() {
         });
       }
 
-      // 4. Resolve Monthly Income: Use backend report endpoint if available, or compute from quotations/invoices
-      if (reportIncomeRes.ok) {
+      // 4. Resolve Monthly Income: Aggregate from Customer Accepted quotations (or invoices)
+      const acceptedQuotationsForTrend = finalQuotations.filter((q) =>
+        isCustomerAccepted(q)
+      );
+
+      if (reportIncomeRes.ok && acceptedQuotationsForTrend.length === 0 && finalQuotations.length === 0) {
         finalIncome = extractArray(reportIncomeRes.data).map((item) => ({
           label: String(
             readValue(item, "month_label", "monthLabel", "month", "period")
@@ -534,18 +628,19 @@ export default function Reports() {
           ),
         }));
       } else {
-        // Dynamically aggregate income/revenue by month from actual records
+        // Dynamically aggregate accepted revenue by month from Customer Accepted quotations
         const monthlyMap = {};
-        const recordsForTrend = finalQuotations.length > 0 ? finalQuotations : finalInvoices;
+        const recordsForTrend =
+          finalQuotations.length > 0 ? acceptedQuotationsForTrend : finalInvoices;
 
         recordsForTrend.forEach((record) => {
           const dateStr = String(
-            record.quotation_date || record.invoice_date || record.created_at || ""
+            resolveQuotationDate(record) || record.invoice_date || record.created_at || ""
           ).slice(0, 7); // e.g. "2026-10"
 
           if (dateStr && dateStr.length === 7) {
             const amount = Number(
-              readValue(record, "total_amount", "totalAmount", "grand_total")
+              readValue(record, "total_amount", "totalAmount", "grand_total", "grandTotal")
             ) || 0;
             monthlyMap[dateStr] = (monthlyMap[dateStr] || 0) + amount;
           }
@@ -566,8 +661,59 @@ export default function Reports() {
         }
       }
 
-      // 5. Resolve Summary: Use backend report endpoint if available, or compute live summary
-      if (reportSummaryRes.ok) {
+      // 5. Resolve Summary: Compute quotation metrics using live Customer Accepted status
+      const totalQuotations = finalQuotations.length;
+      const totalInvoices = finalInvoices.length;
+
+      let customerAcceptedQuotations = 0;
+      let approvedOnlyQuotations = 0;
+      let pendingQuotations = 0;
+      let draftQuotations = 0;
+      let rejectedQuotations = 0;
+
+      finalQuotations.forEach((q) => {
+        const resolvedStatus = resolveQuotationReportStatus(q);
+        if (resolvedStatus === "Accepted by Customer") {
+          customerAcceptedQuotations += 1;
+        } else if (resolvedStatus === "Approved") {
+          approvedOnlyQuotations += 1;
+        } else if (resolvedStatus === "Pending Approval") {
+          pendingQuotations += 1;
+        } else if (
+          resolvedStatus === "Rejected" ||
+          resolvedStatus === "Rejected by Customer"
+        ) {
+          rejectedQuotations += 1;
+        } else {
+          draftQuotations += 1;
+        }
+      });
+
+      const approvedQuotations =
+        customerAcceptedQuotations + approvedOnlyQuotations;
+
+      const totalQuotationValue = finalQuotations.reduce(
+        (sum, q) =>
+          sum +
+          (Number(
+            readValue(q, "total_amount", "totalAmount", "grand_total", "grandTotal")
+          ) || 0),
+        0
+      );
+
+      // Approved / Customer Accepted Value: strictly sum of Customer Accepted quotations
+      const approvedQuotationValue = finalQuotations
+        .filter((q) => isCustomerAccepted(q))
+        .reduce(
+          (sum, q) =>
+            sum +
+            (Number(
+              readValue(q, "total_amount", "totalAmount", "grand_total", "grandTotal")
+            ) || 0),
+          0
+        );
+
+      if (reportSummaryRes.ok && finalQuotations.length === 0) {
         const summaryData = extractObject(reportSummaryRes.data);
         finalSummary = {
           totalInvoices: Number(readValue(summaryData, "totalInvoices", "total_invoices")),
@@ -577,6 +723,8 @@ export default function Reports() {
           overdueInvoices: Number(readValue(summaryData, "overdueInvoices", "overdue_invoices")),
           outstandingAmount: Number(readValue(summaryData, "outstandingAmount", "outstanding_amount")),
           approvedQuotations: Number(readValue(summaryData, "approvedQuotations", "approved_quotations")),
+          customerAcceptedQuotations: 0,
+          approvedOnlyQuotations: Number(readValue(summaryData, "approvedQuotations", "approved_quotations")),
           pendingQuotations: Number(readValue(summaryData, "pendingQuotations", "pending_quotations")),
           draftQuotations: Number(readValue(summaryData, "draftQuotations", "draft_quotations")),
           rejectedQuotations: Number(readValue(summaryData, "rejectedQuotations", "rejected_quotations")),
@@ -584,35 +732,6 @@ export default function Reports() {
           approvedQuotationValue: Number(readValue(summaryData, "approvedQuotationValue", "approved_quotation_value")),
         };
       } else {
-        // Calculate dynamically from loaded records
-        const totalQuotations = finalQuotations.length;
-        const totalInvoices = finalInvoices.length;
-
-        const approvedQuotations = finalQuotations.filter((q) =>
-          ["approved", "accepted"].includes(String(q.status || "").toLowerCase())
-        ).length;
-
-        const pendingQuotations = finalQuotations.filter((q) =>
-          String(q.status || "").toLowerCase().includes("pending")
-        ).length;
-
-        const draftQuotations = finalQuotations.filter((q) =>
-          String(q.status || "").toLowerCase().includes("draft")
-        ).length;
-
-        const rejectedQuotations = finalQuotations.filter((q) =>
-          ["rejected", "declined"].includes(String(q.status || "").toLowerCase())
-        ).length;
-
-        const totalQuotationValue = finalQuotations.reduce(
-          (sum, q) => sum + (Number(q.total_amount) || 0),
-          0
-        );
-
-        const approvedQuotationValue = finalQuotations
-          .filter((q) => ["approved", "accepted"].includes(String(q.status || "").toLowerCase()))
-          .reduce((sum, q) => sum + (Number(q.total_amount) || 0), 0);
-
         const paidInvoices = finalInvoices.filter((i) =>
           String(i.payment_status || i.status || "").toLowerCase().includes("paid")
         ).length;
@@ -644,6 +763,8 @@ export default function Reports() {
           outstandingAmount,
           totalInvoiceValue,
           approvedQuotations,
+          customerAcceptedQuotations,
+          approvedOnlyQuotations,
           pendingQuotations,
           draftQuotations,
           rejectedQuotations,
@@ -748,8 +869,9 @@ export default function Reports() {
             "grand_total",
             "grandTotal"
           ) || 0;
-        const status =
-          readValue(
+        const status = isQuotation
+          ? resolveQuotationReportStatus(record)
+          : readValue(
             record,
             "payment_status",
             "status",
@@ -852,14 +974,60 @@ export default function Reports() {
         <section className="reports-filter-panel" aria-label="Report filters">
           <div className="report-filter-field">
             <label htmlFor="report-type">Report type</label>
-            <select
-              id="report-type"
-              value={reportType}
-              onChange={(event) => setReportType(event.target.value)}
-            >
-              <option value="quotations">Quotation Report</option>
-              <option value="invoices">Invoice Report</option>
-            </select>
+            <div className="report-dropdown-wrap" ref={reportDropdownRef}>
+              <button
+                type="button"
+                id="report-type"
+                className={`report-dropdown-btn ${reportDropdownOpen ? "active" : ""}`}
+                onClick={() => setReportDropdownOpen((prev) => !prev)}
+                aria-expanded={reportDropdownOpen}
+                aria-label="Select report type"
+              >
+                <span className="report-dropdown-label">
+                  {reportType === "invoices" ? "Invoice Report" : "Quotation Report"}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`report-dropdown-chevron ${reportDropdownOpen ? "open" : ""}`}
+                />
+              </button>
+
+              {reportDropdownOpen && (
+                <div className="report-dropdown-menu" role="listbox">
+                  <div className="report-dropdown-header">
+                    <span>Select Report Type</span>
+                  </div>
+                  <div className="report-dropdown-list">
+                    {[
+                      { value: "quotations", label: "Quotation Report", color: "#2563eb" },
+                      { value: "invoices", label: "Invoice Report", color: "#7c3aed" },
+                    ].map((opt) => {
+                      const isSelected = reportType === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`report-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setReportType(opt.value);
+                            setReportDropdownOpen(false);
+                          }}
+                        >
+                          <div className="report-dropdown-item-left">
+                            <span
+                              className="report-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="report-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="report-dropdown-check" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="report-filter-field">
@@ -975,9 +1143,9 @@ export default function Reports() {
                     money
                   />
                   <SummaryCard
-                    title="Approved Value"
+                    title="Customer Accepted Value"
                     value={summary.approvedQuotationValue}
-                    description="Accepted business revenue"
+                    description="Customer accepted quotations value"
                     icon={TrendingUp}
                     tone="metric-green"
                     money
@@ -1065,9 +1233,11 @@ export default function Reports() {
                   <div>
                     <h2>Monthly Revenue &amp; Income Trends</h2>
                     <p>
-                      {isUsingLiveCalculated
-                        ? "Monthly trend calculated from active database records"
-                        : "Income returned by backend reports endpoint"}
+                      {reportType === "quotations"
+                        ? "Monthly revenue from customer accepted quotations"
+                        : isUsingLiveCalculated
+                          ? "Monthly trend calculated from active database records"
+                          : "Income returned by backend reports endpoint"}
                     </p>
                   </div>
                 </div>
@@ -1167,12 +1337,14 @@ export default function Reports() {
                           "grandTotal"
                         );
 
-                        const status = readValue(
-                          record,
-                          "status",
-                          "payment_status",
-                          "quotation_status"
-                        );
+                        const status = isQuotation
+                          ? resolveQuotationReportStatus(record)
+                          : readValue(
+                            record,
+                            "status",
+                            "payment_status",
+                            "quotation_status"
+                          );
 
                         return (
                           <tr key={id || `${reference}-${index}`}>

@@ -38,7 +38,7 @@ import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Quotations.css";
 
 const statusOptions = [
-  { label: "All Statuses", value: "All Statuses", color: "#64748b" },
+  { label: "All Status", value: "All Statuses", color: "#64748b" },
   { label: "Draft", value: "Draft", color: "#d97706" },
   { label: "Pending Approval", value: "Pending Approval", color: "#0284c7" },
   { label: "Approved", value: "Approved", color: "#16a34a" },
@@ -380,6 +380,9 @@ export default function Quotations() {
 
   // Direct PDF download from table row
   async function handleDirectDownload(quotation) {
+    if (!isSuperAdmin && quotation.status !== "Approved") {
+      return;
+    }
     const rawId = quotation.quotation_id || quotation.id;
     try {
       setDownloadingId(rawId);
@@ -567,7 +570,7 @@ export default function Quotations() {
             {statCards.map(({ label, value, icon: Icon, color, note }) => (
               <article key={label} className="quotation-stat-card">
                 <div className={`quotation-stat-icon ${color}`}>
-                  <Icon size={22} strokeWidth={2} />
+                  <Icon size={18} strokeWidth={1.9} />
                 </div>
 
                 <div className="quotation-stat-content">
@@ -706,7 +709,9 @@ export default function Quotations() {
                   title="Filter by status"
                 >
                   <SlidersHorizontal size={16} className="quotation-filter-icon" />
-                  <span className="quotation-filter-label">{statusFilter}</span>
+                  <span className="quotation-filter-label">
+                    {statusFilter === "All Statuses" ? "All Status" : statusFilter}
+                  </span>
                   <ChevronDown
                     size={14}
                     className={`quotation-filter-chevron ${statusDropdownOpen ? "open" : ""}`}
@@ -898,10 +903,30 @@ export default function Quotations() {
                             <button
                               type="button"
                               className="row-action-button download-action"
-                              style={{ color: "#0284c7" }}
-                              title="Download PDF"
+                              style={{
+                                color:
+                                  !isSuperAdmin && quotation.status !== "Approved"
+                                    ? "#94a3b8"
+                                    : "#0284c7",
+                                cursor:
+                                  !isSuperAdmin && quotation.status !== "Approved"
+                                    ? "not-allowed"
+                                    : undefined,
+                                opacity:
+                                  !isSuperAdmin && quotation.status !== "Approved"
+                                    ? 0.45
+                                    : undefined,
+                              }}
+                              title={
+                                !isSuperAdmin && quotation.status !== "Approved"
+                                  ? "Available after Super Admin approval"
+                                  : "Download PDF"
+                              }
                               aria-label={`Download ${quotation.id} PDF`}
-                              disabled={downloadingId === (quotation.quotation_id || quotation.id)}
+                              disabled={
+                                downloadingId === (quotation.quotation_id || quotation.id) ||
+                                (!isSuperAdmin && quotation.status !== "Approved")
+                              }
                               onClick={() => handleDirectDownload(quotation)}
                             >
                               <Download size={16} />
@@ -960,20 +985,20 @@ export default function Quotations() {
                             {loadError
                               ? "Unable to load quotations"
                               : loading
-                              ? "Loading quotations..."
-                              : quotations.length === 0
-                              ? "No quotations yet"
-                              : "No matching quotations"}
+                                ? "Loading quotations..."
+                                : quotations.length === 0
+                                  ? "No quotations yet"
+                                  : "No matching quotations"}
                           </h3>
 
                           <p>
                             {loadError
                               ? "Check your connection or sign in again, then retry."
                               : loading
-                              ? "Retrieving records from backend database..."
-                              : quotations.length === 0
-                              ? "Create your first quotation to get started."
-                              : "Try another search term or change your filters."}
+                                ? "Retrieving records from backend database..."
+                                : quotations.length === 0
+                                  ? "Create your first quotation to get started."
+                                  : "Try another search term or change your filters."}
                           </p>
 
                           {!loading && !loadError && quotations.length === 0 && (

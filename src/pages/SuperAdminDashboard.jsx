@@ -152,7 +152,7 @@ function StatCard({ item }) {
   return (
     <article className="sa-stat-card">
       <div className={`sa-stat-icon ${item.color}`}>
-        <Icon size={21} strokeWidth={1.8} />
+        <Icon size={18} strokeWidth={1.9} />
       </div>
 
       <div className="sa-stat-content">

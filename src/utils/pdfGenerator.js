@@ -354,7 +354,7 @@ export async function createQuotationPdfDoc(
   containImage(doc, logoData, PAGE_MARGIN, logoY, logoW, logoH);
 
   const companyTextX = logoData ? PAGE_MARGIN + logoW + 6 : PAGE_MARGIN;
-  const companyTextWidth = logoData ? 95 : 120;
+  const companyTextWidth = logoData ? 82 : 105;
 
   // Calculate total height of company text block to vertically center it with the logo
   const nameLineHeight = 5.0;
@@ -424,6 +424,7 @@ export async function createQuotationPdfDoc(
   const validUntil = formatDate(quotation.valid_until);
 
   const colWidth = contentWidth / 3;
+  const colMaxW = colWidth - 4;
 
   // Column 1: Quotation Number (Reduced font size as requested)
   doc.setFont("helvetica", "bold");
@@ -432,7 +433,8 @@ export async function createQuotationPdfDoc(
   doc.text("QUOTATION NUMBER", PAGE_MARGIN, y);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.2); // Reduced font size
-  doc.text(quotationNum, PAGE_MARGIN, y + 4.8);
+  const qNumLines = doc.splitTextToSize(quotationNum, colMaxW);
+  doc.text(qNumLines, PAGE_MARGIN, y + 4.8);
 
   // Column 2: Quotation Date
   doc.setFont("helvetica", "bold");
@@ -442,7 +444,8 @@ export async function createQuotationPdfDoc(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.2);
   doc.setTextColor(...COLORS.text);
-  doc.text(quotationDate, PAGE_MARGIN + colWidth, y + 4.8);
+  const qDateLines = doc.splitTextToSize(quotationDate, colMaxW);
+  doc.text(qDateLines, PAGE_MARGIN + colWidth, y + 4.8);
 
   // Column 3: Valid Until
   doc.setFont("helvetica", "bold");
@@ -452,10 +455,12 @@ export async function createQuotationPdfDoc(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.2);
   doc.setTextColor(...COLORS.text);
-  doc.text(validUntil, PAGE_MARGIN + colWidth * 2, y + 4.8);
+  const qValidLines = doc.splitTextToSize(validUntil, colMaxW);
+  doc.text(qValidLines, PAGE_MARGIN + colWidth * 2, y + 4.8);
 
+  const maxRefLines = Math.max(qNumLines.length, qDateLines.length, qValidLines.length, 1);
   // Space before PREPARED FOR & PROJECT DETAILS (moved down with proper breathing space)
-  y += 18;
+  y += 14 + maxRefLines * 4;
 
   // 4. PREPARED FOR & PROJECT DETAILS (Normal layout, NO boxes, topics bold)
   const clientName =
@@ -577,13 +582,15 @@ export async function createQuotationPdfDoc(
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.8);
     doc.setTextColor(...COLORS.muted);
-    doc.text(`${label}:`, colXRight, rightY);
+    const labelStr = `${label}:`;
+    const labelW = Math.max(36, doc.getTextWidth(labelStr) + 2.5);
+    doc.text(labelStr, colXRight, rightY);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...COLORS.text);
-    const valText = doc.splitTextToSize(value, subColWidth - 36);
-    doc.text(valText, colXRight + 34, rightY);
+    const valText = doc.splitTextToSize(value, Math.max(20, subColWidth - labelW));
+    doc.text(valText, colXRight + labelW, rightY);
     rightY += Math.max(valText.length * 4.4, 4.8);
   });
 
@@ -752,7 +759,18 @@ export async function createQuotationPdfDoc(
     ].filter(([, val]) => Boolean(val));
 
     if (bankEntries.length > 0) {
-      const boxHeight = 9 + bankEntries.length * 4.6;
+      const valMaxW = Math.max(25, bankBoxWidth - 33);
+      const wrappedBankEntries = bankEntries.map(([label, value, isHighlighted]) => {
+        doc.setFont("helvetica", isHighlighted ? "bold" : "normal");
+        doc.setFontSize(isHighlighted ? 8.5 : 8);
+        const lines = doc.splitTextToSize(String(value), valMaxW);
+        return [label, lines, isHighlighted];
+      });
+      const totalBankLines = wrappedBankEntries.reduce(
+        (sum, [, lines]) => sum + Math.max(1, lines.length),
+        0
+      );
+      const boxHeight = 9.5 + totalBankLines * 4.5;
       doc.setFillColor(...COLORS.light);
       doc.setDrawColor(...COLORS.border);
       doc.roundedRect(bankBoxX, y, bankBoxWidth, boxHeight, 1.5, 1.5, "FD");
@@ -768,7 +786,7 @@ export async function createQuotationPdfDoc(
       doc.setLineWidth(0.2);
 
       let bY = y + 10.2;
-      bankEntries.forEach(([label, value, isHighlighted]) => {
+      wrappedBankEntries.forEach(([label, lines, isHighlighted]) => {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7.2);
         doc.setTextColor(...COLORS.muted);
@@ -783,8 +801,8 @@ export async function createQuotationPdfDoc(
           doc.setFontSize(8);
           doc.setTextColor(...COLORS.text);
         }
-        doc.text(value, bankBoxX + 30, bY);
-        bY += 4.6;
+        doc.text(lines, bankBoxX + 30, bY);
+        bY += Math.max(1, lines.length) * 4.5;
       });
 
       bankEndY = y + boxHeight;
@@ -1019,7 +1037,21 @@ export async function downloadQuotationPdf(
   const pdfFilename = /\.pdf$/i.test(safeFilename)
     ? safeFilename
     : `${safeFilename}.pdf`;
-  doc.save(pdfFilename);
+
+  try {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = pdfFilename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  } catch {
+    doc.save(pdfFilename);
+  }
 }
 
 /**

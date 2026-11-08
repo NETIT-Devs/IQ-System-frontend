@@ -1,4 +1,4 @@
-/* System Audit Logs Page Styles - Deep Navy & Professional Blue */
+/* System Audit Logs Page Styles  */
 
 .audit-page {
   width: 100%;
@@ -172,7 +172,7 @@
   transform: none;
 }
 
-/* Stats Cards - Modern curved overview cards matching Overview dashboard */
+/* Stats Cards */
 .audit-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -488,7 +488,7 @@
   flex: 1;
 }
 
-/* Search Bar - Modern Curved & No Blue Box Outline */
+/* Search Bar  */
 .audit-search {
   display: flex;
   align-items: center;
@@ -547,7 +547,7 @@
   color: #94a3b8;
 }
 
-/* Prevent default search decoration & blue outline in all browsers */
+/* Prevent default search decoration  */
 .audit-search input[type="search"]::-webkit-search-cancel-button,
 .audit-search input[type="search"]::-webkit-search-decoration,
 .audit-search input[type="search"]::-webkit-search-results-button,
@@ -556,7 +556,7 @@
   appearance: none;
 }
 
-/* Date Filter - Modern Curved matching Search & Dropdowns */
+/* Date Filter  */
 .audit-date-filter {
   display: inline-flex;
   align-items: center;
@@ -609,7 +609,7 @@
   color: #475569;
 }
 
-/* Dropdown Filters - Modern Curved with Chevron Icon & No Blue Box Outline */
+/* Dropdown Filters  */
 .audit-filter-select {
   height: 40px;
   padding: 0 34px 0 13px;
@@ -835,13 +835,14 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
 
-/* Modern Professional Custom Dropdowns for Audit Logs Page */
+/* Dropdowns for Audit Logs Page */
 .audit-panel {
   overflow: visible;
 }
@@ -928,6 +929,7 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1011,6 +1013,7 @@
 }
 
 @media (max-width: 768px) {
+
   .audit-dropdowns-group,
   .audit-dropdown-wrap,
   .audit-dropdown-btn {
@@ -1036,7 +1039,7 @@
   border-bottom-color: #0b1932;
 }
 
-/* Mobile Responsive 4 Stat Cards - Reduced Height */
+/* Mobile Responsive 4 Stat Cards  */
 @media (max-width: 768px) {
   .audit-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

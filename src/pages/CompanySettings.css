@@ -1,7 +1,7 @@
-/* ==========================================================================
-   Company Settings Page - Modern Navy Blue & Professional Theme
-   Mobile Responsive & High Density Layout
-   ========================================================================== */
+/* 
+   Company Settings Page 
+   
+  */
 
 .cs-page {
   padding: 24px 28px;
@@ -181,6 +181,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -195,6 +196,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -220,7 +222,7 @@
   width: 100%;
 }
 
-/* Modern Tab Navigation Bar - Full Width Evenly Spaced & Navy Themed */
+/* Modern Tab Navigation Bar */
 .cs-tabs-bar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -292,7 +294,7 @@
   }
 }
 
-/* Two-column layout grid for Company Profile & Live Preview */
+/* Company Profile & Live Preview */
 .cs-profile-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 350px;
@@ -571,7 +573,7 @@
   align-items: center;
 }
 
-.cs-input-icon-wrap > svg:not(.textarea-icon) {
+.cs-input-icon-wrap>svg:not(.textarea-icon) {
   position: absolute;
   left: 10px;
   color: #94a3b8;
@@ -970,11 +972,12 @@
   color: #64748b;
 }
 
-/* ==========================================================================
+/* 
    Mobile & Responsive Breakpoints
-   ========================================================================== */
+    */
 
 @media (max-width: 1024px) {
+
   .cs-layout-grid,
   .cs-profile-layout {
     grid-template-columns: 1fr;

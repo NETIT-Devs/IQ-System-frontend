@@ -1,0 +1,4862 @@
+/* ==========================================================================
+   Comprehensive Master Dark Mode Stylesheet
+   Invoice & Quotation Management System
+   Scoped strictly to [data-theme="dark"] and html.dark
+   ========================================================================== */
+
+/* 1. Root & Color Scheme */
+[data-theme="dark"],
+html.dark {
+  color-scheme: dark;
+}
+
+[data-theme="dark"] body,
+html.dark body {
+  background-color: #080d1a !important;
+  color: #ffffff !important;
+}
+
+/* Base text contrast - enforce pure white text in dark mode */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6,
+[data-theme="dark"] strong,
+[data-theme="dark"] b,
+[data-theme="dark"] th {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] p,
+[data-theme="dark"] span:not(.sa-status-dot):not(.payment-legend-dot):not(.cust-status-dot):not(.um-status-dot):not(.approval-status-dot):not(.notif-badge),
+[data-theme="dark"] label,
+[data-theme="dark"] td {
+  color: #f1f5f9;
+}
+
+/* Scrollbars in dark mode */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #090e1a;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #25334d;
+  border-radius: 4px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #3b4e6e;
+}
+
+/* Smooth theme transitions */
+html,
+body,
+.sa-topbar,
+.quotation-topbar,
+.cust-topbar,
+.reports-topbar,
+.audit-header,
+.cs-header,
+.um-header,
+.approvals-header,
+.sa-stat-card,
+.sa-panel,
+.report-metric-card,
+.reports-panel,
+.quotation-table-wrap,
+.cust-table-card {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* ==========================================================================
+   2. Main Layout Containers & Page Backgrounds (ALL DARK)
+   ========================================================================== */
+[data-theme="dark"] .sa-layout,
+[data-theme="dark"] .sa-main,
+[data-theme="dark"] .sa-content-wrap,
+[data-theme="dark"] .quotation-app,
+[data-theme="dark"] .quotation-page,
+[data-theme="dark"] .cust-page,
+[data-theme="dark"] .cust-main,
+[data-theme="dark"] .reports-page,
+[data-theme="dark"] .reports-content,
+[data-theme="dark"] .approvals-page,
+[data-theme="dark"] .audit-page,
+[data-theme="dark"] .cs-page,
+[data-theme="dark"] .um-page,
+[data-theme="dark"] .notifications-page,
+[data-theme="dark"] main {
+  background-color: #080d1a !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   3. Topbars & Headers (ALL DARK)
+   ========================================================================== */
+[data-theme="dark"] .sa-topbar,
+[data-theme="dark"] .quotation-topbar,
+[data-theme="dark"] .cust-topbar,
+[data-theme="dark"] .reports-topbar,
+[data-theme="dark"] .audit-header,
+[data-theme="dark"] .cs-header,
+[data-theme="dark"] .um-header,
+[data-theme="dark"] .approvals-header,
+[data-theme="dark"] .reports-welcome-bar,
+[data-theme="dark"] .sa-welcome-bar {
+  background: #0d1527 !important;
+  background-color: #0d1527 !important;
+  border-bottom: 1px solid #1a263d !important;
+  color: #ffffff !important;
+}
+
+/* Header Text, Breadcrumbs & Subtitles */
+[data-theme="dark"] .sa-topbar-left .sa-breadcrumb {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .sa-welcome-text h1,
+[data-theme="dark"] .sa-topbar h1,
+[data-theme="dark"] .cust-topbar h1,
+[data-theme="dark"] .reports-topbar h1,
+[data-theme="dark"] .audit-header h1,
+[data-theme="dark"] .cs-header h1,
+[data-theme="dark"] .um-header h1,
+[data-theme="dark"] .approvals-header h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-welcome-text p,
+[data-theme="dark"] .audit-subtitle,
+[data-theme="dark"] .um-subtitle,
+[data-theme="dark"] .approvals-subtitle {
+  color: #cbd5e1 !important;
+}
+
+/* Header Buttons, Dates & Profile Badges */
+[data-theme="dark"] .sa-header-date,
+[data-theme="dark"] .quotation-date-badge,
+[data-theme="dark"] .cust-header-date,
+[data-theme="dark"] .reports-header-date {
+  background: #141f36 !important;
+  color: #ffffff !important;
+  border: 1px solid #23334d !important;
+}
+
+[data-theme="dark"] .sa-header-profile,
+[data-theme="dark"] .quotation-header-profile,
+[data-theme="dark"] .cust-header-profile,
+[data-theme="dark"] .reports-header-profile {
+  background: #141f36 !important;
+  color: #ffffff !important;
+  border: 1px solid #23334d !important;
+}
+
+[data-theme="dark"] .sa-menu-button,
+[data-theme="dark"] .quotation-menu-button,
+[data-theme="dark"] .cust-menu-button,
+[data-theme="dark"] .reports-menu-button,
+[data-theme="dark"] .audit-menu-button,
+[data-theme="dark"] .cs-menu-button,
+[data-theme="dark"] .um-menu-button,
+[data-theme="dark"] .approval-menu-button {
+  background: #141f36 !important;
+  color: #ffffff !important;
+  border: 1px solid #23334d !important;
+}
+
+[data-theme="dark"] .sa-menu-button:hover,
+[data-theme="dark"] .quotation-menu-button:hover,
+[data-theme="dark"] .cust-menu-button:hover,
+[data-theme="dark"] .reports-menu-button:hover,
+[data-theme="dark"] .audit-menu-button:hover,
+[data-theme="dark"] .cs-menu-button:hover,
+[data-theme="dark"] .um-menu-button:hover,
+[data-theme="dark"] .approval-menu-button:hover {
+  background: #1c2b48 !important;
+  border-color: #3b4e6e !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-topbar .notif-bell-btn {
+  color: #cbd5e1 !important;
+}
+[data-theme="dark"] .sa-topbar .notif-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   4. Search Bars & Filters (ALL DARK BACKGROUNDS)
+   ========================================================================== */
+[data-theme="dark"] .sa-search-wrapper,
+[data-theme="dark"] .quotation-search-box,
+[data-theme="dark"] .cust-search-input-wrap,
+[data-theme="dark"] .reports-search-wrap,
+[data-theme="dark"] .audit-search-wrap,
+[data-theme="dark"] .um-search-wrap,
+[data-theme="dark"] .approval-search-box,
+[data-theme="dark"] .reports-filter-panel,
+[data-theme="dark"] .cust-filter-card,
+[data-theme="dark"] .audit-filter-bar,
+[data-theme="dark"] .um-filter-bar,
+[data-theme="dark"] .quotation-filters {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1px solid #22324e !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="dark"] .sa-header-search,
+[data-theme="dark"] .quotation-search-input,
+[data-theme="dark"] .cust-search-input,
+[data-theme="dark"] .reports-search-input,
+[data-theme="dark"] .audit-search-input,
+[data-theme="dark"] .um-search-input,
+[data-theme="dark"] .approval-search-input,
+[data-theme="dark"] .report-filter-field select,
+[data-theme="dark"] .report-filter-field input {
+  background-color: #0c1322 !important;
+  color: #ffffff !important;
+  border: 1px solid #22324e !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #64748b !important;
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  border-color: #3b82f6 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+/* Dropdowns & Popovers */
+[data-theme="dark"] .sa-search-dropdown,
+[data-theme="dark"] .quotation-filter-dropdown,
+[data-theme="dark"] .cust-dropdown-menu,
+[data-theme="dark"] .report-dropdown-menu,
+[data-theme="dark"] .approval-dropdown-menu,
+[data-theme="dark"] .audit-dropdown-menu,
+[data-theme="dark"] .um-dropdown-menu,
+[data-theme="dark"] .quotation-dropdown-menu {
+  background: #111a2f !important;
+  border: 1px solid #253552 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-search-item,
+[data-theme="dark"] .quotation-dropdown-item,
+[data-theme="dark"] .cust-dropdown-item,
+[data-theme="dark"] .report-dropdown-item,
+[data-theme="dark"] .approval-dropdown-item,
+[data-theme="dark"] .audit-dropdown-item,
+[data-theme="dark"] .um-dropdown-item {
+  color: #ffffff !important;
+  border-bottom: 1px solid #1a263d !important;
+}
+
+[data-theme="dark"] .sa-search-item:hover,
+[data-theme="dark"] .quotation-dropdown-item:hover,
+[data-theme="dark"] .cust-dropdown-item:hover,
+[data-theme="dark"] .report-dropdown-item:hover,
+[data-theme="dark"] .approval-dropdown-item:hover,
+[data-theme="dark"] .audit-dropdown-item:hover,
+[data-theme="dark"] .um-dropdown-item:hover {
+  background: #1a2742 !important;
+  color: #ffffff !important;
+}
+
+/* Filter Tab Buttons */
+[data-theme="dark"] .quotation-tab-btn,
+[data-theme="dark"] .reports-tab,
+[data-theme="dark"] .cs-tab-btn,
+[data-theme="dark"] .approval-filter-btn {
+  background: #121c32 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #22324e !important;
+}
+
+[data-theme="dark"] .quotation-tab-btn.active,
+[data-theme="dark"] .reports-tab.active,
+[data-theme="dark"] .cs-tab-btn.active,
+[data-theme="dark"] .approval-filter-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+/* ==========================================================================
+   5. Cards, Boxes & Panels (ALL DARK BACKGROUNDS)
+   ========================================================================== */
+[data-theme="dark"] .sa-stat-card,
+[data-theme="dark"] .sa-stat-card-clean,
+[data-theme="dark"] .sa-panel,
+[data-theme="dark"] .sa-chart-card,
+[data-theme="dark"] .sa-qp-card,
+[data-theme="dark"] .sa-quick-action-card,
+[data-theme="dark"] .sa-activity-card,
+[data-theme="dark"] .sa-notice-card,
+[data-theme="dark"] .sa-quotation-performance-panel,
+[data-theme="dark"] .sa-recent-quotations-card,
+[data-theme="dark"] .sa-approval-item,
+[data-theme="dark"] .sa-approval-message,
+[data-theme="dark"] .sa-quick-link,
+[data-theme="dark"] .sa-activity-item,
+[data-theme="dark"] .sa-status-row,
+[data-theme="dark"] .report-metric-card,
+[data-theme="dark"] .reports-panel,
+[data-theme="dark"] .reports-stat-box,
+[data-theme="dark"] .reports-table-panel,
+[data-theme="dark"] .reports-table-card,
+[data-theme="dark"] .reports-chart-card,
+[data-theme="dark"] .cust-stat-card,
+[data-theme="dark"] .cust-table-card,
+[data-theme="dark"] .cust-detail-card,
+[data-theme="dark"] .approval-summary-card,
+[data-theme="dark"] .approval-panel,
+[data-theme="dark"] .approval-queue-card,
+[data-theme="dark"] .approval-item-card,
+[data-theme="dark"] .audit-stat-card,
+[data-theme="dark"] .audit-table-card,
+[data-theme="dark"] .audit-card,
+[data-theme="dark"] .cs-card,
+[data-theme="dark"] .cs-section,
+[data-theme="dark"] .cs-tab-content,
+[data-theme="dark"] .cs-upload-box,
+[data-theme="dark"] .cs-preview-card,
+[data-theme="dark"] .um-stats-card,
+[data-theme="dark"] .um-table-card,
+[data-theme="dark"] .um-card,
+[data-theme="dark"] .quotation-card,
+[data-theme="dark"] .quotation-details-card,
+[data-theme="dark"] .qd-card,
+[data-theme="dark"] .qd-overview-card,
+[data-theme="dark"] .qd-info-card,
+[data-theme="dark"] .qf-modal-card,
+[data-theme="dark"] .qf-item-card,
+[data-theme="dark"] .qf-summary-box,
+[data-theme="dark"] .qf-preview-card {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-stat-card:hover,
+[data-theme="dark"] .sa-stat-card-clean:hover,
+[data-theme="dark"] .sa-activity-item:hover,
+[data-theme="dark"] .sa-status-row:hover,
+[data-theme="dark"] .report-metric-card:hover,
+[data-theme="dark"] .approval-summary-card.clickable:hover:not(.active) {
+  background: #15223c !important;
+  border-color: #2a3c5e !important;
+}
+
+/* Card Headers & Card Internal Text (ALL WHITE) */
+[data-theme="dark"] .sa-stat-num,
+[data-theme="dark"] .sa-stat-card h3,
+[data-theme="dark"] .sa-stat-card-clean h3,
+[data-theme="dark"] .sa-panel-heading h2,
+[data-theme="dark"] .sa-card-header h2,
+[data-theme="dark"] .sa-card-title,
+[data-theme="dark"] .sa-qp-card-body h3,
+[data-theme="dark"] .sa-approval-count,
+[data-theme="dark"] .sa-approval-item-text strong,
+[data-theme="dark"] .sa-quick-text strong,
+[data-theme="dark"] .sa-status-row h3,
+[data-theme="dark"] .report-metric-value,
+[data-theme="dark"] .reports-panel-heading h2,
+[data-theme="dark"] .reports-table-heading h2,
+[data-theme="dark"] .reports-stat-num,
+[data-theme="dark"] .cust-stat-value,
+[data-theme="dark"] .approval-summary-card h3,
+[data-theme="dark"] .um-stat-value,
+[data-theme="dark"] .cs-section-header,
+[data-theme="dark"] .cs-field-label,
+[data-theme="dark"] .cs-label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-stat-card p,
+[data-theme="dark"] .sa-stat-card-clean p,
+[data-theme="dark"] .sa-panel-heading p,
+[data-theme="dark"] .sa-card-subtitle,
+[data-theme="dark"] .sa-qp-card-body p,
+[data-theme="dark"] .sa-approval-item-text span,
+[data-theme="dark"] .sa-approval-message,
+[data-theme="dark"] .sa-status-row p,
+[data-theme="dark"] .report-metric-title,
+[data-theme="dark"] .report-metric-note,
+[data-theme="dark"] .reports-panel-heading p,
+[data-theme="dark"] .reports-table-heading p,
+[data-theme="dark"] .reports-stat-box h4,
+[data-theme="dark"] .cust-stat-label,
+[data-theme="dark"] .approval-card-subtitle,
+[data-theme="dark"] .report-filter-field label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sa-qp-card-header,
+[data-theme="dark"] .sa-card-header,
+[data-theme="dark"] .reports-table-heading,
+[data-theme="dark"] .reports-panel-heading,
+[data-theme="dark"] .cs-section-header {
+  border-bottom: 1px solid #1a2740 !important;
+}
+
+/* ==========================================================================
+   6. Graphs & Charts (BACKGROUNDS ALL DARK, ICONS/COLORED FILLS RETAINED)
+   ========================================================================== */
+/* Financial Bar Chart */
+[data-theme="dark"] .sa-charts-grid,
+[data-theme="dark"] .sa-charts-grid > .sa-panel,
+[data-theme="dark"] .sa-bar-chart,
+[data-theme="dark"] .sa-chart-plot,
+[data-theme="dark"] .sa-chart-legend,
+[data-theme="dark"] .sa-chart-empty {
+  background: #10192e !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-chart-y-axis,
+[data-theme="dark"] .sa-chart-zero-line span,
+[data-theme="dark"] .sa-chart-legend > span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sa-chart-plot {
+  border-bottom: 1px solid #22324e !important;
+}
+
+[data-theme="dark"] .sa-chart-grid-line {
+  border-top: 1px dashed #1c2b47 !important;
+}
+
+[data-theme="dark"] .sa-chart-zero-line {
+  background: #253655 !important;
+}
+
+[data-theme="dark"] .sa-chart-empty-icon {
+  background: #141f36 !important;
+  border: 1px solid #253655 !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .sa-chart-empty p {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-chart-empty span {
+  color: #94a3b8 !important;
+}
+
+/* Dashboard Donut Chart (Invoice Status) */
+[data-theme="dark"] .sa-donut-layout {
+  background: #10192e !important;
+}
+
+[data-theme="dark"] .sa-donut::before {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .sa-donut-center strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-donut-center span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sa-status-label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sa-status-legend-item strong {
+  color: #ffffff !important;
+}
+
+/* Reports Donut Chart (Quotation/Payment Breakdown) */
+[data-theme="dark"] .payment-chart-content {
+  background: #10192e !important;
+}
+
+[data-theme="dark"] .payment-donut-inner {
+  background: #10192e !important;
+}
+
+[data-theme="dark"] .payment-donut-inner strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .payment-donut-inner span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .payment-legend-label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .payment-legend-item strong {
+  color: #ffffff !important;
+}
+
+/* Monthly Income Bar Chart */
+[data-theme="dark"] .monthly-income-chart {
+  background: #10192e !important;
+}
+
+[data-theme="dark"] .income-bar-track {
+  background: #19263f !important;
+}
+
+[data-theme="dark"] .income-month-label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .income-bar-value {
+  color: #ffffff !important;
+}
+
+/* Quotation Performance Bar */
+[data-theme="dark"] .sa-qp-bar-container {
+  background: #0b1220 !important;
+  border: 1px solid #1a2740 !important;
+}
+
+/* RETAIN ICON & GRAPH ACCENT COLORS */
+/* Lucide SVG icons retain their specified color or default to white/accent */
+[data-theme="dark"] .sa-legend-income {
+  background: #3b82f6 !important;
+}
+
+[data-theme="dark"] .sa-legend-expenses {
+  background: #60a5fa !important;
+}
+
+[data-theme="dark"] .sa-status-dot.paid {
+  background: #10b981 !important;
+}
+
+[data-theme="dark"] .sa-status-dot.unpaid {
+  background: #3b82f6 !important;
+}
+
+[data-theme="dark"] .sa-status-dot.overdue {
+  background: #ef4444 !important;
+}
+
+[data-theme="dark"] .sa-status-dot.partial {
+  background: #f59e0b !important;
+}
+
+[data-theme="dark"] .income-bar-fill {
+  background: linear-gradient(90deg, #2563eb, #60a5fa) !important;
+}
+
+/* Report Metric Icons with their respective colorful themes */
+[data-theme="dark"] .metric-blue {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(37, 99, 235, 0.35) !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .metric-purple {
+  background: rgba(147, 51, 234, 0.15) !important;
+  border-color: rgba(147, 51, 234, 0.35) !important;
+  color: #c084fc !important;
+}
+
+[data-theme="dark"] .metric-green {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .metric-orange,
+[data-theme="dark"] .metric-amber {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .metric-red {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .metric-navy {
+  background: rgba(100, 116, 139, 0.18) !important;
+  border-color: rgba(100, 116, 139, 0.35) !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .reports-panel-icon {
+  background: #16233b !important;
+  color: #60a5fa !important;
+}
+
+/* ==========================================================================
+   7. Tables Across All Pages (BACKGROUNDS ALL DARK, ALL TEXT WHITE)
+   ========================================================================== */
+[data-theme="dark"] .quotation-table-wrap,
+[data-theme="dark"] .cust-table-wrap,
+[data-theme="dark"] .reports-table-wrapper,
+[data-theme="dark"] .reports-table-panel,
+[data-theme="dark"] .audit-table-wrap,
+[data-theme="dark"] .um-table-wrap,
+[data-theme="dark"] .approval-table-wrap,
+[data-theme="dark"] .sa-recent-table-wrap {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] table,
+[data-theme="dark"] .quotation-table,
+[data-theme="dark"] .cust-table,
+[data-theme="dark"] .reports-table,
+[data-theme="dark"] .audit-table,
+[data-theme="dark"] .um-table,
+[data-theme="dark"] .approval-table,
+[data-theme="dark"] .sa-recent-quotations-table,
+[data-theme="dark"] .qd-data-table {
+  background: #10192e !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] table thead,
+[data-theme="dark"] table thead tr,
+[data-theme="dark"] table thead th,
+[data-theme="dark"] .quotation-table th,
+[data-theme="dark"] .cust-table th,
+[data-theme="dark"] .reports-table th,
+[data-theme="dark"] .reports-table thead,
+[data-theme="dark"] .audit-table th,
+[data-theme="dark"] .um-table th,
+[data-theme="dark"] .approval-table th,
+[data-theme="dark"] .sa-recent-quotations-table th {
+  background: #142038 !important;
+  background-color: #142038 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] table tbody tr,
+[data-theme="dark"] table tbody td,
+[data-theme="dark"] .quotation-table td,
+[data-theme="dark"] .cust-table td,
+[data-theme="dark"] .reports-table td,
+[data-theme="dark"] .audit-table td,
+[data-theme="dark"] .um-table td,
+[data-theme="dark"] .approval-table td,
+[data-theme="dark"] .sa-recent-quotations-table td,
+[data-theme="dark"] .qd-data-table td {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  color: #ffffff !important;
+  border-top: 1px solid #17243c !important;
+  border-bottom: 1px solid #17243c !important;
+}
+
+[data-theme="dark"] table tbody tr:hover td,
+[data-theme="dark"] .quotation-table tr:hover td,
+[data-theme="dark"] .cust-table tr:hover td,
+[data-theme="dark"] .reports-table tbody tr:hover td,
+[data-theme="dark"] .audit-table tr:hover td,
+[data-theme="dark"] .um-table tr:hover td,
+[data-theme="dark"] .approval-table tr:hover td,
+[data-theme="dark"] .sa-recent-quotations-table tr:hover td {
+  background: #17243f !important;
+  background-color: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .reports-table .report-reference-cell,
+[data-theme="dark"] .reports-table .report-amount-cell,
+[data-theme="dark"] .quotation-number-cell,
+[data-theme="dark"] .cust-name-cell {
+  color: #ffffff !important;
+}
+
+/* Pagination Across All Tables */
+[data-theme="dark"] .quotation-pagination,
+[data-theme="dark"] .cust-pagination,
+[data-theme="dark"] .reports-pagination,
+[data-theme="dark"] .audit-pagination,
+[data-theme="dark"] .um-pagination {
+  background: #10192e !important;
+  border-top: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-page-btn,
+[data-theme="dark"] .cust-page-btn,
+[data-theme="dark"] .reports-page-btn,
+[data-theme="dark"] .audit-page-btn,
+[data-theme="dark"] .um-page-btn {
+  background: #15223c !important;
+  color: #ffffff !important;
+  border: 1px solid #283957 !important;
+}
+
+[data-theme="dark"] .quotation-page-btn:hover:not(:disabled),
+[data-theme="dark"] .cust-page-btn:hover:not(:disabled),
+[data-theme="dark"] .reports-page-btn:hover:not(:disabled),
+[data-theme="dark"] .audit-page-btn:hover:not(:disabled),
+[data-theme="dark"] .um-page-btn:hover:not(:disabled) {
+  background: #203153 !important;
+  border-color: #3f547c !important;
+}
+
+/* ==========================================================================
+   8. Status Badges & Action Badges (CLEAR CONTRAST COLORS)
+   ========================================================================== */
+[data-theme="dark"] .status-draft,
+[data-theme="dark"] .quotation-status-select.status-draft {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+}
+
+[data-theme="dark"] .status-pending,
+[data-theme="dark"] .status-pending-approval,
+[data-theme="dark"] .quotation-status-select.status-pending {
+  background: rgba(56, 189, 248, 0.18) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+}
+
+[data-theme="dark"] .status-approved,
+[data-theme="dark"] .status-accepted,
+[data-theme="dark"] .status-paid,
+[data-theme="dark"] .quotation-status-select.status-accepted {
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+}
+
+[data-theme="dark"] .status-rejected,
+[data-theme="dark"] .status-overdue,
+[data-theme="dark"] .quotation-status-select.status-rejected {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+[data-theme="dark"] .status-sent,
+[data-theme="dark"] .quotation-status-select.status-sent {
+  background: rgba(14, 165, 233, 0.18) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(14, 165, 233, 0.35) !important;
+}
+
+[data-theme="dark"] .cust-status-badge.active {
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #4ade80 !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+[data-theme="dark"] .cust-status-badge.inactive {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+[data-theme="dark"] .um-badge.role-admin {
+  background: rgba(37, 99, 235, 0.18) !important;
+  color: #60a5fa !important;
+  border-color: rgba(37, 99, 235, 0.35) !important;
+}
+
+[data-theme="dark"] .um-badge.role-super-admin {
+  background: rgba(99, 102, 241, 0.18) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+[data-theme="dark"] .um-badge.status-active {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+[data-theme="dark"] .um-badge.status-inactive {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(148, 163, 184, 0.35) !important;
+}
+
+[data-theme="dark"] .approval-status.pending {
+  border-color: rgba(234, 179, 8, 0.35) !important;
+  background: rgba(234, 179, 8, 0.18) !important;
+  color: #facc15 !important;
+}
+
+[data-theme="dark"] .approval-status.accepted {
+  border-color: rgba(34, 197, 94, 0.35) !important;
+  background: rgba(34, 197, 94, 0.18) !important;
+  color: #4ade80 !important;
+}
+
+[data-theme="dark"] .approval-status.rejected {
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .audit-action-approved,
+[data-theme="dark"] .audit-action-login {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-action-rejected,
+[data-theme="dark"] .audit-action-deleted {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-action-pending {
+  background: rgba(234, 179, 8, 0.18) !important;
+  color: #facc15 !important;
+  border-color: rgba(234, 179, 8, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-action-created,
+[data-theme="dark"] .audit-action-draft {
+  background: rgba(37, 99, 235, 0.18) !important;
+  color: #60a5fa !important;
+  border-color: rgba(37, 99, 235, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-action-user {
+  background: rgba(99, 102, 241, 0.18) !important;
+  color: #a5b4fc !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-action-customer {
+  background: rgba(20, 184, 166, 0.18) !important;
+  color: #2dd4bf !important;
+  border-color: rgba(20, 184, 166, 0.35) !important;
+}
+
+/* ==========================================================================
+   9. Modals, Drawers & Dialogs (ALL DARK)
+   ========================================================================== */
+[data-theme="dark"] .signout-modal-card,
+[data-theme="dark"] .qf-modal-card,
+[data-theme="dark"] .qd-card,
+[data-theme="dark"] .cust-modal,
+[data-theme="dark"] .cust-modal-card,
+[data-theme="dark"] .cust-modal-content,
+[data-theme="dark"] .um-modal-card,
+[data-theme="dark"] .um-modal-content,
+[data-theme="dark"] .approval-modal-content,
+[data-theme="dark"] .approval-confirm-card,
+[data-theme="dark"] .qs-modal-card {
+  background: #111a2f !important;
+  background-color: #111a2f !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .qf-modal-header,
+[data-theme="dark"] .qd-header,
+[data-theme="dark"] .cust-modal-header,
+[data-theme="dark"] .um-modal-header,
+[data-theme="dark"] .approval-confirm-header {
+  background: #111a2f !important;
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-modal-footer,
+[data-theme="dark"] .um-modal-footer,
+[data-theme="dark"] .qf-modal-footer,
+[data-theme="dark"] .approval-confirm-footer {
+  background: #15223d !important;
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .qf-item-card,
+[data-theme="dark"] .qf-summary-box,
+[data-theme="dark"] .qf-preview-card,
+[data-theme="dark"] .qd-overview-card,
+[data-theme="dark"] .qd-info-card,
+[data-theme="dark"] .cust-detail-card {
+  background: #0c1322 !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   10. Notification Bell Dropdown & Notifications Page (ALL DARK)
+   ========================================================================== */
+[data-theme="dark"] .notif-dropdown {
+  background: #111a2f !important;
+  border: 1px solid #253655 !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.7) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .notif-dropdown-header,
+[data-theme="dark"] .notif-dropdown-footer {
+  background: #15223d !important;
+  border-color: #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .notif-item {
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .notif-item:hover {
+  background: #182744 !important;
+}
+
+[data-theme="dark"] .notif-item.unread {
+  background: #15233e !important;
+}
+
+[data-theme="dark"] .notif-item-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .notif-item-msg,
+[data-theme="dark"] .notif-item-time {
+  color: #94a3b8 !important;
+}
+
+/* Notifications standalone page */
+[data-theme="dark"] .notifications-page,
+[data-theme="dark"] main[style*="max-width: 800px"] {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] main[style*="max-width: 800px"] > div[style*="background: #fff"],
+[data-theme="dark"] main[style*="max-width: 800px"] > div[style*="background: rgb(255, 255, 255)"] {
+  background: #111a2f !important;
+  border-color: #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   11. Login, Forgot Password, Reset Password Pages (ALL DARK)
+   ========================================================================== */
+[data-theme="dark"] .login-page {
+  background: #060a14 !important;
+}
+
+[data-theme="dark"] .login-layout {
+  background: #0d1527 !important;
+  border-color: #1c2b47 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7) !important;
+}
+
+[data-theme="dark"] .login-panel {
+  background: #0d1527 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-heading h2 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-heading p {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .login-panel .access-notice {
+  background: #141f36 !important;
+  border: 1px solid #253655 !important;
+}
+
+[data-theme="dark"] .login-panel .notice-icon {
+  background: #1e2c4a !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .login-panel .notice-content p {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-panel .notice-content span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .login-panel .input-wrapper,
+[data-theme="dark"] .forgot-card .forgot-input-wrapper {
+  background: #141f36 !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-panel .input-wrapper input:-webkit-autofill,
+[data-theme="dark"] .login-panel .input-wrapper input:-webkit-autofill:hover,
+[data-theme="dark"] .login-panel .input-wrapper input:-webkit-autofill:focus,
+[data-theme="dark"] .login-panel .input-wrapper input:-webkit-autofill:active,
+[data-theme="dark"] .login-panel .input-wrapper input:autofill {
+  -webkit-box-shadow: 0 0 0 1000px #141f36 inset !important;
+  box-shadow: 0 0 0 1000px #141f36 inset !important;
+  -webkit-text-fill-color: #ffffff !important;
+  caret-color: #ffffff !important;
+  transition: background-color 5000s ease-in-out 0s, box-shadow 5000s ease-in-out 0s !important;
+}
+
+[data-theme="dark"] .login-panel .input-wrapper input,
+[data-theme="dark"] .forgot-card .forgot-input-wrapper input {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-panel .form-field label,
+[data-theme="dark"] .forgot-card .forgot-field label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .forgot-page {
+  background: #060a14 !important;
+}
+
+[data-theme="dark"] .forgot-card {
+  background: #0d1527 !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7) !important;
+}
+
+[data-theme="dark"] .forgot-header h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .forgot-header p {
+  color: #cbd5e1 !important;
+}
+
+/* ==========================================================================
+   12. PDF Previews, Invoices & Printing (MUST REMAIN CRISP DOCUMENT CANVAS)
+   ========================================================================== */
+[data-theme="dark"] .cs-preview-sheet,
+[data-theme="dark"] .quotation-print,
+[data-theme="dark"] .pdf-preview-container,
+[data-theme="dark"] .pdf-preview-paper,
+[data-theme="dark"] #quotation-template,
+[data-theme="dark"] .quotation-template-wrapper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+@media print {
+  html, body, [data-theme="dark"], html.dark {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+
+/* ==========================================================================
+   13. Overview Page Specific Dark Mode Fixes (Dark Mode Only)
+   ========================================================================== */
+
+/* 1 & 4. Financial Overview, Invoice Status & Approval Queue Badges */
+[data-theme="dark"] .sa-neutral-badge,
+[data-theme="dark"] .sa-panel-heading .sa-neutral-badge {
+  background: #192744 !important;
+  color: #ffffff !important;
+  border: 1px solid #2d426b !important;
+  font-weight: 700 !important;
+}
+
+/* 2. Quick Access Icons in Dark Mode */
+[data-theme="dark"] .sa-quick-icon {
+  background: #192847 !important;
+  border: 1px solid #2a416d !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .sa-quick-icon svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+[data-theme="dark"] .sa-quick-arrow {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .sa-quick-text strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-quick-text small {
+  color: #cbd5e1 !important;
+}
+
+/* 3. Quotation Performance Percentage Badges */
+[data-theme="dark"] .sa-qp-pct {
+  font-weight: 800 !important;
+}
+
+[data-theme="dark"] .sa-qp-card.draft .sa-qp-pct {
+  background: rgba(148, 163, 184, 0.22) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+}
+
+[data-theme="dark"] .sa-qp-card.pending .sa-qp-pct {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+
+[data-theme="dark"] .sa-qp-card.approved .sa-qp-pct {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="dark"] .sa-qp-card.rejected .sa-qp-pct {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+}
+
+[data-theme="dark"] .sa-qp-label,
+[data-theme="dark"] .sa-qp-bar-title,
+[data-theme="dark"] .sa-qp-bar-total {
+  color: #ffffff !important;
+}
+
+/* 4. Approval Queue Notice Message & Button */
+[data-theme="dark"] .sa-approval-message {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .sa-approval-message svg,
+[data-theme="dark"] .sa-approval-message span {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .sa-approval-view-btn {
+  background: #192744 !important;
+  border-color: #2d426b !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .sa-approval-view-btn:hover {
+  background: #23355a !important;
+  color: #93c5fd !important;
+}
+
+/* 5. View Reports Button on Promotional Card */
+[data-theme="dark"] .sa-promo-action-btn {
+  background: #ffffff !important;
+  border-color: #ffffff !important;
+  color: #0b1a30 !important;
+}
+
+[data-theme="dark"] .sa-promo-action-btn span {
+  color: #0b1a30 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="dark"] .sa-promo-action-btn svg {
+  color: #0b1a30 !important;
+  stroke: #0b1a30 !important;
+}
+
+[data-theme="dark"] .sa-promo-action-btn:hover {
+  background: #e2e8f0 !important;
+  color: #081528 !important;
+}
+
+[data-theme="dark"] .sa-promo-action-btn:hover span,
+[data-theme="dark"] .sa-promo-action-btn:hover svg {
+  color: #081528 !important;
+  stroke: #081528 !important;
+}
+
+/* 6. Review Approvals Button in Dark Mode - Professional Blue */
+[data-theme="dark"] .sa-approval-button {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .sa-approval-button:hover {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .sa-approval-button span:not([style*="background: #ef4444"]):not([style*="background: rgb(239, 68, 68)"]) {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-approval-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 7. Dashboard Search Bar in Dark Mode - Navy Blue with White Text */
+[data-theme="dark"] .sa-search-box {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .sa-search-box:hover,
+[data-theme="dark"] .sa-search-box:focus-within {
+  background: #0e2040 !important;
+  background-color: #0e2040 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .sa-search-container.mobile-open .sa-search-box {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border-color: #1e355b !important;
+}
+
+[data-theme="dark"] .sa-search-btn {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-search-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .sa-search-box input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .sa-search-box input::placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .sa-search-box input::-webkit-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .sa-search-box input::-moz-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .sa-search-box input:-ms-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .sa-clear-search {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sa-clear-search:hover {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   14. Customer Page Dark Mode Specific Enhancements (Dark Mode Only)
+   ========================================================================== */
+
+/* 1. Dashboard / Customers Breadcrumb Text White */
+[data-theme="dark"] .cust-breadcrumb {
+  color: #ffffff !important;
+}
+
+/* Customer Summary Stat Cards (4 Cards: Total, Active, Inactive, Regular) Text Contrast */
+[data-theme="dark"] .cust-stat-info p {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .cust-stat-info h3 {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .cust-stat-info span {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+/* 2. Add Customer Button - Professional Blue */
+[data-theme="dark"] .cust-add-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-add-btn:hover {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .cust-add-btn span,
+[data-theme="dark"] .cust-add-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 3. Customer Panel & Toolbar (Search bar thiyena bar ekama dark) */
+[data-theme="dark"] .cust-panel {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cust-toolbar {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+/* 4. Customer Page Search Bar - Navy Blue with White Text */
+[data-theme="dark"] .cust-search-box {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-search-box:hover,
+[data-theme="dark"] .cust-search-box:focus-within {
+  background: #0e2040 !important;
+  background-color: #0e2040 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .cust-search-box input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .cust-search-box input::placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .cust-search-box input::-webkit-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .cust-search-box input::-moz-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .cust-search-box input:-ms-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.9 !important;
+}
+
+[data-theme="dark"] .cust-search-box svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 5. Customer Page Filter Dropdowns (Dark theme, text white) */
+[data-theme="dark"] .cust-dropdown-btn {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-btn:hover {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-btn.active,
+[data-theme="dark"] .cust-dropdown-btn:focus-visible {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-chevron {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-menu {
+  background: #111a2f !important;
+  background-color: #111a2f !important;
+  border: 1px solid #253552 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .cust-dropdown-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cust-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cust-dropdown-item {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .cust-dropdown-item-text {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-item:hover {
+  background: #1a2742 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-dropdown-item.selected {
+  background: rgba(37, 99, 235, 0.25) !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .cust-dropdown-item.selected .cust-dropdown-item-text {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .cust-dropdown-check {
+  color: #60a5fa !important;
+}
+
+/* 6. Customer Type Badges (New, Regular) in Dark Mode */
+[data-theme="dark"] .cust-type-badge.new {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cust-type-badge.regular {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cust-type-badge.regular svg {
+  color: #fbbf24 !important;
+  fill: #fbbf24 !important;
+}
+
+/* 7. Quotations & Invoices Status Tags in Customer Table (Sent, Rej, Paid, Unpaid, Acc, Part) */
+[data-theme="dark"] .cust-metric-count {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-progress-track {
+  background: #19263f !important;
+}
+
+[data-theme="dark"] .cust-progress-seg.seg-empty {
+  background: #19263f !important;
+}
+
+[data-theme="dark"] .legend-tag.green {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .legend-tag.blue {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .legend-tag.amber {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .legend-tag.red {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+/* 8. Customer Quotations & Invoices Modal Status Pills */
+[data-theme="dark"] .quote-pill.approved {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quote-pill.sent {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quote-pill.partial {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quote-pill.rejected {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quote-pill.total {
+  background: #1a2742 !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #2d4168 !important;
+  font-weight: 700 !important;
+}
+
+/* 8.1 Customer Page Action Buttons (View, Edit, Delete) - Navy Blue with White Icons (Dark Theme Only) */
+[data-theme="dark"] .cust-action-group .cust-action-btn,
+[data-theme="dark"] .cust-action-btn,
+[data-theme="dark"] .cust-action-btn.view-blue,
+[data-theme="dark"] .cust-action-btn.edit-btn,
+[data-theme="dark"] .cust-action-btn.delete-btn {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-action-btn svg,
+[data-theme="dark"] .cust-action-btn.view-blue svg,
+[data-theme="dark"] .cust-action-btn.edit-btn svg,
+[data-theme="dark"] .cust-action-btn.delete-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-action-btn:hover,
+[data-theme="dark"] .cust-action-btn.view-blue:hover,
+[data-theme="dark"] .cust-action-btn.edit-btn:hover {
+  background: #142a52 !important;
+  background-color: #142a52 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-action-btn.delete-btn:hover {
+  background: #1f2742 !important;
+  background-color: #1f2742 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-action-btn:hover svg,
+[data-theme="dark"] .cust-action-btn.view-blue:hover svg,
+[data-theme="dark"] .cust-action-btn.edit-btn:hover svg,
+[data-theme="dark"] .cust-action-btn.delete-btn:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* ==========================================================================
+   9. Customer Page - View Modal, Customer Details, Quotations & Invoices History
+   ========================================================================== */
+[data-theme="dark"] .cust-modal-overlay {
+  background: rgba(0, 0, 0, 0.75) !important;
+}
+
+[data-theme="dark"] .cust-modal,
+[data-theme="dark"] .cust-modal.cust-modal-wide {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85) !important;
+}
+
+[data-theme="dark"] .cust-modal-header {
+  background: #15223d !important;
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-modal-header h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-modal-avatar {
+  background: #1e3a8a !important;
+  color: #93c5fd !important;
+  border: 1px solid #2563eb !important;
+}
+
+[data-theme="dark"] .cust-modal-sub {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cust-modal-close {
+  color: #94a3b8 !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .cust-modal-close:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cust-modal-body {
+  background: #111a2e !important;
+  color: #ffffff !important;
+}
+
+/* Customer Profile Summary Box (Email, Phone, Address, Total Approved Business) */
+[data-theme="dark"] .cust-profile-summary-grid {
+  background: #0b1324 !important;
+  background-color: #0b1324 !important;
+  border: 1px solid #1e2c47 !important;
+  border-radius: 8px !important;
+}
+
+[data-theme="dark"] .cust-profile-summary-grid span {
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+}
+
+[data-theme="dark"] .cust-profile-summary-grid strong {
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cust-profile-summary-grid strong.cust-approved-val {
+  color: #4ade80 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+/* Quotations and Invoices Section Headings */
+[data-theme="dark"] .cust-modal-section-head h4 {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .cust-modal-section-head h4 svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+/* Empty State Subbox */
+[data-theme="dark"] .cust-empty-subbox {
+  background: #0b1324 !important;
+  border: 1px solid #1e2c47 !important;
+  color: #94a3b8 !important;
+}
+
+/* Subtables Inside View Modal */
+[data-theme="dark"] .cust-subtable-wrap {
+  background: #0b1324 !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .cust-subtable {
+  background: #0b1324 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-subtable th {
+  background: #142038 !important;
+  color: #cbd5e1 !important;
+  border-bottom: 1px solid #1e2c47 !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+}
+
+[data-theme="dark"] .cust-subtable td {
+  background: #0b1324 !important;
+  color: #ffffff !important;
+  border-top: 1px solid #17243c !important;
+  border-bottom: 1px solid #17243c !important;
+}
+
+[data-theme="dark"] .cust-subtable tr:hover td {
+  background: #15223d !important;
+}
+
+[data-theme="dark"] .cust-subtable strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-doc-id {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+/* Customer Response Action Buttons (Sent, Accept, Reject, Paid) */
+[data-theme="dark"] .cust-resp-btn.sent {
+  background: rgba(14, 165, 233, 0.16) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(14, 165, 233, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.sent.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.accepted {
+  background: rgba(34, 197, 94, 0.16) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.accepted.active {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-color: #16a34a !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.rejected {
+  background: rgba(239, 68, 68, 0.16) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.rejected.active {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #dc2626 !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.partial {
+  background: rgba(245, 158, 11, 0.16) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+}
+
+[data-theme="dark"] .cust-resp-btn.partial.active {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #d97706 !important;
+}
+
+/* Modal View Document Button */
+[data-theme="dark"] .cust-doc-view-btn {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+}
+
+[data-theme="dark"] .cust-doc-view-btn:hover {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-doc-view-btn span {
+  color: #ffffff !important;
+}
+
+/* Modal Footer & Buttons */
+[data-theme="dark"] .cust-modal-footer {
+  background: #15223d !important;
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cust-btn-secondary {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .cust-btn-secondary:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-btn-primary {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-btn-primary:hover {
+  background: #1d4ed8 !important;
+}
+
+/* Modal Invoice View Summary Total Bar */
+[data-theme="dark"] .cust-invoice-total-bar {
+  background: #09101f !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-invoice-total-bar span,
+[data-theme="dark"] .cust-invoice-total-bar strong {
+  color: #ffffff !important;
+}
+
+/* Form Fields for Add / Edit Modals in Dark Mode */
+[data-theme="dark"] .cust-field label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cust-field input,
+[data-theme="dark"] .cust-field textarea {
+  background: #0f172a !important;
+  border: 1px solid #283955 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-field input:focus,
+[data-theme="dark"] .cust-field textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* ==========================================================================
+   10. Quotation Details Modal & Quotation Form (Dark Theme Only)
+   ========================================================================== */
+[data-theme="dark"] .qd-overlay {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .qd-card {
+  background: #0d1527 !important;
+  background-color: #0d1527 !important;
+  border: 1px solid #223250 !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-header {
+  background: #111c33 !important;
+  border-bottom: 2px solid #2563eb !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-icon-badge {
+  background: #1a2744 !important;
+  color: #60a5fa !important;
+  border: 1px solid #2d4168 !important;
+}
+
+[data-theme="dark"] .qd-header-title h2 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-header-subtitle {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .qd-header-subtitle strong {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .qd-close-btn {
+  background: transparent !important;
+  border: 1px solid #2d4168 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .qd-close-btn:hover {
+  background: #1e2d4d !important;
+  color: #ffffff !important;
+  border-color: #3b527f !important;
+}
+
+[data-theme="dark"] .qd-body {
+  background: #0d1527 !important;
+  color: #ffffff !important;
+}
+
+/* Overview Bar (Quotation Date, Valid Until, Project Duration, Grand Total) */
+[data-theme="dark"] .qd-overview-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-overview-label {
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .qd-overview-value {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-overview-card:last-child .qd-overview-value,
+[data-theme="dark"] .qd-overview-value[style*="1d4ed8"],
+[data-theme="dark"] .qd-overview-value[style*="rgb(29, 78, 216)"] {
+  color: #60a5fa !important;
+}
+
+/* Info Columns (Customer Information & Project Details) */
+[data-theme="dark"] .qd-info-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-card-title {
+  color: #60a5fa !important;
+  border-bottom: 1px solid #1e2c47 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-card-title svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+[data-theme="dark"] .qd-card-title span {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .qd-data-table {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .qd-data-table td {
+  background: transparent !important;
+  border: none !important;
+  padding: 5px 0 !important;
+}
+
+[data-theme="dark"] .qd-data-label {
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .qd-data-val {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* Items & Services Table */
+[data-theme="dark"] .qd-items-section {
+  background: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-items-header-bar {
+  background: #15223d !important;
+  background-color: #15223d !important;
+  border-bottom: 1px solid #1e2c47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-items-header-bar svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+[data-theme="dark"] .qd-items-header-bar span {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-table {
+  background: #111a2e !important;
+  width: 100% !important;
+}
+
+[data-theme="dark"] .qd-table th {
+  background: #15223d !important;
+  background-color: #15223d !important;
+  color: #cbd5e1 !important;
+  border-bottom: 1px solid #1e2c47 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-table td {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #1a253c !important;
+  border-top: none !important;
+}
+
+[data-theme="dark"] .qd-table tr:hover td {
+  background: #162440 !important;
+}
+
+[data-theme="dark"] .qd-item-name {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-item-desc {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .qd-tag {
+  background: rgba(59, 130, 246, 0.18) !important;
+  color: #93c5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  font-weight: 600 !important;
+}
+
+/* Terms & Financial Summary Cards */
+[data-theme="dark"] .qd-terms-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-terms-title {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-terms-text {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .qd-totals-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-totals-table {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .qd-totals-table td {
+  background: transparent !important;
+  border-bottom: 1px solid #1a253c !important;
+}
+
+[data-theme="dark"] .qd-totals-label {
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .qd-totals-value {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .qd-totals-value[style*="dc2626"],
+[data-theme="dark"] .qd-totals-value[style*="rgb(220, 38, 38)"] {
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .qd-grand-total-row,
+[data-theme="dark"] .qd-grand-total-row td {
+  background: #15223d !important;
+  background-color: #15223d !important;
+  border-top: 1px solid #253655 !important;
+  border-bottom: none !important;
+}
+
+[data-theme="dark"] .qd-grand-total-label {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="dark"] .qd-grand-total-value {
+  color: #60a5fa !important;
+  font-weight: 900 !important;
+}
+
+/* Quotation Details Footer & Action Buttons */
+[data-theme="dark"] .qd-footer {
+  background: #111c33 !important;
+  background-color: #111c33 !important;
+  border-top: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qd-btn-close {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .qd-btn-close:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-btn-pdf {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qd-btn-pdf:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+}
+
+/* Also styling QuotationForm Modal if opened in Dark Mode */
+[data-theme="dark"] .qf-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .qf-header {
+  background: #111c33 !important;
+  border-bottom: 1px solid #1e2c47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-header h2 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-header p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .qf-header-icon {
+  background: #1a2744 !important;
+  color: #60a5fa !important;
+  border: 1px solid #2d4168 !important;
+}
+
+[data-theme="dark"] .qf-close-btn {
+  color: #94a3b8 !important;
+  border: 1px solid #2d4168 !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .qf-close-btn:hover {
+  background: #1e2d4d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-body {
+  background: #0d1527 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-section {
+  background: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qf-section-title {
+  color: #60a5fa !important;
+  border-bottom: 1px solid #1e2c47 !important;
+}
+
+[data-theme="dark"] .qf-label,
+[data-theme="dark"] .qf-form-group label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .qf-input,
+[data-theme="dark"] .qf-select,
+[data-theme="dark"] .qf-textarea {
+  background: #0b1324 !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-input:focus,
+[data-theme="dark"] .qf-select:focus,
+[data-theme="dark"] .qf-textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .qf-footer {
+  background: #111c33 !important;
+  border-top: 1px solid #1e2c47 !important;
+}
+
+/* Quotation Form Items, Add Buttons & Summary */
+[data-theme="dark"] .qf-add-btn {
+  background-color: #2563eb !important;
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-add-btn:hover {
+  background-color: #1d4ed8 !important;
+  background: #1d4ed8 !important;
+}
+
+[data-theme="dark"] .qf-btn-add-additional {
+  background-color: #0f182c !important;
+  background: #0f182c !important;
+  color: #60a5fa !important;
+  border: 1.5px dashed #2d4675 !important;
+}
+
+[data-theme="dark"] .qf-btn-add-additional:hover {
+  background-color: #162442 !important;
+  background: #162442 !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .qf-btn-add-additional svg {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .qf-btn-add-additional:hover svg {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .qf-item-card {
+  background: #0f182c !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-item-card:hover {
+  border-color: #2a3c5e !important;
+}
+
+[data-theme="dark"] .qf-item-card-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .qf-item-num {
+  background-color: #1e293b !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .qf-service-preset-badge {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+[data-theme="dark"] .qf-additional-badge {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+[data-theme="dark"] .qf-delete-item-btn {
+  background: rgba(239, 68, 68, 0.14) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .qf-delete-item-btn:hover:not(:disabled) {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-line-total-badge {
+  background: #0b1324 !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-summary-box {
+  background: #111a2e !important;
+  border: 1px solid #1e2c47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-summary-row {
+  color: #cbd5e1 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .qf-summary-row span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .qf-summary-row strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-summary-row.total-row {
+  border-top: 2px solid #253655 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-summary-row.total-row span {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="dark"] .qf-grand-total {
+  color: #60a5fa !important;
+  font-weight: 900 !important;
+}
+
+[data-theme="dark"] .qf-btn-cancel {
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .qf-btn-cancel:hover {
+  background-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-btn-draft {
+  background-color: #162440 !important;
+  border: 1px solid #2b4168 !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .qf-btn-draft:hover:not(:disabled) {
+  background-color: #1e3560 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-btn-pdf {
+  background-color: #1e2d4d !important;
+  border: 1px solid #2d4168 !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .qf-btn-pdf:hover:not(:disabled) {
+  background-color: #253963 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-btn-primary {
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .qf-btn-primary:hover:not(:disabled) {
+  background-color: #1d4ed8 !important;
+}
+
+[data-theme="dark"] .qf-alert-error,
+[data-theme="dark"] .qf-rejection-banner {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] .qf-alert-success {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+  color: #86efac !important;
+}
+
+/* ==========================================================================
+   11. Quotations Page Specific Enhancements (Dark Theme Only)
+   ========================================================================== */
+
+/* 1. Dashboard / Quotations Breadcrumb Text White */
+[data-theme="dark"] .quotation-breadcrumb {
+  color: #ffffff !important;
+}
+
+/* 2. Create Quotation Button - Professional Blue */
+[data-theme="dark"] .quotation-create-button {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .quotation-create-button:hover {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .quotation-create-button span,
+[data-theme="dark"] .quotation-create-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 3. Welcome Bar Titles */
+[data-theme="dark"] .quotation-welcome-text h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-welcome-text .quotation-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* 4. Quotation Summary Stat Cards (4 Cards) */
+[data-theme="dark"] .quotation-stat-card {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .quotation-stat-card:hover {
+  background: #15223c !important;
+  border-color: #2a3c5e !important;
+}
+
+[data-theme="dark"] .quotation-stat-content p {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .quotation-stat-content h3 {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .quotation-stat-note {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+/* 5. All Quotations Panel Container & Heading */
+[data-theme="dark"] .quotation-list-section {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .quotation-list-heading {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .quotation-list-heading h2 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-list-heading p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .quotation-record-count {
+  background: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .quotation-filters {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: none !important;
+}
+
+/* 6. Quotation Search Bar - Navy Blue with White Text */
+[data-theme="dark"] .quotation-search {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .quotation-search:hover,
+[data-theme="dark"] .quotation-search:focus-within {
+  background: #0e2040 !important;
+  background-color: #0e2040 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .quotation-search input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .quotation-search input::placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .quotation-search input::-webkit-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .quotation-search input::-moz-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .quotation-search input:-ms-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .quotation-search svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .clear-search {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .clear-search:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+/* 7. Quotation Filter Dropdowns (Date & Status) */
+[data-theme="dark"] .quotation-filter-btn {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-filter-btn:hover {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-filter-btn.active,
+[data-theme="dark"] .quotation-filter-btn:focus-visible {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-filter-label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-filter-icon,
+[data-theme="dark"] .quotation-filter-chevron {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-menu {
+  background: #111a2f !important;
+  background-color: #111a2f !important;
+  border: 1px solid #253552 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-item {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-item:hover {
+  background: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-dropdown-item.selected {
+  background: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .quotation-item-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-item-desc {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .quotation-item-badge {
+  background: #1e293b !important;
+  color: #93c5fd !important;
+  border: 1px solid #334155 !important;
+}
+
+/* 8. Quotation Table Row Action Buttons - Navy Blue with White Icons */
+[data-theme="dark"] .quotation-row-actions .row-action-button,
+[data-theme="dark"] .row-action-button {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .quotation-row-actions .row-action-button svg,
+[data-theme="dark"] .row-action-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-row-actions .row-action-button:hover:not(:disabled),
+[data-theme="dark"] .row-action-button:hover:not(:disabled) {
+  background: #142a52 !important;
+  background-color: #142a52 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-row-actions .row-action-button.delete-action:hover {
+  background: #1f2742 !important;
+  background-color: #1f2742 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-row-actions .row-action-button:hover svg,
+[data-theme="dark"] .row-action-button:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 9. Quotation Table Elements */
+[data-theme="dark"] .quotation-table-wrapper {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .quotation-id {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quotation-client strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-client span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .quotation-project {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-amount {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .quotation-table-footer {
+  background: #10192e !important;
+  border-top: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+/* 10. Quotation Delete Confirmation Modal (Dark Mode Only) */
+[data-theme="dark"] .quotation-modal-overlay {
+  background: rgba(0, 0, 0, 0.78) !important;
+}
+
+[data-theme="dark"] .quotation-delete-modal-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85) !important;
+}
+
+[data-theme="dark"] .quotation-delete-icon-wrap {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .quotation-delete-title {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-delete-desc {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .quotation-delete-desc strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-delete-error {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+[data-theme="dark"] .quotation-delete-actions {
+  border-top: none !important;
+}
+
+[data-theme="dark"] .quotation-delete-btn.cancel {
+  background: #1e293b !important;
+  border: 1.5px solid #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .quotation-delete-btn.cancel:hover:not(:disabled) {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .quotation-delete-btn.confirm {
+  background: #dc2626 !important;
+  border: 1.5px solid #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4) !important;
+}
+
+[data-theme="dark"] .quotation-delete-btn.confirm:hover:not(:disabled) {
+  background: #b91c1c !important;
+  border-color: #dc2626 !important;
+}
+
+/* ==========================================================================
+   12. Reports Page Specific Enhancements (Dark Theme Only)
+   ========================================================================== */
+
+/* 1. Dashboard / Reports Breadcrumb Text White */
+[data-theme="dark"] .reports-breadcrumb {
+  color: #ffffff !important;
+}
+
+/* 2. Welcome Bar Titles */
+[data-theme="dark"] .reports-welcome-text h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .reports-welcome-text .reports-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* 3. Refresh Button - Professional Blue */
+[data-theme="dark"] .reports-refresh-button {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .reports-refresh-button:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .reports-refresh-button span,
+[data-theme="dark"] .reports-refresh-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .reports-error-message button {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+/* 4. Filter Panel Container & Field Labels */
+[data-theme="dark"] .reports-filter-panel {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .report-filter-field label {
+  color: #cbd5e1 !important;
+  font-weight: 650 !important;
+}
+
+/* 5. Report Type Filter Dropdown (Dark Theme) */
+[data-theme="dark"] .report-dropdown-btn {
+  background: #0b1324 !important;
+  background-color: #0b1324 !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-btn:hover {
+  background: #142038 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-btn.active,
+[data-theme="dark"] .report-dropdown-btn:focus-visible {
+  background: #142038 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-label {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .report-dropdown-chevron {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-menu {
+  background: #111a2f !important;
+  background-color: #111a2f !important;
+  border: 1px solid #253552 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .report-dropdown-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .report-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .report-dropdown-item {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .report-dropdown-item:hover {
+  background: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-item.selected {
+  background: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .report-dropdown-item-text {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-dropdown-check {
+  color: #60a5fa !important;
+}
+
+/* 6. Start Date & End Date Inputs (Dark Theme) */
+[data-theme="dark"] .report-date-input {
+  background: #0b1324 !important;
+  background-color: #0b1324 !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .report-date-input:hover {
+  border-color: #3b82f6 !important;
+}
+
+[data-theme="dark"] .report-date-input:focus-within {
+  background: #0e1c38 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .report-date-input svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .report-date-input input {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .report-date-input input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.8) !important;
+  opacity: 0.9 !important;
+}
+
+/* 7. Apply Filters & Clear Buttons - Professional Blue */
+[data-theme="dark"] .report-apply-button {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .report-apply-button:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .report-clear-button {
+  background: #1e3a8a !important;
+  background-color: #1e3a8a !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.4) !important;
+}
+
+[data-theme="dark"] .report-clear-button:hover {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+/* 8. Reports Summary Metric Cards - Bold Text Contrast */
+[data-theme="dark"] .report-metric-card {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .report-metric-card:hover {
+  background: #15223c !important;
+  border-color: #2a3c5e !important;
+}
+
+[data-theme="dark"] .report-metric-title {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .report-metric-value {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .report-metric-note {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+/* ==========================================================================
+   13. User Management Page Specific Enhancements (Dark Theme Only)
+   ========================================================================== */
+
+/* 1. Header Breadcrumbs & Titles */
+[data-theme="dark"] .um-eyebrow {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-header h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* 2. Add New Admin Button & Refresh Button - Professional Blue */
+[data-theme="dark"] .um-add-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .um-add-btn:hover {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .um-add-btn span,
+[data-theme="dark"] .um-add-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .um-refresh-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+[data-theme="dark"] .um-refresh-btn:hover {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.5) !important;
+}
+
+[data-theme="dark"] .um-refresh-btn span,
+[data-theme="dark"] .um-refresh-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 3. User Statistics Cards - Dark Background & Bold Text */
+[data-theme="dark"] .um-stat-card {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .um-stat-card:hover {
+  background: #15223c !important;
+  border-color: #2a3c5e !important;
+}
+
+[data-theme="dark"] .um-stat-info p {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .um-stat-info h3 {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .um-stat-note {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+/* 4. Main Panel & Toolbar */
+[data-theme="dark"] .um-panel {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .um-toolbar {
+  background: #10192e !important;
+  background-color: #10192e !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+/* 5. User Management Search Bar - Navy Blue with White Text */
+[data-theme="dark"] .um-search {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .um-search:hover,
+[data-theme="dark"] .um-search:focus-within {
+  background: #0e2040 !important;
+  background-color: #0e2040 !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .um-search input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .um-search input::placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .um-search input::-webkit-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .um-search input::-moz-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .um-search input:-ms-input-placeholder {
+  color: #ffffff !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="dark"] .um-search svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 6. Filter Dropdown Buttons (All Roles & All Statuses) */
+[data-theme="dark"] .um-dropdown-btn {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-btn:hover {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-btn.active,
+[data-theme="dark"] .um-dropdown-btn:focus-visible {
+  background: #16243f !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-label {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-chevron {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-menu {
+  background: #111a2f !important;
+  background-color: #111a2f !important;
+  border: 1px solid #253552 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6) !important;
+}
+
+[data-theme="dark"] .um-dropdown-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .um-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-dropdown-item {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .um-dropdown-item:hover {
+  background: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-item.selected {
+  background: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .um-dropdown-item-text {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-dropdown-check {
+  color: #60a5fa !important;
+}
+
+/* 7. Action Buttons (Toggle, Edit, Delete) - Navy Blue with White Icons */
+[data-theme="dark"] .um-actions-cell .um-action-btn,
+[data-theme="dark"] .um-action-btn {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .um-actions-cell .um-action-btn svg,
+[data-theme="dark"] .um-action-btn svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .um-actions-cell .um-action-btn:hover:not(:disabled),
+[data-theme="dark"] .um-action-btn:hover:not(:disabled) {
+  background: #142a52 !important;
+  background-color: #142a52 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-actions-cell .um-action-btn.delete:hover:not(:disabled),
+[data-theme="dark"] .um-action-btn.delete:hover:not(:disabled) {
+  background: #1f2742 !important;
+  background-color: #1f2742 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-actions-cell .um-action-btn:hover svg,
+[data-theme="dark"] .um-action-btn:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 8. User Management Table, Emails Visibility & Cells */
+[data-theme="dark"] .um-table-wrap {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .um-table th {
+  background: #142038 !important;
+  color: #cbd5e1 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .um-table td {
+  background: #10192e !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #17243c !important;
+}
+
+[data-theme="dark"] .um-table tr:hover td {
+  background: #162440 !important;
+}
+
+/* Email text clearly visible (overriding inline style) */
+[data-theme="dark"] .um-table td:nth-child(2) span,
+[data-theme="dark"] .um-table span[style*="334155"],
+[data-theme="dark"] .um-table span[style*="rgb(51, 65, 85)"] {
+  color: #ffffff !important;
+  font-weight: 550 !important;
+}
+
+[data-theme="dark"] .um-user-name {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .um-user-subtext {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-table td span[style*="64748b"],
+[data-theme="dark"] .um-table span[style*="rgb(100, 116, 139)"] {
+  color: #94a3b8 !important;
+}
+
+/* 9. User Management Modals (Add, Edit, Delete) */
+[data-theme="dark"] .um-modal-overlay {
+  background: rgba(0, 0, 0, 0.78) !important;
+}
+
+[data-theme="dark"] .um-modal-card {
+  background: #111a2e !important;
+  background-color: #111a2e !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85) !important;
+}
+
+[data-theme="dark"] .um-modal-header {
+  background: #15223d !important;
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-modal-header-text h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-modal-header-text p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-modal-close {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-modal-close:hover {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-form-group label {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .um-input-wrap {
+  background: #0b1324 !important;
+  border: 1px solid #23334d !important;
+}
+
+[data-theme="dark"] .um-input-wrap input {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-theme="dark"] .um-input-wrap svg {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-field-note {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .um-form-notice {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .um-modal-actions {
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .um-btn.cancel {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .um-btn.cancel:hover {
+  background: #334155 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-btn.primary {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-btn.primary:hover {
+  background: #1d4ed8 !important;
+}
+
+[data-theme="dark"] .um-btn.danger {
+  background: #dc2626 !important;
+  border: 1px solid #ef4444 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .um-btn.danger:hover {
+  background: #b91c1c !important;
+}
+
+/* ========================================================
+   14. Review & Approvals Page Specific Enhancements (Dark Theme Only)
+   ======================================================== */
+
+/* Header Breadcrumb & Subtitle */
+[data-theme="dark"] .approvals-eyebrow {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .approvals-header h1 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approvals-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* Refresh Queue Button - Professional Blue */
+[data-theme="dark"] .approval-btn-refresh {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+[data-theme="dark"] .approval-btn-refresh:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45) !important;
+}
+
+[data-theme="dark"] .approval-btn-refresh svg,
+[data-theme="dark"] .approval-btn-refresh span {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Approvals Switcher Tabs (Quotation Approvals & Invoice Approvals) */
+[data-theme="dark"] .approval-tabs-wrapper {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .approval-tabs-container {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .approval-tab-card {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-tab-card:hover:not(.active) {
+  background: #152442 !important;
+  border-color: #284474 !important;
+}
+
+[data-theme="dark"] .approval-tab-card.active {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+
+[data-theme="dark"] .approval-tab-icon-box {
+  background: #192744 !important;
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-tab-card:hover:not(.active) .approval-tab-icon-box {
+  background: #23355b !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-tab-card.active .approval-tab-icon-box {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-tab-label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .approval-tab-count.highlight {
+  background: rgba(245, 158, 11, 0.25) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.5) !important;
+}
+
+[data-theme="dark"] .approval-tab-card.active .approval-tab-count.highlight {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  border-color: #f59e0b !important;
+}
+
+[data-theme="dark"] .approval-tab-dot {
+  background: #f59e0b !important;
+}
+
+[data-theme="dark"] .approval-tab-card.active .approval-tab-dot {
+  background: #ffffff !important;
+}
+
+/* 4 Summary Cards */
+[data-theme="dark"] .approval-summary-card {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .approval-summary-card.clickable:hover:not(.active) {
+  background: #14223d !important;
+  border-color: #2b4573 !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="dark"] .approval-summary-card.active {
+  background: #16284a !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .approval-summary-info p {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .approval-summary-info strong,
+[data-theme="dark"] .approval-summary-info h3 {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .approval-card-note,
+[data-theme="dark"] .approval-summary-info span {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .approval-summary-icon.amber {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .approval-summary-icon.green {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .approval-summary-icon.red {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .approval-summary-icon.blue {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
+}
+
+/* Panel & Toolbar */
+[data-theme="dark"] .approval-panel {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="dark"] .approval-panel-heading h2 {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .approval-panel-heading p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-count {
+  background: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+/* Search Bar - Navy Blue theme */
+[data-theme="dark"] .approval-search {
+  background: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-search:hover {
+  border-color: #2b4573 !important;
+}
+
+[data-theme="dark"] .approval-search:focus-within {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .approval-search input {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-search input::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-search svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Status Filter & Dropdown */
+[data-theme="dark"] .approval-filter-group span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-btn {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-dropdown-btn:hover {
+  border-color: #3b82f6 !important;
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .approval-dropdown-btn.active {
+  border-color: #3b82f6 !important;
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .approval-dropdown-label {
+  color: #ffffff !important;
+  font-weight: 650 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-chevron {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-dropdown-menu {
+  background: #111a2f !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme="dark"] .approval-dropdown-header {
+  background: #0b1322 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-item {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-dropdown-item:hover {
+  background: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-dropdown-item.selected {
+  background: #192847 !important;
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-item-text {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-dropdown-item.selected .approval-dropdown-item-text {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .approval-dropdown-badge {
+  background: #1c2b47 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .approval-dropdown-check {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .approval-toolbar select {
+  background-color: #0f182c !important;
+  border-color: #23334d !important;
+  color: #ffffff !important;
+}
+
+/* Status Badges in Table (Approved, Pending, Rejected, Draft) */
+[data-theme="dark"] .approval-table span[style*="background: #dcfce7"],
+[data-theme="dark"] .approval-table span[style*="background:#dcfce7"],
+[data-theme="dark"] .approval-table span[style*="dcfce7"] {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="dcfce7"] svg {
+  color: #34d399 !important;
+  stroke: #34d399 !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="background: #fef3c7"],
+[data-theme="dark"] .approval-table span[style*="background:#fef3c7"],
+[data-theme="dark"] .approval-table span[style*="fef3c7"] {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="fef3c7"] svg {
+  color: #fbbf24 !important;
+  stroke: #fbbf24 !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="background: #fee2e2"],
+[data-theme="dark"] .approval-table span[style*="background:#fee2e2"],
+[data-theme="dark"] .approval-table span[style*="fee2e2"] {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="fee2e2"] svg {
+  color: #f87171 !important;
+  stroke: #f87171 !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="background: #f1f5f9"],
+[data-theme="dark"] .approval-table span[style*="background:#f1f5f9"],
+[data-theme="dark"] .approval-table span[style*="f1f5f9"] {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .approval-table span[style*="f1f5f9"] svg {
+  color: #cbd5e1 !important;
+  stroke: #cbd5e1 !important;
+}
+
+/* Action Buttons in Table Rows - Navy Blue with Pure White Icon */
+[data-theme="dark"] .approval-table-actions .approval-btn-action,
+[data-theme="dark"] .approval-table-actions .approval-btn-view,
+[data-theme="dark"] .approval-table-actions .approval-btn-approve,
+[data-theme="dark"] .approval-table-actions .approval-btn-reject {
+  background: #0b1932 !important;
+  background-color: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-theme="dark"] .approval-table-actions .approval-btn-action:hover:not(:disabled),
+[data-theme="dark"] .approval-table-actions .approval-btn-view:hover:not(:disabled),
+[data-theme="dark"] .approval-table-actions .approval-btn-approve:hover:not(:disabled),
+[data-theme="dark"] .approval-table-actions .approval-btn-reject:hover:not(:disabled) {
+  background: #152648 !important;
+  background-color: #152648 !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .approval-table-actions .approval-btn-action svg,
+[data-theme="dark"] .approval-table-actions .approval-btn-view svg,
+[data-theme="dark"] .approval-table-actions .approval-btn-approve svg,
+[data-theme="dark"] .approval-table-actions .approval-btn-reject svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-table-actions .approval-btn-action span,
+[data-theme="dark"] .approval-table-actions .approval-btn-view span,
+[data-theme="dark"] .approval-table-actions .approval-btn-approve span,
+[data-theme="dark"] .approval-table-actions .approval-btn-reject span {
+  color: #ffffff !important;
+}
+
+/* Table Elements */
+[data-theme="dark"] .approval-table-wrap {
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .approval-table thead {
+  background: #0d1628 !important;
+}
+
+[data-theme="dark"] .approval-table th {
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+  background: #0d1628 !important;
+}
+
+[data-theme="dark"] .approval-table td {
+  color: #ffffff !important;
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .approval-table tbody tr:hover {
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .approval-quote-number {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .approval-project-name {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-amount {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .approval-table td span[title] {
+  color: #f87171 !important;
+}
+
+/* Rejection Modal & Feedback */
+[data-theme="dark"] .approval-feedback {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .approval-error {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .approval-rejection-card {
+  background: #111a2f !important;
+  border: 1px solid #253655 !important;
+  color: #ffffff !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8) !important;
+}
+
+[data-theme="dark"] .approval-rejection-header {
+  background: #111a2f !important;
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-rejection-body p {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .approval-rejection-textarea {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .approval-rejection-textarea:focus {
+  border-color: #3b82f6 !important;
+}
+
+[data-theme="dark"] .approval-rejection-footer {
+  background: #15223d !important;
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .approval-confirm-row span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .approval-confirm-row strong {
+  color: #ffffff !important;
+}
+
+/* ========================================================
+   15. System Audit Logs Page Specific Enhancements (Dark Theme Only)
+   ======================================================== */
+
+/* Header Breadcrumb & Subtitle */
+[data-theme="dark"] .audit-eyebrow {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .audit-header h1 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="dark"] .audit-subtitle {
+  color: #94a3b8 !important;
+}
+
+/* Menu Button (Mobile) */
+[data-theme="dark"] .audit-menu-button {
+  background: #0f182c !important;
+  border: 1px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-menu-button:hover {
+  background: #14223d !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Refresh Logs Button - Professional Blue */
+[data-theme="dark"] .audit-refresh-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+[data-theme="dark"] .audit-refresh-btn:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-refresh-btn svg,
+[data-theme="dark"] .audit-refresh-btn span {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Overview Stat Cards */
+[data-theme="dark"] .audit-stat-card {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .audit-stat-card:hover {
+  background: #14223d !important;
+  border-color: #2b4573 !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="dark"] .audit-stat-info p {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .audit-stat-info h3 {
+  color: #ffffff !important;
+  font-weight: 850 !important;
+}
+
+[data-theme="dark"] .audit-stat-note,
+[data-theme="dark"] .audit-stat-info span {
+  color: #cbd5e1 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="dark"] .audit-stat-icon.blue {
+  background: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .audit-stat-icon.purple {
+  background: rgba(139, 92, 246, 0.18) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  color: #a78bfa !important;
+}
+
+[data-theme="dark"] .audit-stat-icon.emerald {
+  background: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .audit-stat-icon.amber {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fbbf24 !important;
+}
+
+/* Main Panel & Toolbar */
+[data-theme="dark"] .audit-panel {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="dark"] .audit-toolbar {
+  background: #10192e !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .audit-count {
+  background: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #cbd5e1 !important;
+  font-weight: 700 !important;
+}
+
+/* Search Bar - Navy Blue Theme */
+[data-theme="dark"] .audit-search {
+  background: #0b1932 !important;
+  border: 1.5px solid #1e355b !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-search:hover {
+  border-color: #2b4573 !important;
+}
+
+[data-theme="dark"] .audit-search:focus-within {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .audit-search input {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-search input::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .audit-search svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-search button {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .audit-search button:hover {
+  color: #ffffff !important;
+}
+
+/* Date Filter */
+[data-theme="dark"] .audit-date-filter {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-date-filter:hover {
+  border-color: #3b82f6 !important;
+}
+
+[data-theme="dark"] .audit-date-filter:focus-within {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .audit-date-input {
+  color: #ffffff !important;
+  color-scheme: dark !important;
+}
+
+[data-theme="dark"] .audit-date-clear {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .audit-date-clear:hover {
+  color: #ffffff !important;
+}
+
+/* Dropdown Filters (Category & Role) */
+[data-theme="dark"] .audit-dropdown-btn {
+  background: #0f182c !important;
+  background-color: #0f182c !important;
+  border: 1.5px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-dropdown-btn:hover {
+  border-color: #3b82f6 !important;
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .audit-dropdown-btn.active {
+  border-color: #3b82f6 !important;
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .audit-dropdown-label {
+  color: #ffffff !important;
+  font-weight: 650 !important;
+}
+
+[data-theme="dark"] .audit-dropdown-chevron {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-dropdown-menu {
+  background: #111a2f !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-theme="dark"] .audit-dropdown-header {
+  background: #0b1322 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .audit-dropdown-header span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .audit-dropdown-item {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-dropdown-item:hover {
+  background: #17243f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-dropdown-item.selected {
+  background: #192847 !important;
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .audit-dropdown-item-text {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .audit-dropdown-item.selected .audit-dropdown-item-text {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .audit-dropdown-check {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .audit-filter-select {
+  background-color: #0f182c !important;
+  border-color: #23334d !important;
+  color: #ffffff !important;
+}
+
+/* Table & Rows */
+[data-theme="dark"] .audit-table-wrap {
+  border-top: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .audit-table thead {
+  background: #0d1628 !important;
+}
+
+[data-theme="dark"] .audit-table th {
+  background: #0d1628 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .audit-table td {
+  color: #ffffff !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .audit-table tr:hover td {
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .audit-table td span {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .audit-table td svg {
+  color: #94a3b8 !important;
+  stroke: #94a3b8 !important;
+}
+
+[data-theme="dark"] .audit-user-name {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .audit-record-id {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+/* Role Badges */
+[data-theme="dark"] .audit-role-badge {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+}
+
+[data-theme="dark"] .audit-role-badge.super-admin {
+  background: rgba(99, 102, 241, 0.22) !important;
+  color: #a5b4fc !important;
+  border: 1px solid rgba(99, 102, 241, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-role-badge.admin {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(37, 99, 235, 0.45) !important;
+}
+
+/* Action Badges */
+[data-theme="dark"] .audit-action-approved {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-rejected,
+[data-theme="dark"] .audit-action-deleted {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-pending {
+  background: rgba(245, 158, 11, 0.22) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-created,
+[data-theme="dark"] .audit-action-draft {
+  background: rgba(37, 99, 235, 0.22) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(37, 99, 235, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-user {
+  background: rgba(99, 102, 241, 0.22) !important;
+  color: #a5b4fc !important;
+  border: 1px solid rgba(99, 102, 241, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-login {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="dark"] .audit-action-customer {
+  background: rgba(20, 184, 166, 0.22) !important;
+  color: #2dd4bf !important;
+  border: 1px solid rgba(20, 184, 166, 0.45) !important;
+}
+
+/* ========================================================
+   16. Company Settings Page Specific Enhancements (Dark Theme Only)
+   ======================================================== */
+
+/* Header Breadcrumb & Title */
+[data-theme="dark"] .cs-eyebrow {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cs-header h1 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+/* Menu Button (Mobile) */
+[data-theme="dark"] .cs-menu-button {
+  background: #0f182c !important;
+  border: 1px solid #23334d !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-menu-button:hover {
+  background: #14223d !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Header Action Buttons - Professional Blue */
+[data-theme="dark"] .cs-refresh-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+[data-theme="dark"] .cs-refresh-btn:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45) !important;
+}
+
+[data-theme="dark"] .cs-refresh-btn svg,
+[data-theme="dark"] .cs-refresh-btn span {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-primary-save-btn {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3) !important;
+}
+
+[data-theme="dark"] .cs-primary-save-btn:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.45) !important;
+}
+
+[data-theme="dark"] .cs-primary-save-btn svg,
+[data-theme="dark"] .cs-primary-save-btn span {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Alerts & Loading */
+[data-theme="dark"] .cs-alert-error {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+}
+
+[data-theme="dark"] .cs-alert-success {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  color: #34d399 !important;
+}
+
+[data-theme="dark"] .cs-loading-card {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Top Navigation Tabs */
+[data-theme="dark"] .cs-tabs-bar {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-theme="dark"] .cs-tab-btn {
+  background: #10192e !important;
+  border: 1.5px solid #1c2b47 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-tab-btn:hover:not(.active) {
+  background: #152442 !important;
+  border-color: #284474 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-tab-btn.active {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+  border: 1.5px solid #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
+}
+
+[data-theme="dark"] .cs-tab-btn svg {
+  color: inherit !important;
+  stroke: currentColor !important;
+}
+
+/* Section Cards & Headers */
+[data-theme="dark"] .cs-section-card {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-theme="dark"] .cs-section-header {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-section-icon {
+  background: rgba(37, 99, 235, 0.2) !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .cs-section-header h3 {
+  color: #ffffff !important;
+  font-weight: 750 !important;
+}
+
+[data-theme="dark"] .cs-section-header p {
+  color: #94a3b8 !important;
+}
+
+/* Upload Boxes (Logo & Signature) */
+[data-theme="dark"] .cs-logo-upload-group,
+[data-theme="dark"] .cs-signature-box {
+  background: #0c1322 !important;
+  border: 1px dashed #253655 !important;
+}
+
+[data-theme="dark"] .cs-logo-preview-box,
+[data-theme="dark"] .cs-signature-preview-card {
+  background: #111a2f !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-logo-placeholder,
+[data-theme="dark"] .cs-signature-placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-logo-actions h4,
+[data-theme="dark"] .cs-signature-info h4 {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cs-logo-actions p,
+[data-theme="dark"] .cs-signature-info p {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-logo-actions small,
+[data-theme="dark"] .cs-signature-info small {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-btn-upload {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-btn-upload:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+}
+
+[data-theme="dark"] .cs-btn-remove {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-btn-remove:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* Form Fields & Inputs */
+[data-theme="dark"] .cs-field-group label,
+[data-theme="dark"] .cs-section-field label {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cs-field-group input,
+[data-theme="dark"] .cs-field-group textarea,
+[data-theme="dark"] .cs-section-field input,
+[data-theme="dark"] .cs-section-field textarea {
+  background: #0b1322 !important;
+  border: 1.5px solid #1e355b !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-field-group input:focus,
+[data-theme="dark"] .cs-field-group textarea:focus,
+[data-theme="dark"] .cs-section-field input:focus,
+[data-theme="dark"] .cs-section-field textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] .cs-field-group input::placeholder,
+[data-theme="dark"] .cs-field-group textarea::placeholder,
+[data-theme="dark"] .cs-section-field input::placeholder,
+[data-theme="dark"] .cs-section-field textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-input-icon-wrap > svg,
+[data-theme="dark"] .cs-input-icon-wrap .textarea-icon {
+  color: #94a3b8 !important;
+  stroke: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-field-group small,
+[data-theme="dark"] .cs-field-hint {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-input-disabled {
+  background-color: #0d1627 !important;
+  border-color: #1a273f !important;
+  color: #94a3b8 !important;
+}
+
+/* Action Bar at bottom */
+[data-theme="dark"] .cs-action-bar {
+  background: #0d1527 !important;
+  border: 1px solid #1c2b47 !important;
+  border-radius: 10px !important;
+}
+
+[data-theme="dark"] .cs-btn-secondary {
+  background: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-btn-secondary:hover:not(:disabled) {
+  background: #334155 !important;
+}
+
+[data-theme="dark"] .cs-btn-save {
+  background: #2563eb !important;
+  border: 1px solid #3b82f6 !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-btn-save:hover:not(:disabled) {
+  background: #1d4ed8 !important;
+}
+
+/* Live Preview Panel (Right column) */
+[data-theme="dark"] .cs-preview-panel {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-preview-title-bar {
+  background: #0b1322 !important;
+  border-bottom: 2px solid #2563eb !important;
+}
+
+[data-theme="dark"] .cs-preview-title-bar h4 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-preview-card {
+  background: #10192e !important;
+}
+
+[data-theme="dark"] .cs-prev-logo-wrap {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-prev-company-name {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-prev-item {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-prev-item svg {
+  color: #60a5fa !important;
+  stroke: #60a5fa !important;
+}
+
+[data-theme="dark"] .cs-prev-bank-box {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+  border-left: 3px solid #3b82f6 !important;
+}
+
+[data-theme="dark"] .cs-prev-bank-head {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-prev-bank-row span {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-prev-bank-row strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-prev-signature-box {
+  background: #0b1322 !important;
+  border: 1px dashed #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-prev-sig-label {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-preview-footnote {
+  background: #0b1322 !important;
+  border-top: 1px solid #1c2b47 !important;
+  color: #94a3b8 !important;
+}
+
+/* Quotation Subtabs & Settings */
+[data-theme="dark"] .cs-subtabs-bar {
+  background: #0b1322 !important;
+  border: 1px solid #1c2b47 !important;
+  border-radius: 8px !important;
+}
+
+[data-theme="dark"] .cs-subtab-btn {
+  background: transparent !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-subtab-btn:hover {
+  background: #152442 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-subtab-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-preview-card-box {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-preview-header {
+  border-bottom: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-preview-header strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-pdf-preview-sheet {
+  background: #0b1322 !important;
+  border: 1px dashed #23344f !important;
+}
+
+[data-theme="dark"] .cs-pdf-company-name {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-pdf-meta {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-pdf-title {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .cs-pdf-subtitle {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .cs-pdf-custom-line {
+  background: #111d33 !important;
+  border-left: 2px solid #3b82f6 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-pdf-mock-table {
+  background: #0d1627 !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-mock-th {
+  background: #15233c !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-mock-tr {
+  border-top: 1px solid #1c2b47 !important;
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-pdf-section-banner {
+  background: #15233c !important;
+  color: #ffffff !important;
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+[data-theme="dark"] .cs-pdf-section-body {
+  background: #0d1627 !important;
+  border: 1px solid #1c2b47 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-pdf-footer-box {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .cs-sections-box {
+  background: #0c1322 !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-sections-top-info h4 {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .cs-sections-top-info p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-add-section-btn {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #3b82f6 !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-add-section-btn:hover {
+  background: #1d4ed8 !important;
+}
+
+[data-theme="dark"] .cs-section-card-item {
+  background: #10192e !important;
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-section-card-head {
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-section-card-head span {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-section-delete-btn {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  color: #f87171 !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .cs-empty-sections-note {
+  background: #10192e !important;
+  border: 1px dashed #1c2b47 !important;
+  color: #94a3b8 !important;
+}
+
+/* Service Catalog Table (Form Settings) */
+[data-theme="dark"] .cs-service-toolbar h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-service-toolbar p {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .cs-table-wrap {
+  border: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-table th {
+  background: #0d1628 !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-table td {
+  color: #ffffff !important;
+  border-bottom: 1px solid #1c2b47 !important;
+}
+
+[data-theme="dark"] .cs-table td strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-table tbody tr:hover {
+  background: #14223d !important;
+}
+
+[data-theme="dark"] .cs-text-clamp {
+  color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] .cs-status-pill.active {
+  background: rgba(16, 185, 129, 0.22) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.45) !important;
+}
+
+[data-theme="dark"] .cs-status-pill.inactive {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border: 1px solid #334155 !important;
+}
+
+[data-theme="dark"] .cs-icon-btn {
+  background: #0b1932 !important;
+  border: 1px solid #1e355b !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="dark"] .cs-icon-btn:hover {
+  background: #152648 !important;
+  border-color: #3b82f6 !important;
+}
+
+[data-theme="dark"] .cs-icon-btn.edit svg,
+[data-theme="dark"] .cs-icon-btn.delete svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-empty-box {
+  background: #10192e !important;
+  border: 1px dashed #1c2b47 !important;
+  color: #94a3b8 !important;
+}
+
+/* Invoice Settings Tab */
+[data-theme="dark"] .cs-title-badge-row h3 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-badge-coming-soon {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+}
+
+[data-theme="dark"] .cs-invoice-banner {
+  background: linear-gradient(135deg, #111d33 0%, #162544 100%) !important;
+  border: 1px solid #1e355b !important;
+}
+
+[data-theme="dark"] .cs-invoice-banner-icon {
+  background: #1a2d52 !important;
+  border-color: #2b4573 !important;
+}
+
+[data-theme="dark"] .cs-invoice-banner-text strong {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .cs-invoice-banner-text p {
+  color: #cbd5e1 !important;
+}
+
+
+
+
+
+

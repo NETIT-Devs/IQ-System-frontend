@@ -11,9 +11,9 @@
 }
 
 
-/* ==========================================================================
+/*
    Quotation Performance Card
-   ========================================================================== */
+   */
 .sa-quotation-performance-panel {
   display: flex;
   flex-direction: column;
@@ -121,6 +121,7 @@
   border-color: #e2e8f0;
   background: #fbfcfe;
 }
+
 .sa-qp-card.draft:hover {
   border-color: #cbd5e1;
 }
@@ -129,6 +130,7 @@
   border-color: #fef3c7;
   background: #fffdf7;
 }
+
 .sa-qp-card.pending:hover {
   border-color: #fde68a;
 }
@@ -137,6 +139,7 @@
   border-color: #dcfce7;
   background: #f7fdf9;
 }
+
 .sa-qp-card.approved:hover {
   border-color: #bbf7d0;
 }
@@ -145,6 +148,7 @@
   border-color: #fee2e2;
   background: #fffafa;
 }
+
 .sa-qp-card.rejected:hover {
   border-color: #fecaca;
 }
@@ -166,12 +170,15 @@
 .sa-qp-dot.draft {
   background: #64748b;
 }
+
 .sa-qp-dot.pending {
   background: #f59e0b;
 }
+
 .sa-qp-dot.approved {
   background: #10b981;
 }
+
 .sa-qp-dot.rejected {
   background: #ef4444;
 }
@@ -235,16 +242,18 @@
     grid-template-columns: 1fr;
     gap: 7px;
   }
+
   .sa-qp-card {
     padding: 7px 9px;
   }
+
   .sa-qp-card-body h3 {
     font-size: 15px;
   }
 }
 
 
-/* Header date plain text without box */
+/* Header date   */
 .sa-header-date {
   display: inline-flex;
   align-items: center;
@@ -262,7 +271,7 @@
 }
 
 
-/* Header notification bell icon without box */
+/* Header notification bell icon */
 .sa-topbar .notif-bell-btn {
   background: transparent !important;
   border: none !important;

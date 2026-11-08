@@ -26,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import API_BASE_URL from "../services/api";
+import ThemeToggle from "../components/ThemeToggle";
 import {
   getCustomers,
   createCustomer,
@@ -40,7 +41,40 @@ const PINNED_STORAGE_KEY = "iq_pinned_daily_customers";
 const UNPINNED_STORAGE_KEY = "iq_unpinned_regular_customers";
 const CUSTOMER_EDITS_STORAGE_KEY = "iq_customer_edits_v1";
 const DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids_v1";
+const LEGACY_DELETED_CUSTOMERS_STORAGE_KEY = "deletedCustomerIds";
 const INVOICE_STATUS_STORAGE_KEY = "iq_customer_invoice_statuses_v1";
+
+function normalizePhoneNumber(phone) {
+  if (!phone) return "";
+  return String(phone).replace(/\D/g, "");
+}
+
+function isPhoneMatch(phone1, phone2) {
+  const p1 = String(phone1 || "").trim();
+  const p2 = String(phone2 || "").trim();
+  if (!p1 || !p2) return false;
+  if (p1.toLowerCase() === p2.toLowerCase()) return true;
+
+  const d1 = normalizePhoneNumber(p1);
+  const d2 = normalizePhoneNumber(p2);
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+
+  const minLen = Math.min(d1.length, d2.length);
+  if (minLen >= 7) {
+    const compareLen = Math.min(minLen, 9);
+    return d1.slice(-compareLen) === d2.slice(-compareLen);
+  }
+
+  return false;
+}
+
+function isEmailMatch(email1, email2) {
+  const e1 = String(email1 || "").trim().toLowerCase();
+  const e2 = String(email2 || "").trim().toLowerCase();
+  if (!e1 || !e2) return false;
+  return e1 === e2;
+}
 
 function readJsonStorage(key, fallback) {
   try {
@@ -223,6 +257,20 @@ export default function Customers() {
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [formError, setFormError] = useState("");
 
+  function handleCloseAddModal() {
+    setShowAddModal(false);
+    setFormError("");
+    setNewCustomer({
+      customer_name: "",
+      company_name: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      notes: "",
+    });
+  }
+
   // Fetch invoices safely if backend endpoint exists or local storage has records
   async function fetchInvoicesSafe() {
     try {
@@ -349,19 +397,102 @@ export default function Customers() {
     }
   }
 
-  // Handle Add Customer Form Submit (unchanged)
+  // Handle Add Customer Form Submit
   async function handleAddCustomer(e) {
     e.preventDefault();
     setFormError("");
 
-    if (!newCustomer.customer_name.trim()) {
+    const nameTrimmed = String(newCustomer.customer_name || "").trim();
+    if (!nameTrimmed) {
       setFormError("Customer name is required.");
       return;
     }
 
+    const inputEmail = String(newCustomer.email || "").trim().toLowerCase();
+    const inputPhone = String(newCustomer.phone || "").trim();
+
+    // Check if an active (non-deleted) customer already exists with this email or phone number
+    if (inputEmail || inputPhone) {
+      const existingCustomer = enrichedCustomers.find((c) => {
+        const cEmail = String(c.email || "").trim().toLowerCase();
+        const cPhone = String(c.phone || "").trim();
+        const emailMatch = inputEmail && cEmail && isEmailMatch(cEmail, inputEmail);
+        const phoneMatch = inputPhone && cPhone && isPhoneMatch(cPhone, inputPhone);
+        return emailMatch || phoneMatch;
+      });
+
+      if (existingCustomer) {
+        const cEmail = String(existingCustomer.email || "").trim().toLowerCase();
+        const cPhone = String(existingCustomer.phone || "").trim();
+        const emailMatched = Boolean(inputEmail && cEmail && isEmailMatch(cEmail, inputEmail));
+        const phoneMatched = Boolean(inputPhone && cPhone && isPhoneMatch(cPhone, inputPhone));
+
+        if (emailMatched && phoneMatched) {
+          setFormError(
+            `A customer with this email (${inputEmail}) and phone number (${inputPhone}) already exists (${existingCustomer.customer_name}).`
+          );
+        } else if (emailMatched) {
+          setFormError(
+            `A customer with this email (${inputEmail}) already exists (${existingCustomer.customer_name}).`
+          );
+        } else if (phoneMatched) {
+          setFormError(
+            `A customer with this phone number (${inputPhone}) already exists (${existingCustomer.customer_name}).`
+          );
+        }
+        return;
+      }
+    }
+
     try {
       setSavingCustomer(true);
-      await createCustomer(newCustomer);
+      const res = await createCustomer(newCustomer);
+
+      // If this customer was previously deleted or backend reused the ID, remove from deletedCustomerIds
+      const createdId = res?.customer_id;
+      const currentDeleted = readJsonStorage(
+        DELETED_CUSTOMERS_STORAGE_KEY,
+        deletedCustomerIds
+      );
+      let updatedDeleted = Array.isArray(currentDeleted)
+        ? [...currentDeleted]
+        : [];
+      let hadDeletedChange = false;
+
+      if (createdId && updatedDeleted.includes(createdId)) {
+        updatedDeleted = updatedDeleted.filter((id) => id !== createdId);
+        hadDeletedChange = true;
+      }
+
+      if (hadDeletedChange) {
+        setDeletedCustomerIds(updatedDeleted);
+        writeJsonStorage(DELETED_CUSTOMERS_STORAGE_KEY, updatedDeleted);
+
+        try {
+          const legacyRaw = localStorage.getItem(
+            LEGACY_DELETED_CUSTOMERS_STORAGE_KEY
+          );
+          if (legacyRaw) {
+            const legacyParsed = JSON.parse(legacyRaw);
+            if (
+              Array.isArray(legacyParsed) &&
+              (legacyParsed.includes(createdId) ||
+                legacyParsed.includes(String(createdId)))
+            ) {
+              const filteredLegacy = legacyParsed.filter(
+                (id) => id !== createdId && String(id) !== String(createdId)
+              );
+              localStorage.setItem(
+                LEGACY_DELETED_CUSTOMERS_STORAGE_KEY,
+                JSON.stringify(filteredLegacy)
+              );
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
       setShowAddModal(false);
       setNewCustomer({
         customer_name: "",
@@ -590,8 +721,8 @@ export default function Customers() {
         // Customer Active / Inactive status
         const normalizedStatus =
           String(c.status || "Active").trim().toLowerCase() === "inactive" ||
-          c.is_active === false ||
-          c.is_active === 0
+            c.is_active === false ||
+            c.is_active === 0
             ? "Inactive"
             : "Active";
 
@@ -724,6 +855,7 @@ export default function Customers() {
         </div>
 
         <div className="cust-header-actions">
+          <ThemeToggle />
           <span className="cust-header-date" title="Today's Date">
             {new Intl.DateTimeFormat("en-US", {
               weekday: "short",
@@ -758,7 +890,10 @@ export default function Customers() {
           <button
             type="button"
             className="cust-add-btn"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              handleCloseAddModal();
+              setShowAddModal(true);
+            }}
             title="Add new customer"
           >
             <UserPlus size={16} />
@@ -843,8 +978,8 @@ export default function Customers() {
                     {typeFilter === "regular"
                       ? "Regular Customers"
                       : typeFilter === "new"
-                      ? "New Customers"
-                      : "All Types"}
+                        ? "New Customers"
+                        : "All Types"}
                   </span>
                   <ChevronDown
                     size={14}
@@ -904,8 +1039,8 @@ export default function Customers() {
                     {statusFilter === "active"
                       ? "Active"
                       : statusFilter === "inactive"
-                      ? "Inactive"
-                      : "All Status"}
+                        ? "Inactive"
+                        : "All Status"}
                   </span>
                   <ChevronDown
                     size={14}
@@ -965,10 +1100,10 @@ export default function Customers() {
                     {quoteStatusFilter === "accepted"
                       ? "Approved / Accepted"
                       : quoteStatusFilter === "sent"
-                      ? "Sent"
-                      : quoteStatusFilter === "rejected"
-                      ? "Rejected"
-                      : "All Quotations Status"}
+                        ? "Sent"
+                        : quoteStatusFilter === "rejected"
+                          ? "Rejected"
+                          : "All Quotations Status"}
                   </span>
                   <ChevronDown
                     size={14}
@@ -1029,10 +1164,10 @@ export default function Customers() {
                     {invoiceStatusFilter === "paid"
                       ? "Paid"
                       : invoiceStatusFilter === "partial"
-                      ? "Partial"
-                      : invoiceStatusFilter === "unpaid"
-                      ? "Unpaid"
-                      : "All Invoice Status"}
+                        ? "Partial"
+                        : invoiceStatusFilter === "unpaid"
+                          ? "Unpaid"
+                          : "All Invoice Status"}
                   </span>
                   <ChevronDown
                     size={14}
@@ -1150,9 +1285,8 @@ export default function Customers() {
                           <div className="cust-client-cell">
                             <button
                               type="button"
-                              className={`cust-star-btn ${
-                                isRegular ? "active" : ""
-                              }`}
+                              className={`cust-star-btn ${isRegular ? "active" : ""
+                                }`}
                               title={
                                 isRegular
                                   ? "Regular Customer (Click to unmark)"
@@ -1218,9 +1352,8 @@ export default function Customers() {
                         <td>
                           <button
                             type="button"
-                            className={`cust-status-badge ${
-                              client.status === "Active" ? "active" : "inactive"
-                            }`}
+                            className={`cust-status-badge ${client.status === "Active" ? "active" : "inactive"
+                              }`}
                             onClick={() =>
                               toggleCustomerActiveStatus(
                                 client.customer_id,
@@ -1422,9 +1555,8 @@ export default function Customers() {
                   <div className="cust-modal-name-row">
                     <h3>{selectedCustomer.customer_name}</h3>
                     <span
-                      className={`cust-type-badge ${
-                        selectedCustomer.isRegularCustomer ? "regular" : "new"
-                      }`}
+                      className={`cust-type-badge ${selectedCustomer.isRegularCustomer ? "regular" : "new"
+                        }`}
                     >
                       {selectedCustomer.isRegularCustomer ? (
                         <>
@@ -1435,11 +1567,10 @@ export default function Customers() {
                       )}
                     </span>
                     <span
-                      className={`cust-status-badge ${
-                        selectedCustomer.status === "Active"
+                      className={`cust-status-badge ${selectedCustomer.status === "Active"
                           ? "active"
                           : "inactive"
-                      }`}
+                        }`}
                     >
                       <span className="cust-status-dot" />
                       {selectedCustomer.status}
@@ -1544,8 +1675,8 @@ export default function Customers() {
                               <td>
                                 {formatDisplayDate(
                                   q.quotation_date ||
-                                    q.issuedDate ||
-                                    q.created_at
+                                  q.issuedDate ||
+                                  q.created_at
                                 )}
                               </td>
                               <td>
@@ -1555,23 +1686,22 @@ export default function Customers() {
                               </td>
                               <td>
                                 <span
-                                  className={`quote-pill ${
-                                    isCustAccepted
+                                  className={`quote-pill ${isCustAccepted
                                       ? "approved"
                                       : isCustRejected
-                                      ? "rejected"
-                                      : isCustSent
-                                      ? "sent"
-                                      : "total"
-                                  }`}
+                                        ? "rejected"
+                                        : isCustSent
+                                          ? "sent"
+                                          : "total"
+                                    }`}
                                 >
                                   {isCustAccepted
                                     ? "Accepted"
                                     : isCustRejected
-                                    ? "Rejected"
-                                    : isCustSent
-                                    ? "Sent"
-                                    : q.status || "Draft"}
+                                      ? "Rejected"
+                                      : isCustSent
+                                        ? "Sent"
+                                        : q.status || "Draft"}
                                 </span>
                               </td>
                               <td>
@@ -1587,9 +1717,8 @@ export default function Customers() {
                                         "Sent to Customer"
                                       )
                                     }
-                                    className={`cust-resp-btn sent ${
-                                      isCustSent ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn sent ${isCustSent ? "active" : ""
+                                      }`}
                                     title="Mark as Sent to Customer"
                                   >
                                     Sent
@@ -1606,9 +1735,8 @@ export default function Customers() {
                                         "Customer Accepted"
                                       )
                                     }
-                                    className={`cust-resp-btn accepted ${
-                                      isCustAccepted ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn accepted ${isCustAccepted ? "active" : ""
+                                      }`}
                                     title="Mark as Customer Accepted"
                                   >
                                     Accept
@@ -1625,9 +1753,8 @@ export default function Customers() {
                                         "Customer Rejected"
                                       )
                                     }
-                                    className={`cust-resp-btn rejected ${
-                                      isCustRejected ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn rejected ${isCustRejected ? "active" : ""
+                                      }`}
                                     title="Mark as Customer Rejected"
                                   >
                                     Reject
@@ -1699,8 +1826,8 @@ export default function Customers() {
                               <td>
                                 {formatDisplayDate(
                                   inv.invoice_date ||
-                                    inv.issue_date ||
-                                    inv.created_at
+                                  inv.issue_date ||
+                                  inv.created_at
                                 )}
                               </td>
                               <td>
@@ -1712,19 +1839,18 @@ export default function Customers() {
                               </td>
                               <td>
                                 <span
-                                  className={`quote-pill ${
-                                    isPaid
+                                  className={`quote-pill ${isPaid
                                       ? "approved"
                                       : isPartial
-                                      ? "partial"
-                                      : "rejected"
-                                  }`}
+                                        ? "partial"
+                                        : "rejected"
+                                    }`}
                                 >
                                   {isPaid
                                     ? "Paid"
                                     : isPartial
-                                    ? "Partial"
-                                    : "Unpaid"}
+                                      ? "Partial"
+                                      : "Unpaid"}
                                 </span>
                               </td>
                               <td>
@@ -1734,9 +1860,8 @@ export default function Customers() {
                                     onClick={() =>
                                       handleInvoiceStatusChange(invKey, "Paid")
                                     }
-                                    className={`cust-resp-btn accepted ${
-                                      isPaid ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn accepted ${isPaid ? "active" : ""
+                                      }`}
                                     title="Mark Invoice as Paid"
                                   >
                                     Paid
@@ -1749,9 +1874,8 @@ export default function Customers() {
                                         "Partial"
                                       )
                                     }
-                                    className={`cust-resp-btn partial ${
-                                      isPartial ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn partial ${isPartial ? "active" : ""
+                                      }`}
                                     title="Mark Invoice as Partial"
                                   >
                                     Partial
@@ -1764,9 +1888,8 @@ export default function Customers() {
                                         "Unpaid"
                                       )
                                     }
-                                    className={`cust-resp-btn rejected ${
-                                      isUnpaid ? "active" : ""
-                                    }`}
+                                    className={`cust-resp-btn rejected ${isUnpaid ? "active" : ""
+                                      }`}
                                     title="Mark Invoice as Unpaid"
                                   >
                                     Unpaid
@@ -1860,8 +1983,8 @@ export default function Customers() {
                   <strong>
                     {formatDisplayDate(
                       viewingInvoice.invoice_date ||
-                        viewingInvoice.issue_date ||
-                        viewingInvoice.created_at
+                      viewingInvoice.issue_date ||
+                      viewingInvoice.created_at
                     )}
                   </strong>
                 </div>
@@ -1873,8 +1996,8 @@ export default function Customers() {
                         classifyInvoiceStatus(viewingInvoice) === "paid"
                           ? "#15803d"
                           : classifyInvoiceStatus(viewingInvoice) === "partial"
-                          ? "#b45309"
-                          : "#b91c1c",
+                            ? "#b45309"
+                            : "#b91c1c",
                     }}
                   >
                     {viewingInvoice.status || "Unpaid"}
@@ -1883,7 +2006,7 @@ export default function Customers() {
               </div>
 
               {Array.isArray(viewingInvoice.items) &&
-              viewingInvoice.items.length > 0 ? (
+                viewingInvoice.items.length > 0 ? (
                 <div className="cust-subtable-wrap" style={{ marginTop: "14px" }}>
                   <table className="cust-table cust-subtable">
                     <thead>
@@ -1911,9 +2034,9 @@ export default function Customers() {
                             <strong>
                               {formatCurrency(
                                 it.total_price ||
-                                  it.line_total ||
-                                  it.unit_price ||
-                                  0
+                                it.line_total ||
+                                it.unit_price ||
+                                0
                               )}
                             </strong>
                           </td>
@@ -1929,8 +2052,8 @@ export default function Customers() {
                 <strong>
                   {formatCurrency(
                     viewingInvoice.total_amount ||
-                      viewingInvoice.total ||
-                      viewingInvoice.amount
+                    viewingInvoice.total ||
+                    viewingInvoice.amount
                   )}
                 </strong>
               </div>
@@ -2187,14 +2310,18 @@ export default function Customers() {
 
       {/* Add New Customer Modal (Unchanged) */}
       {showAddModal && (
-        <div className="cust-modal-overlay">
-          <div className="cust-modal" style={{ maxWidth: "560px" }}>
+        <div className="cust-modal-overlay" onClick={handleCloseAddModal}>
+          <div
+            className="cust-modal"
+            style={{ maxWidth: "560px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="cust-modal-header">
               <h3>Register New Customer</h3>
               <button
                 type="button"
                 className="cust-modal-close"
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCloseAddModal}
               >
                 <X size={20} />
               </button>
@@ -2255,12 +2382,13 @@ export default function Customers() {
                       type="email"
                       placeholder="client@example.com"
                       value={newCustomer.email}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (formError) setFormError("");
                         setNewCustomer({
                           ...newCustomer,
                           email: e.target.value,
-                        })
-                      }
+                        });
+                      }}
                     />
                   </div>
 
@@ -2270,12 +2398,13 @@ export default function Customers() {
                       type="text"
                       placeholder="+94 77 123 4567"
                       value={newCustomer.phone}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (formError) setFormError("");
                         setNewCustomer({
                           ...newCustomer,
                           phone: e.target.value,
-                        })
-                      }
+                        });
+                      }}
                     />
                   </div>
 
@@ -2330,7 +2459,7 @@ export default function Customers() {
                 <button
                   type="button"
                   className="cust-btn-secondary"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={handleCloseAddModal}
                 >
                   Cancel
                 </button>

@@ -1217,7 +1217,7 @@
   height: 29px;
   place-items: center;
   border: 1px solid #dce4ef;
-  border-radius: 0;
+  border-radius: 7px;
   background: #fff;
   color: #63738b;
   cursor: pointer;

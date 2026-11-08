@@ -7,6 +7,7 @@ import {
 } from "../services/quotationService";
 import { useNavigate } from "react-router-dom";
 import { getAuthenticatedUser } from "../utils/authStorage";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -68,7 +69,8 @@ export default function Notifications() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          <ThemeToggle />
           <button
             type="button"
             onClick={fetchNotifs}

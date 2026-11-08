@@ -5,7 +5,6 @@ import {
   AlertCircle,
   ArrowDownToLine,
   BarChart3,
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -13,13 +12,15 @@ import {
   LoaderCircle,
   RefreshCw,
   Receipt,
+  Search,
   TrendingUp,
   Wallet,
+  X,
   XCircle,
-  Layers,
   Menu,
 } from "lucide-react";
 import API_BASE_URL from "../services/api";
+import ThemeToggle from "../components/ThemeToggle";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Report.css";
 
@@ -174,6 +175,7 @@ function formatNumber(value) {
   return new Intl.NumberFormat("en-LK").format(Number(value) || 0);
 }
 
+// Convert any date value or UTC ISO string to local YYYY-MM-DD matching Quotations page
 function toLocalDateStr(value) {
   if (!value) return "";
   const str = String(value).trim();
@@ -186,20 +188,30 @@ function toLocalDateStr(value) {
   return `${y}-${m}-${d}`;
 }
 
-function resolveQuotationDate(q) {
-  const qDate = toLocalDateStr(q?.quotation_date);
-  const cDate = toLocalDateStr(q?.created_at || q?.createdAt);
-  if (qDate && cDate && qDate < cDate) {
+function resolveRecordDate(record, isQuotation) {
+  if (!record) return "";
+  if (isQuotation) {
+    const qDate = toLocalDateStr(record.quotation_date || record.date);
+    const cDate = toLocalDateStr(record.created_at || record.createdAt);
+    if (qDate && cDate && qDate < cDate) {
+      return cDate;
+    }
+    return qDate || cDate || "";
+  }
+  const iDate = toLocalDateStr(record.invoice_date || record.date);
+  const cDate = toLocalDateStr(record.created_at || record.createdAt);
+  if (iDate && cDate && iDate < cDate) {
     return cDate;
   }
-  return qDate || cDate || "";
+  return iDate || cDate || "";
 }
 
 function formatDate(value) {
   if (!value) return "—";
   try {
-    const date = new Date(value.includes("T") ? value : `${value}T00:00:00`);
-    if (Number.isNaN(date.getTime())) return String(value);
+    const str = String(value).trim();
+    const date = str.includes("T") ? new Date(str) : new Date(`${str.slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return str;
     return date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -210,29 +222,16 @@ function formatDate(value) {
   }
 }
 
-// Build query string for report endpoints
-function buildQueryParams(filters) {
-  const params = new URLSearchParams();
-  if (filters.startDate) {
-    params.set("startDate", filters.startDate);
-    params.set("from_date", filters.startDate);
-  }
-  if (filters.endDate) {
-    params.set("endDate", filters.endDate);
-    params.set("to_date", filters.endDate);
-  }
-  return params.toString();
-}
-
 // Safe fetch that returns response metadata without crashing on 404
 async function safeFetchJson(url, token) {
   try {
+    const headers = { Accept: "application/json" };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -494,8 +493,7 @@ export default function Reports() {
   const [reportType, setReportType] = useState("quotations");
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
   const reportDropdownRef = useRef(null);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -523,25 +521,12 @@ export default function Reports() {
   const [error, setError] = useState("");
   const [isUsingLiveCalculated, setIsUsingLiveCalculated] = useState(false);
 
-  const queryString = useMemo(
-    () => buildQueryParams({ startDate, endDate }),
-    [startDate, endDate]
-  );
-
   const fetchReports = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
       const token = getAuthToken();
-
-      if (!token) {
-        throw new Error(
-          "Authentication token not found. Please log in again."
-        );
-      }
-
-      const qPrefix = queryString ? `?${queryString}` : "";
 
       // 1. Fetch Backend Report Endpoints in parallel
       const [
@@ -550,10 +535,10 @@ export default function Reports() {
         reportQuotationsRes,
         reportIncomeRes,
       ] = await Promise.all([
-        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.summary}${qPrefix}`, token),
-        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.invoices}${qPrefix}`, token),
-        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.quotations}${qPrefix}`, token),
-        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.monthlyIncome}${qPrefix}`, token),
+        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.summary}`, token),
+        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.invoices}`, token),
+        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.quotations}`, token),
+        safeFetchJson(`${API_BASE_URL}${API_ENDPOINTS.monthlyIncome}`, token),
       ]);
 
       let finalQuotations = [];
@@ -568,7 +553,7 @@ export default function Reports() {
       } else {
         liveFallbackUsed = true;
         const fallbackRes = await safeFetchJson(
-          `${API_BASE_URL}${API_ENDPOINTS.fallbackQuotations}${qPrefix}`,
+          `${API_BASE_URL}${API_ENDPOINTS.fallbackQuotations}`,
           token
         );
         if (fallbackRes.ok) {
@@ -576,23 +561,12 @@ export default function Reports() {
         }
       }
 
-      // Filter quotations client-side if query dates apply
-      if (startDate || endDate) {
-        finalQuotations = finalQuotations.filter((q) => {
-          const rawDate = resolveQuotationDate(q);
-          if (!rawDate) return true;
-          if (startDate && rawDate < startDate) return false;
-          if (endDate && rawDate > endDate) return false;
-          return true;
-        });
-      }
-
       // 3. Resolve Invoices: Use backend report endpoint if available, or fallback to /api/invoices
       if (reportInvoicesRes.ok) {
         finalInvoices = extractArray(reportInvoicesRes.data);
       } else {
         const fallbackInvRes = await safeFetchJson(
-          `${API_BASE_URL}${API_ENDPOINTS.fallbackInvoices}${qPrefix}`,
+          `${API_BASE_URL}${API_ENDPOINTS.fallbackInvoices}`,
           token
         );
         if (fallbackInvRes.ok) {
@@ -600,17 +574,6 @@ export default function Reports() {
         } else {
           finalInvoices = [];
         }
-      }
-
-      // Filter invoices client-side if query dates apply
-      if (startDate || endDate) {
-        finalInvoices = finalInvoices.filter((inv) => {
-          const rawDate = String(inv.invoice_date || inv.created_at || "").slice(0, 10);
-          if (!rawDate) return true;
-          if (startDate && rawDate < startDate) return false;
-          if (endDate && rawDate > endDate) return false;
-          return true;
-        });
       }
 
       // 4. Resolve Monthly Income: Aggregate from Customer Accepted quotations (or invoices)
@@ -634,8 +597,9 @@ export default function Reports() {
           finalQuotations.length > 0 ? acceptedQuotationsForTrend : finalInvoices;
 
         recordsForTrend.forEach((record) => {
+          const isQ = finalQuotations.length > 0;
           const dateStr = String(
-            resolveQuotationDate(record) || record.invoice_date || record.created_at || ""
+            resolveRecordDate(record, isQ)
           ).slice(0, 7); // e.g. "2026-10"
 
           if (dateStr && dateStr.length === 7) {
@@ -787,31 +751,68 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [queryString, startDate, endDate]);
+  }, []);
 
   useEffect(() => {
-    fetchReports();
+    Promise.resolve().then(fetchReports);
   }, [fetchReports]);
 
-  const clearFilters = () => {
-    setStartDate("");
-    setEndDate("");
-  };
+  const allRecords = reportType === "quotations" ? quotations : invoices;
 
-  const currentRecords = reportType === "quotations" ? quotations : invoices;
+  // Search filtered records matching reference or customer name
+  const currentRecords = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return allRecords;
 
-  const totalFilteredValue = currentRecords.reduce((sum, record) => {
-    const amount = Number(
-      readValue(
-        record,
-        "total_amount",
-        "totalAmount",
-        "grand_total",
-        "grandTotal"
-      )
-    );
-    return sum + amount;
-  }, 0);
+    const isQuotation = reportType === "quotations";
+
+    return allRecords.filter((record) => {
+      const id = String(
+        readValue(record, isQuotation ? "quotation_id" : "invoice_id", "id") || ""
+      ).toLowerCase();
+
+      const reference = String(
+        readValue(
+          record,
+          isQuotation ? "quotation_number" : "invoice_number",
+          "quotation_id"
+        ) || id
+      ).toLowerCase();
+
+      const customerName = String(
+        readValue(
+          record,
+          "customer_name",
+          "clientName",
+          "customer_company"
+        ) || ""
+      ).toLowerCase();
+
+      const customerId = String(readValue(record, "customer_id") || "").toLowerCase();
+
+      return (
+        reference.includes(term) ||
+        id.includes(term) ||
+        customerName.includes(term) ||
+        customerId.includes(term)
+      );
+    });
+  }, [allRecords, searchTerm, reportType]);
+
+  const totalFilteredValue = useMemo(() => {
+    return currentRecords.reduce((sum, record) => {
+      const amount = Number(
+        readValue(
+          record,
+          "total_amount",
+          "totalAmount",
+          "grand_total",
+          "grandTotal"
+        )
+      );
+      return sum + amount;
+    }, 0);
+  }, [currentRecords]);
 
   // Download the currently displayed records as a CSV file
   const downloadCSV = () => {
@@ -855,12 +856,7 @@ export default function Reports() {
           (readValue(record, "customer_id")
             ? `Customer #${readValue(record, "customer_id")}`
             : "");
-        const date =
-          readValue(
-            record,
-            isQuotation ? "quotation_date" : "invoice_date",
-            "created_at"
-          ) || "";
+        const date = resolveRecordDate(record, isQuotation);
         const amount =
           readValue(
             record,
@@ -927,6 +923,7 @@ export default function Reports() {
         </div>
 
         <div className="reports-header-actions">
+          <ThemeToggle />
           <span className="reports-header-date" title="Today's Date">
             {new Intl.DateTimeFormat("en-US", {
               weekday: "short",
@@ -972,7 +969,7 @@ export default function Reports() {
 
         {/* Filter panel */}
         <section className="reports-filter-panel" aria-label="Report filters">
-          <div className="report-filter-field">
+          <div className="report-filter-field report-type-field">
             <label htmlFor="report-type">Report type</label>
             <div className="report-dropdown-wrap" ref={reportDropdownRef}>
               <button
@@ -1028,53 +1025,6 @@ export default function Reports() {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="report-filter-field">
-            <label htmlFor="report-start-date">Start date</label>
-            <div className="report-date-input">
-              <CalendarDays size={17} />
-              <input
-                id="report-start-date"
-                type="date"
-                value={startDate}
-                max={endDate || undefined}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="report-filter-field">
-            <label htmlFor="report-end-date">End date</label>
-            <div className="report-date-input">
-              <CalendarDays size={17} />
-              <input
-                id="report-end-date"
-                type="date"
-                value={endDate}
-                min={startDate || undefined}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="report-filter-actions">
-            <button
-              className="report-apply-button"
-              type="button"
-              onClick={fetchReports}
-              disabled={loading}
-            >
-              Apply Filters
-            </button>
-
-            <button
-              className="report-clear-button"
-              type="button"
-              onClick={clearFilters}
-            >
-              Clear
-            </button>
           </div>
         </section>
 
@@ -1249,16 +1199,41 @@ export default function Reports() {
             {/* Table section */}
             <section className="reports-panel reports-table-panel">
               <div className="reports-table-heading">
-                <div>
-                  <h2>
-                    {reportType === "quotations"
-                      ? "Quotation Records"
-                      : "Invoice Records"}
-                  </h2>
-                  <p>
-                    {formatNumber(currentRecords.length)} records · Total value:{" "}
-                    {formatCurrency(totalFilteredValue)}
-                  </p>
+                <div className="reports-table-heading-left">
+                  <div className="reports-table-heading-info">
+                    <h2>
+                      {reportType === "quotations"
+                        ? "Quotation Records"
+                        : "Invoice Records"}
+                    </h2>
+                    <p>
+                      {formatNumber(currentRecords.length)} records · Total value:{" "}
+                      {formatCurrency(totalFilteredValue)}
+                    </p>
+                  </div>
+
+                  <div className="reports-search-wrap">
+                    <Search size={16} className="reports-search-icon" />
+                    <input
+                      id="report-search"
+                      type="text"
+                      placeholder="Search records..."
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      className="reports-search-input"
+                      aria-label="Search records"
+                    />
+                    {searchTerm && (
+                      <button
+                        type="button"
+                        className="reports-search-clear"
+                        onClick={() => setSearchTerm("")}
+                        aria-label="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -1268,7 +1243,7 @@ export default function Reports() {
                   disabled={currentRecords.length === 0}
                 >
                   <ArrowDownToLine size={17} />
-                  Export CSV
+                  <span>Export CSV</span>
                 </button>
               </div>
 
@@ -1277,9 +1252,11 @@ export default function Reports() {
                   <FileText size={34} />
                   <h3>No records available</h3>
                   <p>
-                    {reportType === "invoices"
-                      ? "No invoice records found. The Invoicing module is currently under development on the backend."
-                      : "No quotation records were found for the selected date range."}
+                    {searchTerm
+                      ? `No ${reportType === "quotations" ? "quotation" : "invoice"} records found matching "${searchTerm}".`
+                      : reportType === "invoices"
+                        ? "No invoice records found. The Invoicing module is currently under development on the backend."
+                        : "No quotation records were found."}
                   </p>
                 </div>
               ) : (
@@ -1320,14 +1297,7 @@ export default function Reports() {
                           "customer_company"
                         );
 
-                        const date = readValue(
-                          record,
-                          isQuotation
-                            ? "quotation_date"
-                            : "invoice_date",
-                          "created_at",
-                          "createdAt"
-                        );
+                        const date = resolveRecordDate(record, isQuotation);
 
                         const amount = readValue(
                           record,
@@ -1356,7 +1326,7 @@ export default function Reports() {
                               {customerName ||
                                 (customerId ? `Customer #${customerId}` : "—")}
                             </td>
-                            <td>{formatDate(isQuotation ? resolveQuotationDate(record) : date)}</td>
+                            <td>{formatDate(date)}</td>
                             <td className="report-amount-cell">
                               {formatCurrency(amount)}
                             </td>

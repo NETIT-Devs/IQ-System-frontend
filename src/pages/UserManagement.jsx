@@ -33,6 +33,7 @@ import {
 } from "../services/userService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./UserManagement.css";
+import ThemeToggle from "../components/ThemeToggle";
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -349,6 +350,7 @@ export default function UserManagement() {
         </div>
 
         <div className="um-header-actions">
+          <ThemeToggle />
           <button
             type="button"
             className="um-add-btn"

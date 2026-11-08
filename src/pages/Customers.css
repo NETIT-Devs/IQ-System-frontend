@@ -1,4 +1,4 @@
-/* Customers Page Styles - Deep Navy Blue, Professional Blue & Pure White */
+/* Customers Page Styles  */
 
 .cust-page {
   width: 100%;
@@ -212,7 +212,7 @@
   box-shadow: 0 4px 12px rgba(11, 25, 50, 0.3);
 }
 
-/* 4 Summary Stat Cards matching Overview Dashboard Card Size */
+/* 4 Summary Stat Cards  */
 .cust-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -950,6 +950,7 @@
 
 /* Customers Mobile Responsive Adjustments */
 @media (max-width: 900px) {
+
   /* 4 Stat Cards in 2 rows matching Overview page mobile layout */
   .cust-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1165,7 +1166,7 @@
   font-size: 11.5px;
 }
 
-/* Customer Type Badge (Regular / New) */
+/* Customer Type Badge  */
 .cust-type-badge {
   display: inline-flex;
   align-items: center;
@@ -1641,12 +1642,12 @@
 
 
 /* Main Customer Table Header Bar - Deep Navy Blue with White Text */
-.cust-table-wrap > .cust-table > thead {
+.cust-table-wrap>.cust-table>thead {
   background: #0b1932;
   border-bottom: 1px solid #0b1932;
 }
 
-.cust-table-wrap > .cust-table > thead th {
+.cust-table-wrap>.cust-table>thead th {
   color: #ffffff;
   padding: 8px 16px;
   line-height: 1.2;
@@ -1658,7 +1659,7 @@
 }
 
 
-/* Modern Professional Custom Dropdowns for Customers Page */
+/*  Dropdowns for Customers Page */
 .cust-panel {
   overflow: visible;
 }
@@ -1739,6 +1740,7 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1822,6 +1824,7 @@
 }
 
 @media (max-width: 900px) {
+
   .cust-dropdown-wrap,
   .cust-dropdown-btn {
     width: 100%;

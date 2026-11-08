@@ -802,14 +802,14 @@
   border-bottom: 1px solid #edf1f6;
 }
 
-.approval-detail > span:first-child {
+.approval-detail>span:first-child {
   display: block;
   margin-bottom: 7px;
   color: #8190a4;
   font-size: 11px;
 }
 
-.approval-detail > strong {
+.approval-detail>strong {
   display: block;
   overflow-wrap: anywhere;
   color: #243e5e;
@@ -1066,9 +1066,9 @@
   }
 }
 
-/* ========================================================
-   MODERN APPROVAL TABS / SWITCHER (Full Width Bar - Compact Height)
-   ======================================================== */
+/* 
+   MODERN APPROVAL TABS / SWITCHER 
+    */
 .approval-tabs-wrapper {
   margin-bottom: 20px;
   width: 100%;
@@ -1228,10 +1228,12 @@
     transform: scale(0.9);
     opacity: 0.8;
   }
+
   50% {
     transform: scale(1.3);
     opacity: 1;
   }
+
   100% {
     transform: scale(0.9);
     opacity: 0.8;
@@ -1528,6 +1530,7 @@
     opacity: 0;
     transform: scale(0.96) translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1870,6 +1873,7 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -1979,6 +1983,7 @@
 }
 
 @media (max-width: 768px) {
+
   .approval-filter-group,
   .approval-dropdown-wrap,
   .approval-dropdown-btn {
@@ -1993,7 +1998,7 @@
 }
 
 
-/* Approvals Table Header Bar - Deep Navy Blue with White Text */
+/* Approvals Table Header Bar  */
 .approval-table thead {
   background: #0b1932;
 }

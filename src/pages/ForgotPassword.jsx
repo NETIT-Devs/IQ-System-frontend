@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Mail, ArrowLeft, ShieldCheck, Send } from "lucide-react";
 import { requestPasswordReset } from "../services/authService";
 import "./ForgotPassword.css";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function ForgotPassword() {
     const [email, setEmail] = useState("");
@@ -44,6 +45,9 @@ export default function ForgotPassword() {
 
     return (
         <main className="forgot-page">
+            <div style={{ position: "fixed", top: "20px", right: "24px", zIndex: 100 }}>
+                <ThemeToggle />
+            </div>
             <section className="forgot-card">
                 <div className="forgot-brand">
                     <div className="forgot-brand-icon">

@@ -43,6 +43,7 @@ import {
   deleteCatalogService,
 } from "../services/quotationService";
 import "./CompanySettings.css";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function CompanySettings() {
   const { openSidebar } = useOutletContext?.() || {};
@@ -480,6 +481,7 @@ export default function CompanySettings() {
         </div>
 
         <div className="cs-header-actions">
+          <ThemeToggle />
           <button
             type="button"
             className="cs-refresh-btn"

@@ -17,7 +17,7 @@ const navigation = [
   { label: "Overview", icon: LayoutDashboard, path: "/admin-dashboard", isBuilt: true },
   { label: "Customers", icon: UserRound, path: "/admin/customers", isBuilt: true },
   { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
-  { label: "Invoices", icon: Receipt, path: "/admin/invoices", isBuilt: false },
+  { label: "Invoices", icon: Receipt, path: "/admin/invoices", isBuilt: true },
   { label: "Payments", icon: CreditCard, path: "/admin/payments", isBuilt: false },
   { label: "Reports & Analytics", icon: BarChart3, path: "/reports", isBuilt: true },
 ];

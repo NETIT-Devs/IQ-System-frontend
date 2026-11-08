@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import AdminLayout from "./layouts/AdminLayout";
@@ -11,6 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminDashboard from "./pages/AdminDashboard";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import Quotations from "./pages/Quotations";
+import Invoices from "./pages/Invoices";
 import Reports from "./pages/Reports";
 import Approvals from "./pages/Approvals";
 import AuditLogs from "./pages/AuditLogs";
@@ -101,6 +101,9 @@ export default function App() {
             <Route path="/admin/customers" element={<Customers />} />
             <Route path="/super-admin/customers" element={<Customers />} />
             <Route path="/quotations" element={<Quotations />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/admin/invoices" element={<Invoices />} />
+            <Route path="/super-admin/invoices" element={<Invoices />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/admin/reports" element={<Reports />} />
             <Route path="/super-admin/reports" element={<Reports />} />

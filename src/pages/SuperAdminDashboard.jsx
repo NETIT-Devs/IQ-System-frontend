@@ -22,6 +22,7 @@ import {
   Clock,
 } from "lucide-react";
 import NotificationBell from "../components/NotificationBell";
+import ThemeToggle from "../components/ThemeToggle";
 import { getQuotations, getCustomers } from "../services/quotationService";
 import "./SuperAdminDashboard.css";
 
@@ -391,7 +392,7 @@ export default function SuperAdminDashboard() {
     (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
   ).length;
 
-  
+
   const quotationDistribution = useMemo(() => {
     const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
     const list = Array.isArray(quotations) ? quotations : [];
@@ -609,6 +610,7 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* Notification icon */}
+          <ThemeToggle />
           <NotificationBell />
 
           {/* Date badge */}
@@ -673,380 +675,380 @@ export default function SuperAdminDashboard() {
             <ChevronRight size={14} />
           </button>
         </div>
-          {/* Summary cards */}
-          <section className="sa-stats-grid" aria-label="Business summary">
-            {dynamicStats.map((item) => (
-              <StatCard key={item.title} item={item} />
-            ))}
-          </section>
+        {/* Summary cards */}
+        <section className="sa-stats-grid" aria-label="Business summary">
+          {dynamicStats.map((item) => (
+            <StatCard key={item.title} item={item} />
+          ))}
+        </section>
 
-          {/* Financial and invoice charts */}
-          <section className="sa-charts-grid">
-            <FinancialChart />
-            <InvoiceStatusChart />
-          </section>
+        {/* Financial and invoice charts */}
+        <section className="sa-charts-grid">
+          <FinancialChart />
+          <InvoiceStatusChart />
+        </section>
 
-          {/* Approval queue and quick access */}
-          <section className="sa-lower-grid">
-            <div className="sa-panel sa-approval-panel">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Approval Queue</h2>
-                  <p>Invoices and quotations awaiting your review</p>
+        {/* Approval queue and quick access */}
+        <section className="sa-lower-grid">
+          <div className="sa-panel sa-approval-panel">
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Approval Queue</h2>
+                <p>Invoices and quotations awaiting your review</p>
+              </div>
+
+              <span className="sa-neutral-badge">
+                {pendingApprovalsCount} Pending
+              </span>
+            </div>
+
+            <div className="sa-approval-items">
+              <div className="sa-approval-item">
+                <div className="sa-panel-icon blue">
+                  <Receipt size={20} />
                 </div>
+                <div className="sa-approval-item-text">
+                  <strong>Invoices</strong>
+                  <span>Waiting for approval</span>
+                </div>
+                <strong className="sa-approval-count">0</strong>
+              </div>
 
-                <span className="sa-neutral-badge">
-                  {pendingApprovalsCount} Pending
+              <div className="sa-approval-item">
+                <div className="sa-panel-icon purple">
+                  <FileText size={20} />
+                </div>
+                <div className="sa-approval-item-text">
+                  <strong>Quotations</strong>
+                  <span>Waiting for approval</span>
+                </div>
+                <strong className="sa-approval-count">
+                  {pendingApprovalsCount}
+                </strong>
+              </div>
+            </div>
+
+            {pendingApprovalsCount > 0 ? (
+              <div
+                className="sa-approval-message"
+                style={{ color: "#b45309", background: "#fef3c7" }}
+              >
+                <Clock size={17} />
+                <span>
+                  {pendingApprovalsCount} quotation(s) waiting for your review.
                 </span>
               </div>
-
-              <div className="sa-approval-items">
-                <div className="sa-approval-item">
-                  <div className="sa-panel-icon blue">
-                    <Receipt size={20} />
-                  </div>
-                  <div className="sa-approval-item-text">
-                    <strong>Invoices</strong>
-                    <span>Waiting for approval</span>
-                  </div>
-                  <strong className="sa-approval-count">0</strong>
-                </div>
-
-                <div className="sa-approval-item">
-                  <div className="sa-panel-icon purple">
-                    <FileText size={20} />
-                  </div>
-                  <div className="sa-approval-item-text">
-                    <strong>Quotations</strong>
-                    <span>Waiting for approval</span>
-                  </div>
-                  <strong className="sa-approval-count">
-                    {pendingApprovalsCount}
-                  </strong>
-                </div>
+            ) : (
+              <div className="sa-approval-message">
+                <CheckCircle2 size={17} />
+                <span>No pending approvals to display.</span>
               </div>
+            )}
 
-              {pendingApprovalsCount > 0 ? (
-                <div
-                  className="sa-approval-message"
-                  style={{ color: "#b45309", background: "#fef3c7" }}
-                >
-                  <Clock size={17} />
-                  <span>
-                    {pendingApprovalsCount} quotation(s) waiting for your review.
-                  </span>
-                </div>
-              ) : (
-                <div className="sa-approval-message">
-                  <CheckCircle2 size={17} />
-                  <span>No pending approvals to display.</span>
-                </div>
-              )}
+            <button
+              type="button"
+              className="sa-secondary-button sa-full-button"
+              onClick={() => navigate("/super-admin/approvals")}
+              title="View Approval Queue"
+            >
+              View Approval Queue
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+          <div className="sa-panel">
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Quick Access</h2>
+                <p>Frequently used administration pages</p>
+              </div>
+            </div>
+
+            <div className="sa-quick-links">
+              {filteredQuickLinks.map((item) => {
+                const Icon = item.icon;
+                const isBuilt = BUILT_PATHS.has(item.path);
+
+                return (
+                  <button
+                    type="button"
+                    key={item.path}
+                    className="sa-quick-link"
+                    onClick={() => navigateTo(item.path)}
+                    style={!isBuilt ? { cursor: "default", opacity: 0.65 } : {}}
+                    title={!isBuilt ? "Not available yet" : undefined}
+                  >
+                    <span className="sa-quick-icon">
+                      <Icon size={19} />
+                    </span>
+
+                    <span className="sa-quick-text">
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
+                    </span>
+
+                    <ChevronRight size={17} className="sa-quick-arrow" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Recent invoice and system activity sections */}
+        <section className="sa-recent-grid">
+          <div className="sa-panel">
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Recent Invoices</h2>
+                <p>Latest invoice records</p>
+              </div>
 
               <button
                 type="button"
-                className="sa-secondary-button sa-full-button"
-                onClick={() => navigate("/super-admin/approvals")}
-                title="View Approval Queue"
+                className="sa-text-button"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                style={{ cursor: "default", opacity: 0.7 }}
+                title="Not available yet"
               >
-                View Approval Queue
-                <ChevronRight size={16} />
+                View All <ChevronRight size={15} />
               </button>
             </div>
 
-            <div className="sa-panel">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Quick Access</h2>
-                  <p>Frequently used administration pages</p>
-                </div>
-              </div>
-
-              <div className="sa-quick-links">
-                {filteredQuickLinks.map((item) => {
-                  const Icon = item.icon;
-                  const isBuilt = BUILT_PATHS.has(item.path);
-
-                  return (
-                    <button
-                      type="button"
-                      key={item.path}
-                      className="sa-quick-link"
-                      onClick={() => navigateTo(item.path)}
-                      style={!isBuilt ? { cursor: "default", opacity: 0.65 } : {}}
-                      title={!isBuilt ? "Not available yet" : undefined}
-                    >
-                      <span className="sa-quick-icon">
-                        <Icon size={19} />
-                      </span>
-
-                      <span className="sa-quick-text">
-                        <strong>{item.label}</strong>
-                        <small>{item.description}</small>
-                      </span>
-
-                      <ChevronRight size={17} className="sa-quick-arrow" />
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="sa-table-wrapper">
+              <table className="sa-table">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colSpan={4} className="sa-empty-table-cell">
+                      <EmptyState
+                        icon={FileCheck}
+                        title="No invoices available"
+                        description="Invoice records will appear here when available."
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-          </section>
+          </div>
 
-          {/* Recent invoice and system activity sections */}
-          <section className="sa-recent-grid">
-            <div className="sa-panel">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Recent Invoices</h2>
-                  <p>Latest invoice records</p>
-                </div>
-
-                <button
-                  type="button"
-                  className="sa-text-button"
-                  onClick={() => navigateTo("/super-admin/invoices")}
-                  style={{ cursor: "default", opacity: 0.7 }}
-                  title="Not available yet"
-                >
-                  View All <ChevronRight size={15} />
-                </button>
+          <div className="sa-panel sa-quotation-performance-panel">
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Quotation Performance</h2>
+                <p>Quotation status distribution</p>
               </div>
 
-              <div className="sa-table-wrapper">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Invoice</th>
-                      <th>Customer</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td colSpan={4} className="sa-empty-table-cell">
-                        <EmptyState
-                          icon={FileCheck}
-                          title="No invoices available"
-                          description="Invoice records will appear here when available."
+              <button
+                type="button"
+                className="sa-text-button"
+                onClick={() => navigateTo("/quotations")}
+                title="View Quotations"
+              >
+                View Quotations <ChevronRight size={15} />
+              </button>
+            </div>
+
+            <div className="sa-qp-content">
+              {/* Segmented Distribution Bar */}
+              <div className="sa-qp-bar-container">
+                <div className="sa-qp-bar-header">
+                  <span className="sa-qp-bar-title">Overall Distribution</span>
+                  <span className="sa-qp-bar-total">
+                    Total: <strong>{quotationDistribution.total}</strong>
+                  </span>
+                </div>
+                <div className="sa-qp-progress-bar">
+                  {quotationDistribution.total === 0 ? (
+                    <div className="sa-qp-segment empty" style={{ width: "100%" }} />
+                  ) : (
+                    <>
+                      {quotationDistribution.approved.pct > 0 && (
+                        <div
+                          className="sa-qp-segment approved"
+                          style={{ width: `${quotationDistribution.approved.pct}%` }}
+                          title={`Approved: ${quotationDistribution.approved.count} (${quotationDistribution.approved.pct}%)`}
                         />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div className="sa-panel sa-quotation-performance-panel">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Quotation Performance</h2>
-                  <p>Quotation status distribution</p>
+                      )}
+                      {quotationDistribution.pending.pct > 0 && (
+                        <div
+                          className="sa-qp-segment pending"
+                          style={{ width: `${quotationDistribution.pending.pct}%` }}
+                          title={`Pending: ${quotationDistribution.pending.count} (${quotationDistribution.pending.pct}%)`}
+                        />
+                      )}
+                      {quotationDistribution.draft.pct > 0 && (
+                        <div
+                          className="sa-qp-segment draft"
+                          style={{ width: `${quotationDistribution.draft.pct}%` }}
+                          title={`Draft: ${quotationDistribution.draft.count} (${quotationDistribution.draft.pct}%)`}
+                        />
+                      )}
+                      {quotationDistribution.rejected.pct > 0 && (
+                        <div
+                          className="sa-qp-segment rejected"
+                          style={{ width: `${quotationDistribution.rejected.pct}%` }}
+                          title={`Rejected: ${quotationDistribution.rejected.count} (${quotationDistribution.rejected.pct}%)`}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
-
-                <button
-                  type="button"
-                  className="sa-text-button"
-                  onClick={() => navigateTo("/quotations")}
-                  title="View Quotations"
-                >
-                  View Quotations <ChevronRight size={15} />
-                </button>
               </div>
 
-              <div className="sa-qp-content">
-                {/* Segmented Distribution Bar */}
-                <div className="sa-qp-bar-container">
-                  <div className="sa-qp-bar-header">
-                    <span className="sa-qp-bar-title">Overall Distribution</span>
-                    <span className="sa-qp-bar-total">
-                      Total: <strong>{quotationDistribution.total}</strong>
-                    </span>
+              {/* Status Grid Cards */}
+              <div className="sa-qp-grid">
+                <div className="sa-qp-card draft">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot draft" />
+                    <span className="sa-qp-label">Draft</span>
+                    <span className="sa-qp-pct">{quotationDistribution.draft.pct}%</span>
                   </div>
-                  <div className="sa-qp-progress-bar">
-                    {quotationDistribution.total === 0 ? (
-                      <div className="sa-qp-segment empty" style={{ width: "100%" }} />
-                    ) : (
-                      <>
-                        {quotationDistribution.approved.pct > 0 && (
-                          <div
-                            className="sa-qp-segment approved"
-                            style={{ width: `${quotationDistribution.approved.pct}%` }}
-                            title={`Approved: ${quotationDistribution.approved.count} (${quotationDistribution.approved.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.pending.pct > 0 && (
-                          <div
-                            className="sa-qp-segment pending"
-                            style={{ width: `${quotationDistribution.pending.pct}%` }}
-                            title={`Pending: ${quotationDistribution.pending.count} (${quotationDistribution.pending.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.draft.pct > 0 && (
-                          <div
-                            className="sa-qp-segment draft"
-                            style={{ width: `${quotationDistribution.draft.pct}%` }}
-                            title={`Draft: ${quotationDistribution.draft.count} (${quotationDistribution.draft.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.rejected.pct > 0 && (
-                          <div
-                            className="sa-qp-segment rejected"
-                            style={{ width: `${quotationDistribution.rejected.pct}%` }}
-                            title={`Rejected: ${quotationDistribution.rejected.count} (${quotationDistribution.rejected.pct}%)`}
-                          />
-                        )}
-                      </>
-                    )}
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.draft.count}</h3>
+                    <p>Not yet submitted</p>
                   </div>
                 </div>
 
-                {/* Status Grid Cards */}
-                <div className="sa-qp-grid">
-                  <div className="sa-qp-card draft">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot draft" />
-                      <span className="sa-qp-label">Draft</span>
-                      <span className="sa-qp-pct">{quotationDistribution.draft.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.draft.count}</h3>
-                      <p>Not yet submitted</p>
-                    </div>
+                <div className="sa-qp-card pending">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot pending" />
+                    <span className="sa-qp-label">Pending</span>
+                    <span className="sa-qp-pct">{quotationDistribution.pending.pct}%</span>
                   </div>
-
-                  <div className="sa-qp-card pending">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot pending" />
-                      <span className="sa-qp-label">Pending</span>
-                      <span className="sa-qp-pct">{quotationDistribution.pending.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.pending.count}</h3>
-                      <p>Awaiting review</p>
-                    </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.pending.count}</h3>
+                    <p>Awaiting review</p>
                   </div>
+                </div>
 
-                  <div className="sa-qp-card approved">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot approved" />
-                      <span className="sa-qp-label">Approved</span>
-                      <span className="sa-qp-pct">{quotationDistribution.approved.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.approved.count}</h3>
-                      <p>Ready / Accepted</p>
-                    </div>
+                <div className="sa-qp-card approved">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot approved" />
+                    <span className="sa-qp-label">Approved</span>
+                    <span className="sa-qp-pct">{quotationDistribution.approved.pct}%</span>
                   </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.approved.count}</h3>
+                    <p>Ready / Accepted</p>
+                  </div>
+                </div>
 
-                  <div className="sa-qp-card rejected">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot rejected" />
-                      <span className="sa-qp-label">Rejected</span>
-                      <span className="sa-qp-pct">{quotationDistribution.rejected.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.rejected.count}</h3>
-                      <p>Declined / Rework</p>
-                    </div>
+                <div className="sa-qp-card rejected">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot rejected" />
+                    <span className="sa-qp-label">Rejected</span>
+                    <span className="sa-qp-pct">{quotationDistribution.rejected.pct}%</span>
+                  </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.rejected.count}</h3>
+                    <p>Declined / Rework</p>
                   </div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Bottom Grid: Invoice Payment Summary & Reports Promo Card */}
-          <section className="sa-bottom-grid">
-            <div className="sa-panel sa-payment-summary">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Invoice Payment Summary</h2>
-                  <p>Current invoice payment status overview</p>
-                </div>
-
-                <button
-                  type="button"
-                  className="sa-text-button"
-                  onClick={() => navigateTo("/super-admin/payments")}
-                  style={{ cursor: "default", opacity: 0.7 }}
-                  title="Not available yet"
-                >
-                  View Payments <ChevronRight size={15} />
-                </button>
+        {/* Bottom Grid: Invoice Payment Summary & Reports Promo Card */}
+        <section className="sa-bottom-grid">
+          <div className="sa-panel sa-payment-summary">
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Invoice Payment Summary</h2>
+                <p>Current invoice payment status overview</p>
               </div>
 
-              <div className="sa-status-rows">
-                <div className="sa-status-row">
-                  <div className="sa-status-row-left">
-                    <span className="sa-status-dot paid" />
-                    <p>Paid</p>
-                  </div>
-                  <h3>0</h3>
-                </div>
-
-                <div className="sa-status-row">
-                  <div className="sa-status-row-left">
-                    <span className="sa-status-dot unpaid" />
-                    <p>Unpaid</p>
-                  </div>
-                  <h3>0</h3>
-                </div>
-
-                <div className="sa-status-row">
-                  <div className="sa-status-row-left">
-                    <span className="sa-status-dot partial" />
-                    <p>Partially Paid</p>
-                  </div>
-                  <h3>0</h3>
-                </div>
-
-                <div className="sa-status-row">
-                  <div className="sa-status-row-left">
-                    <span className="sa-status-dot overdue" />
-                    <p>Overdue</p>
-                  </div>
-                  <h3>0</h3>
-                </div>
-              </div>
+              <button
+                type="button"
+                className="sa-text-button"
+                onClick={() => navigateTo("/super-admin/payments")}
+                style={{ cursor: "default", opacity: 0.7 }}
+                title="Not available yet"
+              >
+                View Payments <ChevronRight size={15} />
+              </button>
             </div>
 
-            {/* Navy Blue Reports Feature Card */}
-            <div className="sa-promo-card">
-              <div className="sa-promo-left">
-                <div className="sa-promo-tag">
-                  <TrendingUp size={11} />
-                  <span>Financial Analytics</span>
+            <div className="sa-status-rows">
+              <div className="sa-status-row">
+                <div className="sa-status-row-left">
+                  <span className="sa-status-dot paid" />
+                  <p>Paid</p>
                 </div>
-                <h3 className="sa-promo-title">Better Process, Bigger Growth</h3>
-                <p className="sa-promo-desc">
-                  Manage your quotations, invoices and revenue all in one place.
-                </p>
-                <button
-                  type="button"
-                  className="sa-promo-action-btn"
-                  onClick={() => navigate("/reports")}
-                  title="View Reports"
-                >
-                  <span>View Reports</span>
-                  <ChevronRight size={14} />
-                </button>
+                <h3>0</h3>
               </div>
 
-              <div className="sa-promo-right">
-                <div className="sa-promo-icon-badge">
-                  <BarChart3 size={26} />
+              <div className="sa-status-row">
+                <div className="sa-status-row-left">
+                  <span className="sa-status-dot unpaid" />
+                  <p>Unpaid</p>
                 </div>
+                <h3>0</h3>
+              </div>
+
+              <div className="sa-status-row">
+                <div className="sa-status-row-left">
+                  <span className="sa-status-dot partial" />
+                  <p>Partially Paid</p>
+                </div>
+                <h3>0</h3>
+              </div>
+
+              <div className="sa-status-row">
+                <div className="sa-status-row-left">
+                  <span className="sa-status-dot overdue" />
+                  <p>Overdue</p>
+                </div>
+                <h3>0</h3>
               </div>
             </div>
-          </section>
+          </div>
 
-          {/* Dashboard footer */}
-          <footer className="sa-footer">
-            <span>Invoice &amp; Quotation Management System</span>
-            <span>Super Admin Workspace</span>
-          </footer>
-        </div>
+          {/* Navy Blue Reports Feature Card */}
+          <div className="sa-promo-card">
+            <div className="sa-promo-left">
+              <div className="sa-promo-tag">
+                <TrendingUp size={11} />
+                <span>Financial Analytics</span>
+              </div>
+              <h3 className="sa-promo-title">Better Process, Bigger Growth</h3>
+              <p className="sa-promo-desc">
+                Manage your quotations, invoices and revenue all in one place.
+              </p>
+              <button
+                type="button"
+                className="sa-promo-action-btn"
+                onClick={() => navigate("/reports")}
+                title="View Reports"
+              >
+                <span>View Reports</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+
+            <div className="sa-promo-right">
+              <div className="sa-promo-icon-badge">
+                <BarChart3 size={26} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Dashboard footer */}
+        <footer className="sa-footer">
+          <span>Invoice &amp; Quotation Management System</span>
+          <span>Super Admin Workspace</span>
+        </footer>
+      </div>
     </>
   );
 }

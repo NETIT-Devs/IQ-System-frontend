@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { getAuditLogs } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
+import ThemeToggle from "../components/ThemeToggle";
 import "./AuditLogs.css";
 
 function formatTimestamp(ts) {
@@ -233,6 +234,7 @@ export default function AuditLogs() {
         </div>
 
         <div className="audit-header-actions">
+          <ThemeToggle />
           <button
             type="button"
             className="audit-refresh-btn"
@@ -373,14 +375,14 @@ export default function AuditLogs() {
                     {categoryFilter === "quotations"
                       ? "Quotation Workflows"
                       : categoryFilter === "approvals"
-                      ? "Submissions & Approvals"
-                      : categoryFilter === "users"
-                      ? "Admin & User Management"
-                      : categoryFilter === "auth"
-                      ? "Sign-ins & Authentication"
-                      : categoryFilter === "customers"
-                      ? "Customer Records"
-                      : "All Categories"}
+                        ? "Submissions & Approvals"
+                        : categoryFilter === "users"
+                          ? "Admin & User Management"
+                          : categoryFilter === "auth"
+                            ? "Sign-ins & Authentication"
+                            : categoryFilter === "customers"
+                              ? "Customer Records"
+                              : "All Categories"}
                   </span>
                   <ChevronDown
                     size={14}
@@ -445,8 +447,8 @@ export default function AuditLogs() {
                     {roleFilter === "Super Admin"
                       ? "Super Admin"
                       : roleFilter === "Admin"
-                      ? "Admin"
-                      : "All Initiator Roles"}
+                        ? "Admin"
+                        : "All Initiator Roles"}
                   </span>
                   <ChevronDown
                     size={14}

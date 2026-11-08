@@ -1,5 +1,5 @@
-
 @import "tailwindcss";
+@import "./styles/theme.css";
 
 * {
   box-sizing: border-box;
@@ -45,4 +45,3 @@ img {
   max-width: 100%;
   height: auto;
 }
-

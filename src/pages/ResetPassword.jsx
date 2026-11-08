@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { resetPassword } from "../services/authService";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function ResetPassword() {
     const [searchParams] = useSearchParams();
@@ -72,6 +73,9 @@ export default function ResetPassword() {
 
     return (
         <main className="min-h-screen w-full bg-slate-100/80 flex items-center justify-center p-3 sm:p-5">
+            <div style={{ position: "fixed", top: "20px", right: "24px", zIndex: 100 }}>
+                <ThemeToggle />
+            </div>
             {/* Unified Centered Modern SaaS Card */}
             <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
                 

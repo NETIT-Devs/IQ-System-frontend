@@ -26,6 +26,7 @@ import {
 import QuotationForm from "./QuotationForm";
 import QuotationDetails from "./QuotationDetails";
 import NotificationBell from "../components/NotificationBell";
+import ThemeToggle from "../components/ThemeToggle";
 import {
   getQuotations,
   getQuotationById,
@@ -525,6 +526,7 @@ export default function Quotations() {
           </div>
 
           <div className="quotation-header-actions">
+            <ThemeToggle />
             <NotificationBell />
 
             <span className="quotation-date-badge" title="Today's Date">

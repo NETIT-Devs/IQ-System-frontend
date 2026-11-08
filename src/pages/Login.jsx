@@ -17,6 +17,7 @@ import {
 import { loginUser } from "../services/authService";
 import { useCompanyBranding } from "../hooks/useCompanyBranding";
 import "./login.css";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function Login() {
     const navigate = useNavigate();
@@ -93,6 +94,9 @@ export default function Login() {
 
     return (
         <main className="login-page">
+            <div style={{ position: "fixed", top: "20px", right: "24px", zIndex: 100 }}>
+                <ThemeToggle />
+            </div>
             <div className="login-layout">
                 {/* Left panel: Product branding and finance features. */}
                 <section className="login-intro">

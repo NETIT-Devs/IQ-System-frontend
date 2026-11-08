@@ -22,6 +22,7 @@ import {
   Clock,
 } from "lucide-react";
 import NotificationBell from "../components/NotificationBell";
+import ThemeToggle from "../components/ThemeToggle";
 import { getQuotations, getCustomers } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./AdminDashboard.css";
@@ -397,7 +398,7 @@ export default function AdminDashboard() {
     (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
   ).length;
 
-  
+
   const quotationDistribution = useMemo(() => {
     const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
     const list = Array.isArray(quotations) ? quotations : [];
@@ -482,7 +483,7 @@ export default function AdminDashboard() {
 
   return (
     <>
-      {/* Top bar with reduced height */}
+      {/* Top bar with  */}
       <header className="sa-topbar">
         <div className="sa-topbar-left">
           <button
@@ -615,6 +616,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Notification icon */}
+          <ThemeToggle />
           <NotificationBell />
 
           {/* Date badge */}
@@ -814,124 +816,124 @@ export default function AdminDashboard() {
           </div>
 
           <div className="sa-panel sa-quotation-performance-panel">
-              <div className="sa-panel-heading">
-                <div>
-                  <h2>Quotation Performance</h2>
-                  <p>Quotation status distribution</p>
-                </div>
-
-                <button
-                  type="button"
-                  className="sa-text-button"
-                  onClick={() => navigateTo("/quotations")}
-                  title="View Quotations"
-                >
-                  View Quotations <ChevronRight size={15} />
-                </button>
+            <div className="sa-panel-heading">
+              <div>
+                <h2>Quotation Performance</h2>
+                <p>Quotation status distribution</p>
               </div>
 
-              <div className="sa-qp-content">
-                {/* Segmented Distribution Bar */}
-                <div className="sa-qp-bar-container">
-                  <div className="sa-qp-bar-header">
-                    <span className="sa-qp-bar-title">Overall Distribution</span>
-                    <span className="sa-qp-bar-total">
-                      Total: <strong>{quotationDistribution.total}</strong>
-                    </span>
+              <button
+                type="button"
+                className="sa-text-button"
+                onClick={() => navigateTo("/quotations")}
+                title="View Quotations"
+              >
+                View Quotations <ChevronRight size={15} />
+              </button>
+            </div>
+
+            <div className="sa-qp-content">
+              {/* Segmented Distribution Bar */}
+              <div className="sa-qp-bar-container">
+                <div className="sa-qp-bar-header">
+                  <span className="sa-qp-bar-title">Overall Distribution</span>
+                  <span className="sa-qp-bar-total">
+                    Total: <strong>{quotationDistribution.total}</strong>
+                  </span>
+                </div>
+                <div className="sa-qp-progress-bar">
+                  {quotationDistribution.total === 0 ? (
+                    <div className="sa-qp-segment empty" style={{ width: "100%" }} />
+                  ) : (
+                    <>
+                      {quotationDistribution.approved.pct > 0 && (
+                        <div
+                          className="sa-qp-segment approved"
+                          style={{ width: `${quotationDistribution.approved.pct}%` }}
+                          title={`Approved: ${quotationDistribution.approved.count} (${quotationDistribution.approved.pct}%)`}
+                        />
+                      )}
+                      {quotationDistribution.pending.pct > 0 && (
+                        <div
+                          className="sa-qp-segment pending"
+                          style={{ width: `${quotationDistribution.pending.pct}%` }}
+                          title={`Pending: ${quotationDistribution.pending.count} (${quotationDistribution.pending.pct}%)`}
+                        />
+                      )}
+                      {quotationDistribution.draft.pct > 0 && (
+                        <div
+                          className="sa-qp-segment draft"
+                          style={{ width: `${quotationDistribution.draft.pct}%` }}
+                          title={`Draft: ${quotationDistribution.draft.count} (${quotationDistribution.draft.pct}%)`}
+                        />
+                      )}
+                      {quotationDistribution.rejected.pct > 0 && (
+                        <div
+                          className="sa-qp-segment rejected"
+                          style={{ width: `${quotationDistribution.rejected.pct}%` }}
+                          title={`Rejected: ${quotationDistribution.rejected.count} (${quotationDistribution.rejected.pct}%)`}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Grid Cards */}
+              <div className="sa-qp-grid">
+                <div className="sa-qp-card draft">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot draft" />
+                    <span className="sa-qp-label">Draft</span>
+                    <span className="sa-qp-pct">{quotationDistribution.draft.pct}%</span>
                   </div>
-                  <div className="sa-qp-progress-bar">
-                    {quotationDistribution.total === 0 ? (
-                      <div className="sa-qp-segment empty" style={{ width: "100%" }} />
-                    ) : (
-                      <>
-                        {quotationDistribution.approved.pct > 0 && (
-                          <div
-                            className="sa-qp-segment approved"
-                            style={{ width: `${quotationDistribution.approved.pct}%` }}
-                            title={`Approved: ${quotationDistribution.approved.count} (${quotationDistribution.approved.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.pending.pct > 0 && (
-                          <div
-                            className="sa-qp-segment pending"
-                            style={{ width: `${quotationDistribution.pending.pct}%` }}
-                            title={`Pending: ${quotationDistribution.pending.count} (${quotationDistribution.pending.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.draft.pct > 0 && (
-                          <div
-                            className="sa-qp-segment draft"
-                            style={{ width: `${quotationDistribution.draft.pct}%` }}
-                            title={`Draft: ${quotationDistribution.draft.count} (${quotationDistribution.draft.pct}%)`}
-                          />
-                        )}
-                        {quotationDistribution.rejected.pct > 0 && (
-                          <div
-                            className="sa-qp-segment rejected"
-                            style={{ width: `${quotationDistribution.rejected.pct}%` }}
-                            title={`Rejected: ${quotationDistribution.rejected.count} (${quotationDistribution.rejected.pct}%)`}
-                          />
-                        )}
-                      </>
-                    )}
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.draft.count}</h3>
+                    <p>Not yet submitted</p>
                   </div>
                 </div>
 
-                {/* Status Grid Cards */}
-                <div className="sa-qp-grid">
-                  <div className="sa-qp-card draft">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot draft" />
-                      <span className="sa-qp-label">Draft</span>
-                      <span className="sa-qp-pct">{quotationDistribution.draft.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.draft.count}</h3>
-                      <p>Not yet submitted</p>
-                    </div>
+                <div className="sa-qp-card pending">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot pending" />
+                    <span className="sa-qp-label">Pending</span>
+                    <span className="sa-qp-pct">{quotationDistribution.pending.pct}%</span>
                   </div>
-
-                  <div className="sa-qp-card pending">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot pending" />
-                      <span className="sa-qp-label">Pending</span>
-                      <span className="sa-qp-pct">{quotationDistribution.pending.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.pending.count}</h3>
-                      <p>Awaiting review</p>
-                    </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.pending.count}</h3>
+                    <p>Awaiting review</p>
                   </div>
+                </div>
 
-                  <div className="sa-qp-card approved">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot approved" />
-                      <span className="sa-qp-label">Approved</span>
-                      <span className="sa-qp-pct">{quotationDistribution.approved.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.approved.count}</h3>
-                      <p>Ready / Accepted</p>
-                    </div>
+                <div className="sa-qp-card approved">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot approved" />
+                    <span className="sa-qp-label">Approved</span>
+                    <span className="sa-qp-pct">{quotationDistribution.approved.pct}%</span>
                   </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.approved.count}</h3>
+                    <p>Ready / Accepted</p>
+                  </div>
+                </div>
 
-                  <div className="sa-qp-card rejected">
-                    <div className="sa-qp-card-header">
-                      <span className="sa-qp-dot rejected" />
-                      <span className="sa-qp-label">Rejected</span>
-                      <span className="sa-qp-pct">{quotationDistribution.rejected.pct}%</span>
-                    </div>
-                    <div className="sa-qp-card-body">
-                      <h3>{quotationDistribution.rejected.count}</h3>
-                      <p>Declined / Rework</p>
-                    </div>
+                <div className="sa-qp-card rejected">
+                  <div className="sa-qp-card-header">
+                    <span className="sa-qp-dot rejected" />
+                    <span className="sa-qp-label">Rejected</span>
+                    <span className="sa-qp-pct">{quotationDistribution.rejected.pct}%</span>
+                  </div>
+                  <div className="sa-qp-card-body">
+                    <h3>{quotationDistribution.rejected.count}</h3>
+                    <p>Declined / Rework</p>
                   </div>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Bottom Grid: Invoice Payment Summary & Reports Promo Card */}
+        {/* Bottom Grid: Invoice Payment Summary & Reports Promo Card */}
         <section className="sa-bottom-grid">
           <div className="sa-panel sa-payment-summary">
             <div className="sa-panel-heading">

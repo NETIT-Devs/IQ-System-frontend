@@ -19,6 +19,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import API_BASE_URL from "../services/api";
+import ThemeToggle from "../components/ThemeToggle";
 import {
   getQuotations,
   getQuotationById,
@@ -26,6 +27,7 @@ import {
   getCustomers,
   approveQuotation,
   rejectQuotation,
+  getNotifications,
 } from "../services/quotationService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import { openQuotationPdf } from "../utils/pdfGenerator";
@@ -200,8 +202,59 @@ export default function Approvals() {
     setError("");
 
     try {
-      const records = await getQuotations();
-      setAllQuotations(Array.isArray(records) ? records : []);
+      const [records, notifications] = await Promise.all([
+        getQuotations(),
+        getNotifications().catch(() => []),
+      ]);
+
+      const storedReasons = (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem("iq_quotation_rejection_reasons") || "{}"
+          );
+        } catch {
+          return {};
+        }
+      })();
+
+      // Extract rejection reasons from notifications as well
+      const notifReasonMap = {};
+      if (Array.isArray(notifications)) {
+        notifications.forEach((n) => {
+          const refType = String(
+            n.reference_type || n.referenceType || ""
+          ).toLowerCase();
+          const refId = n.reference_id || n.referenceId;
+          if (refType === "quotation" && refId) {
+            const msg = String(n.message || "");
+            const match = msg.match(/:\s*"([^"]+)"/);
+            if (match && match[1]) {
+              notifReasonMap[refId] = match[1];
+            }
+          }
+        });
+      }
+
+      const mergedQuotations = (Array.isArray(records) ? records : []).map(
+        (q) => {
+          const qId = q.quotation_id;
+          const qNum = q.quotation_number;
+          const existingReason = q.rejection_reason;
+          const localReason =
+            storedReasons[qId] || (qNum ? storedReasons[qNum] : null);
+          const notifReason = notifReasonMap[qId];
+
+          const finalReason =
+            existingReason || localReason || notifReason || null;
+
+          return {
+            ...q,
+            rejection_reason: finalReason,
+          };
+        }
+      );
+
+      setAllQuotations(mergedQuotations);
 
       // Fetch invoices for Invoice Approvals tab (gracefully fallback to [] until Invoice module is built)
       try {
@@ -652,10 +705,29 @@ export default function Approvals() {
     try {
       setActionLoading(true);
       setRejectionError("");
+      const cleanReason = rejectionReason.trim();
       const res = await rejectQuotation(
         quotation.quotation_id,
-        rejectionReason.trim()
+        cleanReason
       );
+
+      // Persist in localStorage so it instantly reflects in both Super Admin and Admin views
+      try {
+        const storedReasons = JSON.parse(
+          localStorage.getItem("iq_quotation_rejection_reasons") || "{}"
+        );
+        storedReasons[quotation.quotation_id] = cleanReason;
+        if (quotation.quotation_number) {
+          storedReasons[quotation.quotation_number] = cleanReason;
+        }
+        localStorage.setItem(
+          "iq_quotation_rejection_reasons",
+          JSON.stringify(storedReasons)
+        );
+      } catch {
+        // ignore storage errors
+      }
+
       setRejectingQuotation(null);
       setFeedback(
         res?.message || `Quotation ${qNum} has been rejected.`
@@ -692,16 +764,19 @@ export default function Approvals() {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="approval-btn-action approval-btn-refresh"
-          onClick={loadData}
-          disabled={loading}
-          title="Refresh approvals queue"
-        >
-          <RefreshCw size={14} className={loading ? "spin" : ""} />
-          <span>Refresh Queue</span>
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <ThemeToggle />
+          <button
+            type="button"
+            className="approval-btn-action approval-btn-refresh"
+            onClick={loadData}
+            disabled={loading}
+            title="Refresh approvals queue"
+          >
+            <RefreshCw size={14} className={loading ? "spin" : ""} />
+            <span>Refresh Queue</span>
+          </button>
+        </div>
       </div>
 
       {/* Feedback banner */}
@@ -867,10 +942,10 @@ export default function Approvals() {
                       {statusFilter === "approved"
                         ? `Approved Quotations (${stats.approved})`
                         : statusFilter === "rejected"
-                        ? `Rejected Quotations (${stats.rejected})`
-                        : statusFilter === "all"
-                        ? `Total Requests (${stats.pending + stats.approved + stats.rejected})`
-                        : `Pending Approvals (${stats.pending})`}
+                          ? `Rejected Quotations (${stats.rejected})`
+                          : statusFilter === "all"
+                            ? `Total Requests (${stats.pending + stats.approved + stats.rejected})`
+                            : `Pending Approvals (${stats.pending})`}
                     </span>
                     <ChevronDown
                       size={14}
@@ -992,8 +1067,8 @@ export default function Approvals() {
                         (q.created_by === 2
                           ? "Super Admin"
                           : q.created_by === 1
-                          ? "Admin"
-                          : q.created_by_name || `User #${q.created_by || "—"}`);
+                            ? "Admin"
+                            : q.created_by_name || `User #${q.created_by || "—"}`);
                       const recordDate = formatDate(
                         q.updated_at || q.created_at || q.quotation_date
                       );
@@ -1221,10 +1296,10 @@ export default function Approvals() {
                       {invoiceStatusFilter === "approved"
                         ? `Approved Invoices (${invoiceStats.approved})`
                         : invoiceStatusFilter === "rejected"
-                        ? `Rejected Invoices (${invoiceStats.rejected})`
-                        : invoiceStatusFilter === "all"
-                        ? `Total Requests (${invoiceStats.pending + invoiceStats.approved + invoiceStats.rejected})`
-                        : `Pending Approvals (${invoiceStats.pending})`}
+                          ? `Rejected Invoices (${invoiceStats.rejected})`
+                          : invoiceStatusFilter === "all"
+                            ? `Total Requests (${invoiceStats.pending + invoiceStats.approved + invoiceStats.rejected})`
+                            : `Pending Approvals (${invoiceStats.pending})`}
                     </span>
                     <ChevronDown
                       size={14}
@@ -1347,8 +1422,8 @@ export default function Approvals() {
                         (inv.created_by === 2
                           ? "Super Admin"
                           : inv.created_by === 1
-                          ? "Admin"
-                          : inv.created_by_name || `User #${inv.created_by || "—"}`);
+                            ? "Admin"
+                            : inv.created_by_name || `User #${inv.created_by || "—"}`);
                       const recordDate = formatDate(
                         inv.updated_at || inv.created_at || inv.invoice_date
                       );

@@ -22,7 +22,7 @@ const mainNavigation = [
   { label: "Overview", icon: LayoutDashboard, path: "/super-admin-dashboard", isBuilt: true },
   { label: "Customers", icon: UserRound, path: "/super-admin/customers", isBuilt: true },
   { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
-  { label: "Invoices", icon: Receipt, path: "/super-admin/invoices", isBuilt: false },
+  { label: "Invoices", icon: Receipt, path: "/super-admin/invoices", isBuilt: true },
   { label: "Payments", icon: CreditCard, path: "/super-admin/payments", isBuilt: false },
   {
     label: "Reports & Analytics",

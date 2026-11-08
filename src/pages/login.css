@@ -335,6 +335,41 @@
     filter: none;
 }
 
+/* Dark mode: Prevent white autofill / white background on email and password inputs */
+[data-theme="dark"] .login-page .input-wrapper {
+    background: #141f36 !important;
+    border-color: #253655 !important;
+}
+
+[data-theme="dark"] .login-page .input-wrapper:focus-within {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+    background: #141f36 !important;
+}
+
+[data-theme="dark"] .login-page .input-wrapper input {
+    background: transparent !important;
+    color: #ffffff !important;
+    caret-color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-page .input-wrapper input:focus {
+    background: transparent !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-page .input-wrapper input:-webkit-autofill,
+[data-theme="dark"] .login-page .input-wrapper input:-webkit-autofill:hover,
+[data-theme="dark"] .login-page .input-wrapper input:-webkit-autofill:focus,
+[data-theme="dark"] .login-page .input-wrapper input:-webkit-autofill:active,
+[data-theme="dark"] .login-page .input-wrapper input:autofill {
+    -webkit-box-shadow: 0 0 0 1000px #141f36 inset !important;
+    box-shadow: 0 0 0 1000px #141f36 inset !important;
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #ffffff !important;
+    transition: background-color 5000s ease-in-out 0s, box-shadow 5000s ease-in-out 0s !important;
+}
+
 /* Align the password visibility control. */
 .password-toggle {
     display: grid;
@@ -791,4 +826,24 @@
     .login-bottom-label {
         margin-top: 15px;
     }
+}
+
+
+/* Dark mode: Access notice & Contact Super Admin text visibility */
+[data-theme="dark"] .login-page .access-notice {
+    background: #141f36 !important;
+    border: 1px solid #253655 !important;
+}
+
+[data-theme="dark"] .login-page .notice-icon {
+    background: #1e2c4a !important;
+    color: #60a5fa !important;
+}
+
+[data-theme="dark"] .login-page .notice-content p {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .login-page .notice-content span {
+    color: #cbd5e1 !important;
 }

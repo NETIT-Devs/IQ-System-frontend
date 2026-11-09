@@ -521,7 +521,10 @@ export default function Quotations() {
             )}
 
             <div className="quotation-breadcrumb-wrap">
-              <span className="quotation-breadcrumb">Dashboard / Quotations</span>
+              <span className="quotation-breadcrumb">
+                <span className="quotation-breadcrumb-full">Dashboard / Quotations</span>
+                <span className="quotation-breadcrumb-short">Quotations</span>
+              </span>
             </div>
           </div>
 
@@ -530,12 +533,20 @@ export default function Quotations() {
             <NotificationBell />
 
             <span className="quotation-date-badge" title="Today's Date">
-              {new Intl.DateTimeFormat("en-US", {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }).format(new Date())}
+              <span className="quotation-date-full">
+                {new Intl.DateTimeFormat("en-US", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                }).format(new Date())}
+              </span>
+              <span className="quotation-date-short">
+                {new Intl.DateTimeFormat("en-US", {
+                  month: "short",
+                  day: "numeric",
+                }).format(new Date())}
+              </span>
             </span>
 
             <div className="quotation-header-profile" title={userRoleTitle}>

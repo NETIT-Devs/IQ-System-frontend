@@ -252,6 +252,14 @@
   white-space: nowrap;
 }
 
+.quotation-breadcrumb-full {
+  display: inline;
+}
+
+.quotation-breadcrumb-short {
+  display: none;
+}
+
 .quotation-menu-button {
   display: none;
   align-items: center;
@@ -296,6 +304,14 @@
   letter-spacing: 0.2px;
   white-space: nowrap;
   box-shadow: none;
+}
+
+.quotation-date-full {
+  display: inline;
+}
+
+.quotation-date-short {
+  display: none;
 }
 
 .quotation-header-profile {
@@ -430,6 +446,7 @@
 }
 
 /* Quotation summary cards matching Overview Dashboard card size */
+.quotation-app .quotation-stats-grid,
 .quotation-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -437,15 +454,18 @@
   margin-bottom: 24px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1250px) {
+  .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 640px) {
+  .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px;
   }
 }
 
@@ -1670,16 +1690,19 @@
     gap: 12px;
   }
 
+  .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
-/* Tablet and mobile header */
+/* Tablet and mobile header matching Overview */
 @media (max-width: 768px) {
   .quotation-topbar {
     position: sticky;
     top: 0;
+    z-index: 30;
+    display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
@@ -1687,80 +1710,186 @@
     min-height: 56px;
     padding: 0 12px;
     gap: 8px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
   }
 
   .quotation-topbar-left {
-    width: auto;
-    flex: 1;
-    min-width: 0;
+    display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  .quotation-menu-button {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
+    color: #0b1932;
+    cursor: pointer;
   }
 
   .quotation-breadcrumb-wrap {
     min-width: 0;
-    flex: 1;
     overflow: hidden;
   }
 
   .quotation-breadcrumb {
-    font-size: 11.5px;
+    color: #0b1932 !important;
+    font-size: 12px;
+    font-weight: 650;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    margin: 0;
   }
 
+  .quotation-breadcrumb-full {
+    display: none !important;
+  }
+
+  .quotation-breadcrumb-short {
+    display: inline !important;
+  }
+
+  /* Single row on the right for all header items: notif, theme, date, profile matching Overview */
   .quotation-header-actions {
-    width: auto;
-    margin-left: auto;
-    flex-shrink: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
     justify-content: flex-end;
-    flex-wrap: nowrap;
     gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
   }
 
   .quotation-topbar .notif-bell-btn {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #4b5563 !important;
   }
 
+  /* Date badge in header matching Overview */
   .quotation-date-badge {
-    display: inline-flex;
+    color: #0b1932 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    padding: 0 4px;
     font-size: 11px;
-    padding: 0 2px;
+    font-weight: 500;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    letter-spacing: 0.1px;
+    white-space: nowrap;
+  }
+
+  .quotation-date-full {
+    display: none !important;
+  }
+
+  .quotation-date-short {
+    display: inline !important;
+  }
+
+  .quotation-header-profile {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
   }
 
   .quotation-profile-avatar {
-    width: 34px;
-    height: 34px;
-    font-size: 11px;
-  }
-
-  .quotation-stat-card {
-    min-height: auto;
-    padding: 12px 12px;
-    border-radius: 12px;
-    gap: 10px;
-  }
-
-  .quotation-stat-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-  }
-
-  .quotation-stat-icon svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  .quotation-stat-content p {
+    background: #0b1932 !important;
+    border: 1.5px solid #0b1932 !important;
+    color: #ffffff !important;
+    width: 36px;
+    height: 36px;
     font-size: 11.5px;
-    margin: 0 0 4px;
   }
 
+  .quotation-app .quotation-stats-grid,
+  .quotation-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .quotation-app .quotation-stat-card,
+  .quotation-stat-card {
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 14px 12px !important;
+    gap: 10px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: flex-start !important;
+  }
+
+  .quotation-app .quotation-stat-icon,
+  .quotation-stat-icon {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 9px !important;
+    flex-shrink: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .quotation-app .quotation-stat-icon svg,
+  .quotation-stat-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .quotation-app .quotation-stat-content,
+  .quotation-stat-content {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .quotation-app .quotation-stat-content p,
+  .quotation-stat-content p {
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    margin: 0 0 4px !important;
+    line-height: 1.35 !important;
+    color: #64748b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .quotation-app .quotation-stat-content h3,
   .quotation-stat-content h3 {
-    margin: 0 0 4px;
+    font-size: 18px !important;
+    font-weight: 750 !important;
+    margin: 0 0 4px !important;
+    line-height: 1.2 !important;
+    color: #0f172a !important;
+  }
+
+  .quotation-app .quotation-stat-note,
+  .quotation-stat-note {
+    font-size: 9.5px !important;
+    color: #94a3b8 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: block !important;
   }
 }
 
@@ -1779,12 +1908,13 @@
 
   .quotation-menu-button,
   .mobile-menu-button {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
   }
 
   .quotation-breadcrumb {
-    font-size: 11px;
+    font-size: 11.5px;
+    max-width: 100px;
   }
 
   .quotation-header-actions {
@@ -1792,20 +1922,19 @@
   }
 
   .quotation-topbar .notif-bell-btn {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
   }
 
   .quotation-date-badge {
-    display: inline-flex;
     font-size: 10.5px;
-    padding: 0;
+    padding: 0 2px;
   }
 
   .quotation-profile-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 10.5px;
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
   }
 
   .quotation-topbar h1 {
@@ -1828,39 +1957,51 @@
   }
 
   .quotation-content {
-    padding: 20px 14px 30px;
+    padding: 17px 13px 25px;
   }
 
+  .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
-    gap: 11px;
-    margin-bottom: 22px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
   }
 
+  .quotation-app .quotation-stat-card,
   .quotation-stat-card {
-    min-height: auto;
-    padding: 11px 10px;
-    border-radius: 12px;
-    gap: 10px;
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 12px 10px !important;
+    border-radius: 12px !important;
+    gap: 10px !important;
   }
 
+  .quotation-app .quotation-stat-icon,
   .quotation-stat-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
   }
 
+  .quotation-app .quotation-stat-icon svg,
   .quotation-stat-icon svg {
-    width: 15px;
-    height: 15px;
+    width: 15px !important;
+    height: 15px !important;
   }
 
+  .quotation-app .quotation-stat-content p,
   .quotation-stat-content p {
-    font-size: 11px;
+    font-size: 11px !important;
   }
 
-  .quotation-stat-label {
-    margin-top: 12px;
-    font-size: 10px;
+  .quotation-app .quotation-stat-content h3,
+  .quotation-stat-content h3 {
+    font-size: 16px !important;
+  }
+
+  .quotation-app .quotation-stat-note,
+  .quotation-stat-note {
+    font-size: 8.5px !important;
   }
 
   .quotation-stat-bottom h2 {
@@ -1928,12 +2069,29 @@
   }
 
   .quotation-table-footer {
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
-    gap: 7px;
-    padding: 13px 15px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+    padding: 12px 14px;
     font-size: 9.5px;
+    box-sizing: border-box;
+  }
+
+  .quotation-table-footer > span:first-child {
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .table-footer-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-align: right;
   }
 
   .quotation-modal-overlay {
@@ -1984,17 +2142,177 @@
   }
 }
 
+/* Small mobile screens */
+@media (max-width: 480px) {
+  .quotation-topbar {
+    padding: 0 8px;
+    gap: 5px;
+  }
+
+  .quotation-topbar-left {
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .quotation-menu-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .quotation-breadcrumb {
+    color: #0b1932 !important;
+    font-size: 11px;
+    max-width: 65px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .quotation-breadcrumb-full {
+    display: none !important;
+  }
+
+  .quotation-breadcrumb-short {
+    display: inline !important;
+  }
+
+  .quotation-header-actions {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .quotation-topbar .notif-bell-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .quotation-date-badge {
+    color: #0b1932 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    padding: 0 2px;
+    font-size: 10px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .quotation-date-full {
+    display: none !important;
+  }
+
+  .quotation-date-short {
+    display: inline !important;
+  }
+
+  .quotation-profile-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
+
+  .quotation-content {
+    padding: 16px 12px 24px;
+  }
+
+  /* 4 Stat Cards in 2 rows on small mobile <=480px matching Overview page */
+  .quotation-app .quotation-stats-grid,
+  .quotation-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .quotation-app .quotation-stat-card,
+  .quotation-stat-card {
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 11px 8px !important;
+    gap: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .quotation-app .quotation-stat-icon,
+  .quotation-stat-icon {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 8px !important;
+  }
+
+  .quotation-app .quotation-stat-icon svg,
+  .quotation-stat-icon svg {
+    width: 14.5px !important;
+    height: 14.5px !important;
+  }
+
+  .quotation-app .quotation-stat-content p,
+  .quotation-stat-content p {
+    font-size: 10.5px !important;
+    margin: 0 0 3px !important;
+    line-height: 1.35 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .quotation-app .quotation-stat-content h3,
+  .quotation-stat-content h3 {
+    font-size: 15px !important;
+    margin: 0 0 3px !important;
+    line-height: 1.2 !important;
+  }
+
+  .quotation-app .quotation-stat-note,
+  .quotation-stat-note {
+    font-size: 8.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .quotation-table-footer {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 6px !important;
+    padding: 11px 12px !important;
+    font-size: 9px !important;
+    box-sizing: border-box !important;
+  }
+
+  .quotation-table-footer > span:first-child {
+    white-space: nowrap !important;
+    text-align: left !important;
+  }
+
+  .table-footer-note {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
+  }
+}
+
 /* Narrow mobile screens */
 @media (max-width: 380px) {
   .quotation-topbar {
     height: 56px;
     min-height: 56px;
-    padding: 0 8px;
+    padding: 0 6px;
     gap: 4px;
   }
 
   .quotation-topbar-left {
-    gap: 5px;
+    gap: 4px;
+    min-width: 0;
   }
 
   .quotation-menu-button,
@@ -2004,11 +2322,25 @@
   }
 
   .quotation-breadcrumb {
+    color: #0b1932 !important;
     font-size: 10.5px;
+    max-width: 55px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .quotation-breadcrumb-full {
+    display: none !important;
+  }
+
+  .quotation-breadcrumb-short {
+    display: inline !important;
   }
 
   .quotation-header-actions {
-    gap: 4px;
+    gap: 3px;
+    flex-shrink: 0;
   }
 
   .quotation-topbar .notif-bell-btn {
@@ -2017,8 +2349,26 @@
   }
 
   .quotation-date-badge {
-    font-size: 10px;
-    padding: 0;
+    color: #0b1932 !important;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    padding: 0 1px;
+    font-size: 9.5px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    white-space: nowrap;
+  }
+
+  .quotation-date-full {
+    display: none !important;
+  }
+
+  .quotation-date-short {
+    display: inline !important;
   }
 
   .quotation-profile-avatar {
@@ -2038,6 +2388,86 @@
   .quotation-content {
     padding-right: 9px;
     padding-left: 9px;
+  }
+
+  /* 4 Stat Cards in 2 rows on narrow mobile <=380px matching Overview */
+  .quotation-app .quotation-stats-grid,
+  .quotation-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .quotation-app .quotation-stat-card,
+  .quotation-stat-card {
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 9px 7px !important;
+    gap: 6px !important;
+    border-radius: 10px !important;
+  }
+
+  .quotation-app .quotation-stat-icon,
+  .quotation-stat-icon {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 7px !important;
+  }
+
+  .quotation-app .quotation-stat-icon svg,
+  .quotation-stat-icon svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  .quotation-app .quotation-stat-content p,
+  .quotation-stat-content p {
+    font-size: 9.5px !important;
+    margin: 0 0 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .quotation-app .quotation-stat-content h3,
+  .quotation-stat-content h3 {
+    font-size: 14px !important;
+    margin: 0 0 2px !important;
+  }
+
+  .quotation-app .quotation-stat-note,
+  .quotation-stat-note {
+    font-size: 7.5px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .quotation-table-footer {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    gap: 4px !important;
+    padding: 10px 8px !important;
+    font-size: 8.5px !important;
+    box-sizing: border-box !important;
+  }
+
+  .quotation-table-footer > span:first-child {
+    white-space: nowrap !important;
+    text-align: left !important;
+  }
+
+  .table-footer-note {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
+    font-size: 8.5px !important;
   }
 }
 

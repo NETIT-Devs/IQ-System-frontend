@@ -47,6 +47,17 @@ function getDetailsStatus(q) {
   return q.status || "Draft";
 }
 
+function getCreatorDisplay(q) {
+  if (!q) return "Admin";
+  const role = String(q.created_by_role || "").trim().toLowerCase();
+  const isSuper = role.includes("super") || q.created_by === 2;
+  const roleName = isSuper ? "Super Admin" : "Admin";
+  if (q.created_by_name) {
+    return `${roleName} (${q.created_by_name})`;
+  }
+  return roleName;
+}
+
 function formatDate(dateString) {
   if (!dateString) return "Not specified";
   try {
@@ -290,7 +301,7 @@ export default function QuotationDetails({
             <div className="qd-header-title">
               <h2>{quotation?.quotation_number || "Quotation Details"}</h2>
               <p className="qd-header-subtitle">
-                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)} • System Status: <strong>{getDetailsStatus(quotation)}</strong>
+                Created on {formatDate(quotation?.created_at || quotation?.quotation_date)} • System Status: <strong>{getDetailsStatus(quotation)}</strong> • Created By: <strong>{getCreatorDisplay(quotation)}</strong>
               </p>
             </div>
           </div>

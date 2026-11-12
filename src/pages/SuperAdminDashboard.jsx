@@ -23,7 +23,11 @@ import {
 } from "lucide-react";
 import NotificationBell from "../components/NotificationBell";
 import ThemeToggle from "../components/ThemeToggle";
+import OverviewPeriodFilter from "../components/OverviewPeriodFilter";
 import { getQuotations, getCustomers } from "../services/quotationService";
+import { getInvoices } from "../services/invoiceService";
+import { getPayments } from "../services/paymentService";
+import { filterByOverviewPeriod } from "../utils/formatters";
 import "./SuperAdminDashboard.css";
 
 const BUILT_PATHS = new Set([
@@ -159,7 +163,6 @@ function StatCard({ item }) {
       <div className="sa-stat-content">
         <p>{item.title}</p>
         <h3>{item.value}</h3>
-        <span className="sa-stat-note">{item.description}</span>
       </div>
     </article>
   );
@@ -178,8 +181,50 @@ function ChartEmptyState({ icon: Icon, title, description }) {
   );
 }
 
-// Render the financial overview chart without fabricated values.
-function FinancialChart() {
+// Render the financial overview chart from live invoice data.
+function FinancialChart({ invoices = [] }) {
+  const monthlyData = useMemo(() => {
+    const buckets = new Map();
+    invoices.forEach((inv) => {
+      const s = String(inv?.status || "").trim().toLowerCase();
+      if (s === "cancelled" || s === "rejected") return;
+      const rawDate = inv?.invoice_date || inv?.created_at;
+      if (!rawDate) return;
+      const d = new Date(String(rawDate).includes("T") ? rawDate : `${rawDate}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("en-US", { month: "short" });
+      if (!buckets.has(key)) {
+        buckets.set(key, { key, label, collected: 0, outstanding: 0 });
+      }
+      const b = buckets.get(key);
+      const total = Number(inv.total_amount) || 0;
+      const paid = Math.max(0, Number(inv.amount_paid) || 0);
+      const bal = Math.max(0, Number(inv.balance_due ?? total - paid));
+      b.collected += paid;
+      b.outstanding += bal;
+    });
+    return Array.from(buckets.values())
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .slice(-6);
+  }, [invoices]);
+
+  const maxVal = useMemo(() => {
+    const peak = monthlyData.reduce(
+      (m, item) => Math.max(m, item.collected, item.outstanding),
+      0
+    );
+    return peak > 0 ? peak : 100;
+  }, [monthlyData]);
+
+  const formatAxis = (val) => {
+    if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1)}M`;
+    if (val >= 1_000) return `${Math.round(val / 1_000)}K`;
+    return String(Math.round(val));
+  };
+
+  const hasData = monthlyData.some((m) => m.collected > 0 || m.outstanding > 0);
+
   return (
     <section className="sa-panel">
       <div className="sa-panel-heading">
@@ -189,7 +234,7 @@ function FinancialChart() {
           </div>
           <div>
             <h2>Financial Overview</h2>
-            <p>Income vs. expenses</p>
+            <p>Collected vs. outstanding</p>
           </div>
         </div>
 
@@ -199,20 +244,20 @@ function FinancialChart() {
       <div className="sa-chart-legend">
         <span>
           <i className="sa-legend-income" />
-          Income
+          Collected
         </span>
         <span>
           <i className="sa-legend-expenses" />
-          Expenses
+          Outstanding
         </span>
       </div>
 
       <div className="sa-bar-chart">
         <div className="sa-chart-y-axis">
-          <span>100</span>
-          <span>75</span>
-          <span>50</span>
-          <span>25</span>
+          <span>{formatAxis(maxVal)}</span>
+          <span>{formatAxis(maxVal * 0.75)}</span>
+          <span>{formatAxis(maxVal * 0.5)}</span>
+          <span>{formatAxis(maxVal * 0.25)}</span>
           <span>0</span>
         </div>
 
@@ -221,29 +266,102 @@ function FinancialChart() {
             <div className="sa-chart-grid-line" key={line} />
           ))}
 
+          {hasData && (
+            <div className="sa-chart-bars-layer">
+              {monthlyData.map((m) => {
+                const colH = Math.max(m.collected > 0 ? 4 : 0, (m.collected / maxVal) * 100);
+                const outH = Math.max(m.outstanding > 0 ? 4 : 0, (m.outstanding / maxVal) * 100);
+                return (
+                  <div className="sa-chart-bar-group" key={m.key}>
+                    <div className="sa-chart-bars-pair">
+                      <div
+                        className="sa-chart-bar income"
+                        style={{ height: `${colH}%` }}
+                        title={`Collected: Rs. ${m.collected.toLocaleString("en-LK", { minimumFractionDigits: 2 })}`}
+                      />
+                      <div
+                        className="sa-chart-bar expense"
+                        style={{ height: `${outH}%` }}
+                        title={`Outstanding: Rs. ${m.outstanding.toLocaleString("en-LK", { minimumFractionDigits: 2 })}`}
+                      />
+                    </div>
+                    <span className="sa-chart-bar-label">{m.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           <div className="sa-chart-zero-line">
             <span>0</span>
           </div>
         </div>
       </div>
 
-      <ChartEmptyState
-        icon={BarChart3}
-        title="No financial data available"
-        description="Income and expense bars will appear when financial records are connected."
-      />
+      {!hasData && (
+        <ChartEmptyState
+          icon={BarChart3}
+          title="No financial data available"
+          description="Income and outstanding bars will appear when invoices are recorded."
+        />
+      )}
     </section>
   );
 }
 
-// Render the invoice status chart with zero counts.
-function InvoiceStatusChart() {
+// Render the invoice status chart from live invoice records.
+function InvoiceStatusChart({ invoices = [] }) {
+  const counts = useMemo(() => {
+    const c = { paid: 0, unpaid: 0, overdue: 0, partial: 0 };
+    const today = new Date().toISOString().slice(0, 10);
+
+    invoices.forEach((inv) => {
+      const s = String(inv?.payment_status || inv?.status || "")
+        .trim()
+        .toLowerCase();
+      if (s === "draft" || s === "cancelled" || s === "rejected") return;
+
+      const totalAmt = Number(inv?.total_amount) || 0;
+      const paidAmt = Math.max(0, Number(inv?.amount_paid) || 0);
+      const balAmt = Math.max(0, Number(inv?.balance_due ?? totalAmt - paidAmt));
+      const dueStr = inv?.due_date ? String(inv.due_date).slice(0, 10) : "";
+
+      if (s.includes("partial") || (paidAmt > 0 && balAmt > 0)) {
+        c.partial += 1;
+      } else if (s.includes("paid") && !s.includes("unpaid")) {
+        c.paid += 1;
+      } else if (s.includes("overdue") || (dueStr && dueStr < today && balAmt > 0)) {
+        c.overdue += 1;
+      } else {
+        c.unpaid += 1;
+      }
+    });
+
+    return c;
+  }, [invoices]);
+
+  const total = counts.paid + counts.unpaid + counts.overdue + counts.partial;
   const invoiceStatuses = [
-    { label: "Paid", value: 0, color: "paid" },
-    { label: "Unpaid", value: 0, color: "unpaid" },
-    { label: "Overdue", value: 0, color: "overdue" },
-    { label: "Partially Paid", value: 0, color: "partial" },
+    { label: "Paid", value: counts.paid, color: "paid", hex: "#199b69" },
+    { label: "Unpaid", value: counts.unpaid, color: "unpaid", hex: "#3478f6" },
+    { label: "Overdue", value: counts.overdue, color: "overdue", hex: "#df5454" },
+    { label: "Partially Paid", value: counts.partial, color: "partial", hex: "#e4a72e" },
   ];
+
+  const paidEnd = total ? (counts.paid / total) * 100 : 0;
+  const unpaidEnd = paidEnd + (total ? (counts.unpaid / total) * 100 : 0);
+  const overdueEnd = unpaidEnd + (total ? (counts.overdue / total) * 100 : 0);
+
+  const donutStyle = total
+    ? {
+        background: `conic-gradient(
+          #199b69 0% ${paidEnd}%,
+          #3478f6 ${paidEnd}% ${unpaidEnd}%,
+          #df5454 ${unpaidEnd}% ${overdueEnd}%,
+          #e4a72e ${overdueEnd}% 100%
+        )`,
+      }
+    : undefined;
 
   return (
     <section className="sa-panel">
@@ -262,9 +380,9 @@ function InvoiceStatusChart() {
       </div>
 
       <div className="sa-donut-layout">
-        <div className="sa-donut">
+        <div className="sa-donut" style={donutStyle}>
           <div className="sa-donut-center">
-            <strong>0</strong>
+            <strong>{total}</strong>
             <span>Total invoices</span>
           </div>
         </div>
@@ -281,7 +399,9 @@ function InvoiceStatusChart() {
       </div>
 
       <p className="sa-chart-footnote">
-        The chart will reflect actual invoice statuses after integration.
+        {total > 0
+          ? "Live invoice distribution calculated from active database records."
+          : "The chart will reflect actual invoice statuses after integration."}
       </p>
     </section>
   );
@@ -307,7 +427,14 @@ export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [quotations, setQuotations] = useState([]);
-  const [customerCount, setCustomerCount] = useState(0);
+  const [invoices, setInvoices] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
+  const [dateRange, setDateRange] = useState({
+    period: "all",
+    startDate: "",
+    endDate: "",
+  });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const searchRef = useRef(null);
@@ -368,34 +495,113 @@ export default function SuperAdminDashboard() {
     let isMounted = true;
     async function loadData() {
       try {
-        const [records, custList] = await Promise.all([
+        const [records, custList, invList, payList] = await Promise.all([
           getQuotations(),
           getCustomers(),
+          getInvoices().catch(() => []),
+          getPayments({ approval_queue: true }).catch(() => []),
         ]);
         if (isMounted) {
           setQuotations(Array.isArray(records) ? records : []);
-          setCustomerCount(Array.isArray(custList) ? custList.length : 0);
+          setCustomers(Array.isArray(custList) ? custList : []);
+          setInvoices(Array.isArray(invList) ? invList : []);
+          const pendingPay = (Array.isArray(payList) ? payList : []).filter(
+            (p) => {
+              const s = String(p?.status || "").trim().toLowerCase();
+              return s.includes("pending");
+            }
+          ).length;
+          setPendingPaymentsCount(pendingPay);
         }
       } catch (err) {
         console.warn("Failed to load dashboard data:", err);
       }
     }
     loadData();
-    const timer = setInterval(loadData, 15000);
+
+    const handleUpdate = () => loadData();
+    window.addEventListener("iq-notifications-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+    const timer = setInterval(loadData, 10000);
+
     return () => {
       isMounted = false;
       clearInterval(timer);
+      window.removeEventListener("iq-notifications-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
     };
   }, []);
 
-  const pendingApprovalsCount = quotations.filter(
-    (q) => q.status === "Pending Approval" || q.approval_status === "Pending"
-  ).length;
+  const filteredCustomers = useMemo(
+    () =>
+      filterByOverviewPeriod(
+        customers,
+        dateRange,
+        (c) => c?.created_at || c?.updated_at
+      ),
+    [customers, dateRange]
+  );
+
+  const filteredQuotations = useMemo(
+    () =>
+      filterByOverviewPeriod(
+        quotations,
+        dateRange,
+        (q) => q?.quotation_date || q?.issuedDate || q?.created_at
+      ),
+    [quotations, dateRange]
+  );
+
+  const filteredInvoices = useMemo(
+    () =>
+      filterByOverviewPeriod(
+        invoices,
+        dateRange,
+        (inv) => inv?.invoice_date || inv?.created_at
+      ),
+    [invoices, dateRange]
+  );
+
+  const pendingQuotationsCount = useMemo(() => {
+    return quotations.filter((q) => {
+      const s = String(q.status || "").trim().toLowerCase();
+      const a = String(q.approval_status || "").trim().toLowerCase();
+      const role = String(q.created_by_role || q.creator_role || "").trim().toLowerCase();
+      const name = String(q.created_by_name || "").trim().toLowerCase();
+      if (role.includes("super") || name.includes("super admin") || q.created_by === 2) {
+        return false;
+      }
+      if (a === "approved" || s.includes("approv") || s.includes("accept")) return false;
+      if (a === "rejected" || s.includes("reject") || s.includes("declin")) return false;
+      if (s === "draft" && a !== "pending") return false;
+      return a === "pending" || s.includes("pending") || s === "sent";
+    }).length;
+  }, [quotations]);
+
+  const pendingInvoicesCount = useMemo(() => {
+    return invoices.filter((inv) => {
+      const s = String(inv.status || inv.payment_status || "").trim().toLowerCase();
+      const a = String(inv.approval_status || "").trim().toLowerCase();
+      const role = String(inv.created_by_role || inv.creator_role || "").trim().toLowerCase();
+      const name = String(inv.created_by_name || "").trim().toLowerCase();
+      if (role.includes("super") || name.includes("super admin") || inv.created_by === 2) {
+        return false;
+      }
+      if (s === "draft" && a !== "pending") return false;
+      if (a === "rejected" || s.includes("reject") || s.includes("declin")) return false;
+      if (a === "pending" || s.includes("pending")) return true;
+      return false;
+    }).length;
+  }, [invoices]);
+
+  const totalPendingApprovals =
+    pendingQuotationsCount + pendingInvoicesCount + pendingPaymentsCount;
+  const pendingApprovalsCount = totalPendingApprovals;
 
 
   const quotationDistribution = useMemo(() => {
     const counts = { draft: 0, pending: 0, approved: 0, rejected: 0 };
-    const list = Array.isArray(quotations) ? quotations : [];
+    const list = Array.isArray(filteredQuotations) ? filteredQuotations : [];
 
     list.forEach((q) => {
       const approval = String(q.approval_status || "").trim().toLowerCase();
@@ -442,33 +648,47 @@ export default function SuperAdminDashboard() {
       approved: { count: counts.approved, pct: pct(counts.approved) },
       rejected: { count: counts.rejected, pct: pct(counts.rejected) },
     };
-  }, [quotations]);
+  }, [filteredQuotations]);
+
+  const outstandingBalance = useMemo(() => {
+    return filteredInvoices.reduce((sum, inv) => {
+      const s = String(inv?.status || "").trim().toLowerCase();
+      if (s === "draft" || s === "cancelled" || s === "rejected") return sum;
+      const total = Number(inv?.total_amount) || 0;
+      const paid = Math.max(0, Number(inv?.amount_paid) || 0);
+      const bal = Math.max(0, Number(inv?.balance_due ?? total - paid));
+      return sum + bal;
+    }, 0);
+  }, [filteredInvoices]);
 
   const dynamicStats = [
     {
       title: "Total Customers",
-      value: String(customerCount),
+      value: String(filteredCustomers.length),
       description: "Registered customers",
       icon: Users,
       color: "blue",
     },
     {
       title: "Total Quotations",
-      value: String(quotations.length),
+      value: String(filteredQuotations.length),
       description: "All quotations",
       icon: FileText,
       color: "purple",
     },
     {
       title: "Total Invoices",
-      value: "0",
+      value: String(filteredInvoices.length),
       description: "All invoices",
       icon: Receipt,
       color: "cyan",
     },
     {
       title: "Outstanding Balance",
-      value: "Rs. 0.00",
+      value: `Rs. ${outstandingBalance.toLocaleString("en-LK", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
       description: "Remaining unpaid amount",
       icon: Wallet,
       color: "orange",
@@ -611,7 +831,7 @@ export default function SuperAdminDashboard() {
 
           {/* Notification icon */}
           <ThemeToggle />
-          <NotificationBell />
+          <NotificationBell filter="all" />
 
           {/* Date badge */}
           <span className="sa-header-date" title="Today's Date">
@@ -639,7 +859,7 @@ export default function SuperAdminDashboard() {
       </header>
 
       <div className="sa-dashboard-content">
-        {/* Welcome bar: Title on left, Review Approvals button on right */}
+        {/* Welcome bar: Title on left, Overview Period Filter on right */}
         <div className="sa-welcome-bar">
           <div className="sa-welcome-text">
             <h1>
@@ -650,30 +870,22 @@ export default function SuperAdminDashboard() {
             </p>
           </div>
 
-          <button
-            type="button"
-            className="sa-primary-button sa-approval-button"
-            onClick={() => navigate("/super-admin/approvals")}
-            title="Review pending submissions"
-          >
-            <Eye size={15} />
-            <span>Review Approvals</span>
-            {pendingApprovalsCount > 0 && (
-              <span
-                style={{
-                  background: "#ef4444",
-                  color: "#fff",
-                  borderRadius: "10px",
-                  padding: "1px 6px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                }}
-              >
-                {pendingApprovalsCount}
-              </span>
-            )}
-            <ChevronRight size={14} />
-          </button>
+          <div className="sa-welcome-actions">
+            <OverviewPeriodFilter value={dateRange} onChange={setDateRange} />
+            <button
+              type="button"
+              className="sa-review-approvals-btn"
+              onClick={() => navigate("/super-admin/approvals")}
+              title="Review Approvals"
+            >
+              <span>Review Approvals</span>
+              {totalPendingApprovals > 0 && (
+                <span className="sa-review-approvals-badge">
+                  {totalPendingApprovals}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
         {/* Summary cards */}
         <section className="sa-stats-grid" aria-label="Business summary">
@@ -684,8 +896,8 @@ export default function SuperAdminDashboard() {
 
         {/* Financial and invoice charts */}
         <section className="sa-charts-grid">
-          <FinancialChart />
-          <InvoiceStatusChart />
+          <FinancialChart invoices={filteredInvoices} />
+          <InvoiceStatusChart invoices={filteredInvoices} />
         </section>
 
         {/* Approval queue and quick access */}
@@ -711,7 +923,9 @@ export default function SuperAdminDashboard() {
                   <strong>Invoices</strong>
                   <span>Waiting for approval</span>
                 </div>
-                <strong className="sa-approval-count">0</strong>
+                <strong className="sa-approval-count">
+                  {pendingInvoicesCount}
+                </strong>
               </div>
 
               <div className="sa-approval-item">
@@ -723,19 +937,19 @@ export default function SuperAdminDashboard() {
                   <span>Waiting for approval</span>
                 </div>
                 <strong className="sa-approval-count">
-                  {pendingApprovalsCount}
+                  {pendingQuotationsCount}
                 </strong>
               </div>
             </div>
 
-            {pendingApprovalsCount > 0 ? (
+            {totalPendingApprovals > 0 ? (
               <div
                 className="sa-approval-message"
                 style={{ color: "#b45309", background: "#fef3c7" }}
               >
                 <Clock size={17} />
                 <span>
-                  {pendingApprovalsCount} quotation(s) waiting for your review.
+                  {totalPendingApprovals} submission(s) ({pendingQuotationsCount} quotation{pendingQuotationsCount === 1 ? "" : "s"}, {pendingInvoicesCount} invoice{pendingInvoicesCount === 1 ? "" : "s"}) waiting for your review.
                 </span>
               </div>
             ) : (
@@ -970,11 +1184,10 @@ export default function SuperAdminDashboard() {
               <button
                 type="button"
                 className="sa-text-button"
-                onClick={() => navigateTo("/super-admin/payments")}
-                style={{ cursor: "default", opacity: 0.7 }}
-                title="Not available yet"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                title="Go to Invoices"
               >
-                View Payments <ChevronRight size={15} />
+                View Invoices <ChevronRight size={15} />
               </button>
             </div>
 

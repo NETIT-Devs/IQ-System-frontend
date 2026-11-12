@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   BarChart3,
-  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -18,7 +17,6 @@ const navigation = [
   { label: "Customers", icon: UserRound, path: "/admin/customers", isBuilt: true },
   { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
   { label: "Invoices", icon: Receipt, path: "/admin/invoices", isBuilt: true },
-  { label: "Payments", icon: CreditCard, path: "/admin/payments", isBuilt: false },
   { label: "Reports & Analytics", icon: BarChart3, path: "/reports", isBuilt: true },
 ];
 
@@ -123,7 +121,7 @@ export default function AdminSidebar({ isOpen, onClose }) {
 
         <div className="sa-sidebar-bottom">
           <div className="sa-sidebar-profile">
-            <div className="sa-avatar">AD</div>
+            <div className="sa-avatar">A</div>
             <div className="sa-user-info">
               <strong>Admin</strong>
               <span>System Administrator</span>

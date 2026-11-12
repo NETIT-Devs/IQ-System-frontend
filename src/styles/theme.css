@@ -802,6 +802,10 @@ body,
   border-color: rgba(148, 163, 184, 0.35) !important;
 }
 
+[data-theme="dark"] .approval-status {
+  border-radius: 7px !important;
+}
+
 [data-theme="dark"] .approval-status.pending {
   border-color: rgba(234, 179, 8, 0.35) !important;
   background: rgba(234, 179, 8, 0.18) !important;
@@ -1333,35 +1337,35 @@ body,
   stroke: #ffffff !important;
 }
 
-/* 7. Dashboard Search Bar in Dark Mode - Navy Blue with White Text */
+/* 7. Dashboard Search Icon & Expanded Search Bar in Dark Mode */
 [data-theme="dark"] .sa-search-box {
-  background: #0b1932 !important;
-  background-color: #0b1932 !important;
-  border: 1.5px solid #1e355b !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  background: linear-gradient(145deg, #16223a 0%, #10192e 100%) !important;
+  background-color: #10192e !important;
+  border: 1px solid #26395e !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
 }
 
-[data-theme="dark"] .sa-search-box:hover,
-[data-theme="dark"] .sa-search-box:focus-within {
-  background: #0e2040 !important;
-  background-color: #0e2040 !important;
+[data-theme="dark"] .sa-search-box:hover {
+  background: #1a2a47 !important;
+  background-color: #1a2a47 !important;
   border-color: #3b82f6 !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25) !important;
 }
 
 [data-theme="dark"] .sa-search-container.mobile-open .sa-search-box {
   background: #0b1932 !important;
   background-color: #0b1932 !important;
-  border-color: #1e355b !important;
+  border: 1.5px solid #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
 }
 
 [data-theme="dark"] .sa-search-btn {
-  color: #ffffff !important;
+  color: #93c5fd !important;
 }
 
 [data-theme="dark"] .sa-search-btn svg {
-  color: #ffffff !important;
-  stroke: #ffffff !important;
+  color: #93c5fd !important;
+  stroke: #93c5fd !important;
 }
 
 [data-theme="dark"] .sa-search-box input {
@@ -1452,10 +1456,18 @@ body,
   border: 1px solid #1c2b47 !important;
 }
 
+[data-theme="dark"] .cust-list-heading h2 {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .cust-list-heading p {
+  color: #94a3b8 !important;
+}
+
 [data-theme="dark"] .cust-toolbar {
   background: #10192e !important;
   background-color: #10192e !important;
-  border-bottom: 1px solid #1c2b47 !important;
+  border: 1px solid #1c2b47 !important;
 }
 
 /* 4. Customer Page Search Bar - Navy Blue with White Text */
@@ -2562,7 +2574,8 @@ body,
   font-weight: 750 !important;
 }
 
-[data-theme="dark"] .quotation-stat-content h3 {
+[data-theme="dark"] .quotation-stat-content h3,
+[data-theme="dark"] .quotation-app .quotation-stat-content h3 {
   color: #ffffff !important;
   font-weight: 850 !important;
 }
@@ -2909,6 +2922,54 @@ body,
 [data-theme="dark"] .reports-refresh-button svg {
   color: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+/* 3.1 Export CSV Button - Dark Theme High Contrast */
+[data-theme="dark"] .reports-export-button {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .reports-export-button:hover:not(:disabled) {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+}
+
+[data-theme="dark"] .reports-export-button span {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .reports-export-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+[data-theme="dark"] .reports-export-button:disabled {
+  opacity: 0.45 !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #64748b !important;
+}
+
+[data-theme="dark"] .reports-export-button:disabled span,
+[data-theme="dark"] .reports-export-button:disabled svg {
+  color: #64748b !important;
+  stroke: #64748b !important;
+}
+
+/* 3.2 Report Table Status Badges (Draft, etc.) */
+[data-theme="dark"] .report-status-badge.status-default,
+[data-theme="dark"] .report-status-badge.status-draft {
+  background: rgba(148, 163, 184, 0.18) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.35) !important;
+  font-weight: 700 !important;
 }
 
 [data-theme="dark"] .reports-error-message button {
@@ -4755,6 +4816,13 @@ body,
 
 [data-theme="dark"] .cs-preview-header strong {
   color: #ffffff !important;
+}
+
+[data-theme="dark"] .cs-preview-badge,
+[data-theme="dark"] .qs-preview-badge {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
 }
 
 [data-theme="dark"] .cs-pdf-preview-sheet {

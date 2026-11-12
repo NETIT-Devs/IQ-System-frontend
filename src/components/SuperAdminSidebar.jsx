@@ -3,7 +3,6 @@ import {
   BarChart3,
   CheckCircle2,
   ClipboardList,
-  CreditCard,
   FileText,
   LayoutDashboard,
   LogOut,
@@ -23,7 +22,6 @@ const mainNavigation = [
   { label: "Customers", icon: UserRound, path: "/super-admin/customers", isBuilt: true },
   { label: "Quotations", icon: FileText, path: "/quotations", isBuilt: true },
   { label: "Invoices", icon: Receipt, path: "/super-admin/invoices", isBuilt: true },
-  { label: "Payments", icon: CreditCard, path: "/super-admin/payments", isBuilt: false },
   {
     label: "Reports & Analytics",
     icon: BarChart3,

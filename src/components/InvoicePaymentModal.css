@@ -1,0 +1,1026 @@
+/* ==========================================================================
+   Invoice & Payment Settlement Modal
+   Compact, colorful, clearly separated UI with Light & Dark mode support
+   ========================================================================== */
+
+.ipm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow-y: auto;
+}
+
+.ipm-modal {
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  margin: auto;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #dbe4f0;
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.24);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ipmSlideUp 0.18s ease-out;
+}
+
+@keyframes ipmSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.ipm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f2240;
+}
+
+.ipm-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.ipm-header-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #2563eb;
+}
+
+.ipm-header-text h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 750;
+  letter-spacing: -0.2px;
+  color: #0f2240;
+}
+
+.ipm-meta-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ipm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.ipm-pill.invoice {
+  background: #f5f8ff;
+  color: #3b82f6;
+  border: 1px solid #dbeafe;
+}
+
+.ipm-pill.customer {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #e0f2fe;
+}
+
+.ipm-pill.quotation {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #dcfce7;
+}
+
+.ipm-pill.direct {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.ipm-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.ipm-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f2240;
+}
+
+/* Body */
+.ipm-body {
+  padding: 13px 16px 15px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.ipm-body>* {
+  flex-shrink: 0;
+}
+
+/* 3 Summary Boxes */
+.ipm-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.ipm-kpi-card {
+  padding: 9px 11px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid transparent;
+}
+
+.ipm-kpi-card.due {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.ipm-kpi-card.paid {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.ipm-kpi-card.remaining {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.ipm-kpi-card.settled {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.ipm-kpi-label {
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ipm-kpi-card.due .ipm-kpi-label {
+  color: #1d4ed8;
+}
+
+.ipm-kpi-card.paid .ipm-kpi-label,
+.ipm-kpi-card.settled .ipm-kpi-label {
+  color: #047857;
+}
+
+.ipm-kpi-card.remaining .ipm-kpi-label {
+  color: #be123c;
+}
+
+.ipm-kpi-value {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipm-kpi-card.due .ipm-kpi-value {
+  color: #1e3a8a;
+}
+
+.ipm-kpi-card.paid .ipm-kpi-value,
+.ipm-kpi-card.settled .ipm-kpi-value {
+  color: #065f46;
+}
+
+.ipm-kpi-card.remaining .ipm-kpi-value {
+  color: #9f1239;
+}
+
+.ipm-kpi-preview {
+  font-size: 10px;
+  font-weight: 700;
+  color: #0369a1;
+  margin-top: 1px;
+}
+
+/* Settlement Progress */
+.ipm-progress-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 9px 11px;
+}
+
+.ipm-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.ipm-progress-title {
+  font-size: 11px;
+  font-weight: 750;
+  color: #334155;
+}
+
+.ipm-progress-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ipm-pending-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ipm-pct-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.ipm-pct-badge.done {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ipm-pct-badge.partial {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.ipm-pct-badge.zero {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ipm-progress-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.ipm-progress-projected {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: rgba(59, 130, 246, 0.35);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.ipm-progress-fill {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb 0%, #7c3aed 50%, #10b981 100%);
+  transition: width 0.3s ease;
+}
+
+/* Alerts */
+.ipm-alert {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.ipm-alert.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.ipm-alert.success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+}
+
+/* Compact Payment Form */
+.ipm-form-card {
+  background: linear-gradient(180deg, #fafcff 0%, #f5f8ff 100%);
+  border: 1px solid #dbe6f7;
+  border-radius: 11px;
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ipm-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ipm-section-head span {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.ipm-pay-full-btn {
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.ipm-pay-full-btn:hover {
+  background: transparent;
+  color: #1d4ed8;
+  border: none;
+  text-decoration: underline;
+}
+
+.ipm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ipm-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+/* Modern Payment Method Dropdown */
+.ipm-dropdown-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+}
+
+.ipm-dropdown-btn {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ipm-dropdown-btn:hover {
+  border-color: #94a3b8;
+}
+
+.ipm-dropdown-btn.open {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.ipm-dropdown-btn-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #0f172a;
+}
+
+.ipm-dropdown-btn-left svg {
+  color: #2563eb;
+}
+
+.ipm-dropdown-chevron {
+  color: #64748b;
+  transition: transform 0.15s ease;
+}
+
+.ipm-dropdown-chevron.open {
+  transform: rotate(180deg);
+}
+
+.ipm-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 4px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ipm-dropdown-item {
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #334155;
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ipm-dropdown-item:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.ipm-dropdown-item.selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.ipm-dropdown-item-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ipm-dropdown-check {
+  color: #2563eb;
+}
+
+.ipm-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ipm-input {
+  width: 100%;
+  height: 31px;
+  padding: 0 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 500;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ipm-input::placeholder {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+input[type="date"].ipm-input {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+input[type="date"].ipm-input::-webkit-datetime-edit,
+input[type="date"].ipm-input::-webkit-datetime-edit-fields-wrapper,
+input[type="date"].ipm-input::-webkit-datetime-edit-text,
+input[type="date"].ipm-input::-webkit-datetime-edit-month-field,
+input[type="date"].ipm-input::-webkit-datetime-edit-day-field,
+input[type="date"].ipm-input::-webkit-datetime-edit-year-field {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0;
+}
+
+.ipm-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+.ipm-input.invalid {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.ipm-date-wrap {
+  position: relative;
+}
+
+.ipm-date-icon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.ipm-input.with-icon {
+  padding-left: 28px;
+}
+
+.ipm-inline-err {
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+/* Slip Upload & Submit Row */
+.ipm-slip-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.ipm-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  border: 1.5px dashed #60a5fa;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ipm-upload-btn:hover {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
+.ipm-slip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 650;
+  max-width: 190px;
+}
+
+.ipm-slip-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.ipm-slip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ipm-slip-remove {
+  border: none;
+  background: transparent;
+  color: #15803d;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+
+.ipm-slip-hint {
+  font-size: 10.5px;
+  color: #64748b;
+}
+
+.ipm-submit-btn {
+  margin-left: auto;
+  height: 33px;
+  padding: 0 15px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.28);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ipm-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ipm-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ipm-settled-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #86efac;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Transaction History */
+.ipm-history-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.ipm-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ipm-history-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.ipm-history-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ipm-history-loading {
+  font-size: 10.5px;
+  color: #64748b;
+}
+
+.ipm-history-empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.ipm-history-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ipm-tx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ipm-tx-row:last-child {
+  border-bottom: none;
+}
+
+.ipm-tx-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ipm-tx-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ipm-tx-num {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.ipm-tx-method {
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ipm-tx-method.blue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.ipm-tx-method.purple {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.ipm-tx-method.green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ipm-tx-method.cyan {
+  background: #cffafe;
+  color: #0e7490;
+}
+
+.ipm-tx-method.slate {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.ipm-tx-status {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 9.5px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.ipm-tx-status.approved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ipm-tx-status.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.ipm-tx-status.rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ipm-tx-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #64748b;
+}
+
+.ipm-tx-slip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ipm-tx-slip-link:hover {
+  text-decoration: underline;
+}
+
+.ipm-tx-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ipm-tx-amount {
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ipm-tx-amount.approved {
+  color: #059669;
+}
+
+.ipm-tx-amount.pending {
+  color: #d97706;
+}
+
+.ipm-tx-amount.rejected {
+  color: #dc2626;
+  text-decoration: line-through;
+}
+
+.ipm-tx-delete {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ipm-tx-delete:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Dark Theme Support */
+[data-theme="dark"] .ipm-modal {
+  background: #0f172a;
+  border-color: #1e2c4a;
+}
+
+[data-theme="dark"] .ipm-kpi-card.due {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="dark"] .ipm-kpi-card.due .ipm-kpi-label,
+[data-theme="dark"] .ipm-kpi-card.due .ipm-kpi-value {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ipm-kpi-card.paid,
+[data-theme="dark"] .ipm-kpi-card.settled {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+[data-theme="dark"] .ipm-kpi-card.paid .ipm-kpi-label,
+[data-theme="dark"] .ipm-kpi-card.paid .ipm-kpi-value,
+[data-theme="dark"] .ipm-kpi-card.settled .ipm-kpi-label,
+[data-theme="dark"] .ipm-kpi-card.settled .ipm-kpi-value {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ipm-kpi-card.remaining {
+  background: rgba(244, 63, 94, 0.16);
+  border-color: rgba(251, 113, 133, 0.35);
+}
+
+[data-theme="dark"] .ipm-kpi-card.remaining .ipm-kpi-label,
+[data-theme="dark"] .ipm-kpi-card.remaining .ipm-kpi-value {
+  color: #fda4af;
+}
+
+[data-theme="dark"] .ipm-progress-box,
+[data-theme="dark"] .ipm-history-head {
+  background: #111c34;
+  border-color: #1e2c4a;
+}
+
+[data-theme="dark"] .ipm-progress-title,
+[data-theme="dark"] .ipm-history-title,
+[data-theme="dark"] .ipm-section-head span,
+[data-theme="dark"] .ipm-tx-num {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .ipm-progress-track {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .ipm-form-card {
+  background: #111c34;
+  border-color: #1e2c4a;
+}
+
+[data-theme="dark"] .ipm-label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-method-pill {
+  background: #0f172a;
+  border-color: #263554;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-input {
+  background: #0b1324;
+  border-color: #263554;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-history-card {
+  background: #0f172a;
+  border-color: #1e2c4a;
+}
+
+[data-theme="dark"] .ipm-tx-row {
+  border-bottom-color: #1a2744;
+}
+
+[data-theme="dark"] .ipm-upload-btn {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(96, 165, 250, 0.45);
+  color: #93c5fd;
+}
+
+/* Responsive */
+@media (max-width: 560px) {
+  .ipm-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ipm-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .ipm-submit-btn {
+    width: 100%;
+    margin-left: 0;
+  }
+}

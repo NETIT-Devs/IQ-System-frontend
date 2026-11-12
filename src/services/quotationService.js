@@ -31,8 +31,12 @@ async function handleResponse(response) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
+    const errorDetails =
+      Array.isArray(data?.errors) && data.errors.length > 0
+        ? `: ${data.errors.join(", ")}`
+        : "";
     const errorMessage =
-      data?.message ||
+      (data?.message ? `${data.message}${errorDetails}` : null) ||
       (response.status === 401
         ? "Unauthorized request."
         : response.status === 404
@@ -55,6 +59,17 @@ export async function getQuotationItemOptions() {
   return data?.services || data?.items || [];
 }
 
+// Fetch next global sequential quotation number (QUO-YYMM-NNN)
+export async function getNextQuotationNumberApi(dateStr = "") {
+  const qs = dateStr ? `?date=${encodeURIComponent(dateStr)}` : "";
+  const response = await fetch(`${API_BASE_URL}/api/quotations/next-number${qs}`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+  const data = await handleResponse(response);
+  return data?.quotation_number || "";
+}
+
 // Fetch all quotations with items
 export async function getQuotations() {
   const response = await fetch(`${API_BASE_URL}/api/quotations`, {
@@ -63,7 +78,9 @@ export async function getQuotations() {
   });
 
   const data = await handleResponse(response);
-  return data?.quotations || [];
+  const quotations = data?.quotations || [];
+  writeLocalJson("iq_quotations", quotations);
+  return quotations;
 }
 
 // Fetch single quotation by ID
@@ -122,6 +139,8 @@ export async function updateQuotationCustomerStatus(id, customer_status) {
 
 const ADDED_CUSTOMERS_STORAGE_KEY = "iq_added_customers";
 const CUSTOMER_CREATORS_STORAGE_KEY = "iq_customer_creators";
+const SUPER_ADMIN_CUSTOMERS_STORAGE_KEY = "iq_super_admin_customers_v1";
+const ALL_CUSTOMERS_STORAGE_KEY = "iq_all_existing_customers_v1";
 const DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids_v1";
 const LEGACY_DELETED_CUSTOMERS_STORAGE_KEY = "iq_deleted_customer_ids";
 
@@ -189,6 +208,13 @@ export async function getCustomers() {
   const data = await handleResponse(response);
   const backendCustomers = Array.isArray(data?.customers) ? data.customers : [];
 
+  if (Array.isArray(data?.super_admin_customers)) {
+    writeLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, data.super_admin_customers);
+  }
+  if (Array.isArray(data?.all_customers)) {
+    writeLocalJson(ALL_CUSTOMERS_STORAGE_KEY, data.all_customers);
+  }
+
   const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
   const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
   const deletedIdsV1 = readLocalJson(DELETED_CUSTOMERS_STORAGE_KEY, []);
@@ -237,14 +263,211 @@ export async function getCustomers() {
     return activeList;
   }
 
-  // Admin only sees customers created by that specific Admin
+  // Admin sees customers created by that specific Admin OR customers they have quotations/invoices for
+  const backendCustomerIds = new Set(backendCustomers.map((c) => Number(c.customer_id)));
+
   if (currentUserId !== undefined && currentUserId !== null) {
     return activeList.filter(
-      (c) => Number(c.created_by) === Number(currentUserId)
+      (c) =>
+        (c.created_by != null && Number(c.created_by) === Number(currentUserId)) ||
+        (creatorsMap[c.customer_id]?.created_by != null &&
+          Number(creatorsMap[c.customer_id]?.created_by) === Number(currentUserId)) ||
+        backendCustomerIds.has(Number(c.customer_id))
     );
   }
 
-  return activeList;
+  return deletedIdSet.size > 0
+    ? backendCustomers.filter((c) => !deletedIdSet.has(String(c.customer_id)))
+    : backendCustomers;
+}
+
+// Fetch all registered customers across all creators (Super Admin and all Admins) specifically for Quotation Form dropdown
+export async function getAllRegisteredCustomers() {
+  let list = [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/customers?all=true`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
+
+    const data = await handleResponse(response);
+    if (Array.isArray(data?.all_customers) && data.all_customers.length > 0) {
+      list = data.all_customers;
+      writeLocalJson(ALL_CUSTOMERS_STORAGE_KEY, list);
+    } else if (Array.isArray(data?.customers)) {
+      list = data.customers;
+      writeLocalJson(ALL_CUSTOMERS_STORAGE_KEY, list);
+    }
+
+    if (Array.isArray(data?.super_admin_customers)) {
+      writeLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, data.super_admin_customers);
+    } else if (Array.isArray(list)) {
+      const superList = list.filter((c) => {
+        const role = String(c.created_by_role || "").trim().toLowerCase();
+        return role === "super admin" || !c.created_by;
+      });
+      writeLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, superList);
+    }
+  } catch (err) {
+    console.error("Failed to fetch all registered customers:", err);
+    list = readLocalJson(ALL_CUSTOMERS_STORAGE_KEY, []);
+  }
+
+  const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdsV1 = readLocalJson(DELETED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdsLegacy = readLocalJson(LEGACY_DELETED_CUSTOMERS_STORAGE_KEY, []);
+  const deletedIdSet = new Set(
+    [
+      ...(Array.isArray(deletedIdsV1) ? deletedIdsV1 : []),
+      ...(Array.isArray(deletedIdsLegacy) ? deletedIdsLegacy : []),
+    ].map((id) => String(id))
+  );
+
+  const existingIds = new Set(list.map((c) => String(c.customer_id)));
+  if (Array.isArray(localAdded)) {
+    for (const item of localAdded) {
+      if (item && item.customer_id && !existingIds.has(String(item.customer_id))) {
+        list.unshift(item);
+        existingIds.add(String(item.customer_id));
+      }
+    }
+  }
+
+  return deletedIdSet.size > 0
+    ? list.filter((c) => !deletedIdSet.has(String(c.customer_id)))
+    : list;
+}
+
+// Retrieve customers registered by Super Admin (used for Admin validation)
+export function getSuperAdminCustomers() {
+  const serverList = readLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, []);
+  const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+  const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
+
+  const localSuperAdmin = (Array.isArray(localAdded) ? localAdded : []).filter((c) => {
+    const role = c.created_by_role || creatorsMap[c.customer_id]?.role;
+    return String(role || "").trim().toLowerCase() === "super admin";
+  });
+
+  const combined = [...(Array.isArray(serverList) ? serverList : []), ...localSuperAdmin];
+  const seen = new Set();
+  const result = [];
+
+  for (const c of combined) {
+    if (!c) continue;
+    const nameKey = String(c.customer_name || "").trim().toLowerCase();
+    const emailKey = String(c.email || "").trim().toLowerCase();
+    const phoneKey = String(c.phone || "").trim();
+    const key = `${nameKey}|${emailKey}|${phoneKey}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(c);
+    }
+  }
+
+  return result;
+}
+
+// Check if a customer with the given name, email, or phone is already registered by Super Admin or another Admin
+export function checkDuplicateCustomer(name, email, phone, currentCustomerId = null) {
+  const normName = String(name || "").trim().toLowerCase();
+  const normEmail = String(email || "").trim().toLowerCase();
+  const normPhone = String(phone || "").trim();
+
+  if (!normName && !normEmail && !normPhone) return null;
+
+  const serverAll = readLocalJson(ALL_CUSTOMERS_STORAGE_KEY, []);
+  const serverSuper = readLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, []);
+  const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+  const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
+
+  const allKnown = [
+    ...(Array.isArray(serverAll) ? serverAll : []),
+    ...(Array.isArray(serverSuper) ? serverSuper : []),
+    ...(Array.isArray(localAdded) ? localAdded : []),
+  ];
+
+  for (const c of allKnown) {
+    if (!c) continue;
+    if (currentCustomerId && Number(c.customer_id) === Number(currentCustomerId)) {
+      continue;
+    }
+
+    const cName = String(c.customer_name || "").trim().toLowerCase();
+    const cEmail = String(c.email || "").trim().toLowerCase();
+    const cPhone = String(c.phone || "").trim();
+
+    const nameMatch = normName && cName && normName === cName;
+    const emailMatch = normEmail && cEmail && normEmail === cEmail;
+    const phoneMatch = normPhone && cPhone && normPhone === cPhone;
+
+    if (nameMatch || emailMatch || phoneMatch) {
+      const role = String(
+        c.creator_role ||
+        c.created_by_role ||
+        creatorsMap[c.customer_id]?.role ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (role === "super admin" || !c.created_by) {
+        return "Super Admin already added this customer.";
+      }
+      return "This customer has already been added by an Admin.";
+    }
+  }
+
+  return null;
+}
+
+// Identify existing customer strictly by matching BOTH name and email (used in QuotationForm new client mode)
+export function checkDuplicateCustomerByNameAndEmail(
+  name,
+  email,
+  knownCustomers = []
+) {
+  const normName = String(name || "").trim().toLowerCase();
+  const normEmail = String(email || "").trim().toLowerCase();
+
+  if (!normName || !normEmail) return null;
+
+  const serverAll = readLocalJson(ALL_CUSTOMERS_STORAGE_KEY, []);
+  const serverSuper = readLocalJson(SUPER_ADMIN_CUSTOMERS_STORAGE_KEY, []);
+  const localAdded = readLocalJson(ADDED_CUSTOMERS_STORAGE_KEY, []);
+  const creatorsMap = readLocalJson(CUSTOMER_CREATORS_STORAGE_KEY, {});
+
+  const allKnown = [
+    ...(Array.isArray(knownCustomers) ? knownCustomers : []),
+    ...(Array.isArray(serverAll) ? serverAll : []),
+    ...(Array.isArray(serverSuper) ? serverSuper : []),
+    ...(Array.isArray(localAdded) ? localAdded : []),
+  ];
+
+  for (const c of allKnown) {
+    if (!c) continue;
+
+    const cName = String(c.customer_name || "").trim().toLowerCase();
+    const cEmail = String(c.email || "").trim().toLowerCase();
+
+    if (cName && cEmail && normName === cName && normEmail === cEmail) {
+      const role = String(
+        c.creator_role ||
+          c.created_by_role ||
+          creatorsMap[c.customer_id]?.role ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+
+      if (role === "super admin" || !c.created_by) {
+        return "Super Admin already added this customer.";
+      }
+      return "This customer has already been added by an Admin.";
+    }
+  }
+
+  return null;
 }
 
 // Create a customer record
@@ -457,61 +680,228 @@ export async function rejectQuotation(id, reason) {
   return await handleResponse(response);
 }
 
-// Fetch user notifications
-export async function getNotifications() {
-  const response = await fetch(`${API_BASE_URL}/api/notifications`, {
-    method: "GET",
-    headers: getHeaders(),
-  });
+// ----------------------------------------------------
+// System Notifications (Real-time & Persistent)
+// ----------------------------------------------------
 
-  const data = await handleResponse(response);
-  return data?.notifications || [];
+const NOTIFICATIONS_STORAGE_KEY = "iq_system_notifications_v2";
+
+export function readStorageNotifications() {
+  try {
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeStorageNotifications(notifications) {
+  try {
+    localStorage.setItem(
+      NOTIFICATIONS_STORAGE_KEY,
+      JSON.stringify(Array.isArray(notifications) ? notifications : [])
+    );
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export function notifyNotificationsChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("iq-notifications-updated"));
+  }
+}
+
+// Add a notification with persistent storage and broadcast
+export async function addNotification(notif) {
+  const notifId =
+    notif.notification_id ||
+    `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  const fullNotif = {
+    notification_id: notifId,
+    title: notif.title || "Notification",
+    message: notif.message || "",
+    type: notif.type || "info", // "warning" | "success" | "error" | "info"
+    reference_type: notif.reference_type || notif.referenceType || "quotation", // "quotation" | "invoice"
+    reference_id: notif.reference_id ?? notif.referenceId ?? null,
+    target_role: notif.target_role || notif.targetRole || "all", // "super_admin" | "admin" | "all"
+    target_user_id: notif.target_user_id ?? notif.targetUserId ?? null,
+    created_by: notif.created_by ?? notif.createdBy ?? null,
+    created_by_name: notif.created_by_name || notif.createdByName || null,
+    created_at: notif.created_at || new Date().toISOString(),
+    is_read: notif.is_read ? 1 : 0,
+  };
+
+  const current = readStorageNotifications();
+  const next = [
+    fullNotif,
+    ...current.filter((n) => n.notification_id !== notifId),
+  ].slice(0, 100);
+
+  writeStorageNotifications(next);
+  notifyNotificationsChanged();
+
+  // Try optional backend sync silently
+  try {
+    await fetch(`${API_BASE_URL}/api/notifications`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(fullNotif),
+    });
+  } catch {
+    // backend silent fallback
+  }
+
+  return fullNotif;
+}
+
+// Fetch user notifications (local storage with graceful backend sync)
+export async function getNotifications() {
+  let backendList = [];
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+      method: "GET",
+      headers: getHeaders(),
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data?.notifications)) {
+        backendList = data.notifications;
+      } else if (Array.isArray(data)) {
+        backendList = data;
+      }
+    }
+  } catch {
+    // backend offline or not mounted
+  }
+
+  const localList = readStorageNotifications();
+  if (backendList.length > 0) {
+    const map = new Map();
+    localList.forEach((n) => map.set(String(n.notification_id), n));
+    backendList.forEach((n) => {
+      const key = String(n.notification_id);
+      map.set(key, { ...(map.get(key) || {}), ...n });
+    });
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    );
+    writeStorageNotifications(merged);
+    return merged;
+  }
+
+  return localList;
 }
 
 // Mark single notification as read
 export async function markNotificationRead(id) {
-  const response = await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
-    method: "PUT",
-    headers: getHeaders(),
-  });
+  const current = readStorageNotifications();
+  const updated = current.map((n) =>
+    String(n.notification_id) === String(id) ? { ...n, is_read: 1 } : n
+  );
+  writeStorageNotifications(updated);
+  notifyNotificationsChanged();
 
-  return await handleResponse(response);
-}
-
-// Mark all notifications as read
-export async function markAllNotificationsRead() {
-  const response = await fetch(
-    `${API_BASE_URL}/api/notifications/read-all`,
-    {
+  try {
+    await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, {
       method: "PUT",
       headers: getHeaders(),
-    }
-  );
+    });
+  } catch {
+    // ignore
+  }
 
-  return await handleResponse(response);
+  return { success: true };
+}
+
+// Mark all notifications as read (optionally filtered by reference type / user)
+export async function markAllNotificationsRead(filterType = "all", userId = null) {
+  const current = readStorageNotifications();
+  const updated = current.map((n) => {
+    let match = true;
+    if (filterType === "quotation") {
+      match =
+        n.reference_type === "quotation" ||
+        n.title?.toLowerCase().includes("quotation");
+    } else if (filterType === "invoice") {
+      match =
+        n.reference_type === "invoice" ||
+        n.title?.toLowerCase().includes("invoice");
+    }
+    if (userId && n.target_user_id && String(n.target_user_id) !== String(userId)) {
+      match = false;
+    }
+    return match ? { ...n, is_read: 1 } : n;
+  });
+  writeStorageNotifications(updated);
+  notifyNotificationsChanged();
+
+  try {
+    await fetch(`${API_BASE_URL}/api/notifications/read-all`, {
+      method: "PUT",
+      headers: getHeaders(),
+    });
+  } catch {
+    // ignore
+  }
+
+  return { success: true };
 }
 
 // Delete single notification
 export async function deleteNotification(id) {
-  const response = await fetch(`${API_BASE_URL}/api/notifications/${id}`, {
-    method: "DELETE",
-    headers: getHeaders(),
-  });
+  const current = readStorageNotifications();
+  const updated = current.filter(
+    (n) => String(n.notification_id) !== String(id)
+  );
+  writeStorageNotifications(updated);
+  notifyNotificationsChanged();
 
-  return await handleResponse(response);
-}
-
-// Clear all notifications
-export async function clearAllNotifications() {
-  const response = await fetch(
-    `${API_BASE_URL}/api/notifications/clear-all`,
-    {
+  try {
+    await fetch(`${API_BASE_URL}/api/notifications/${id}`, {
       method: "DELETE",
       headers: getHeaders(),
-    }
-  );
+    });
+  } catch {
+    // ignore
+  }
 
-  return await handleResponse(response);
+  return { success: true };
+}
+
+// Clear all notifications (optionally filtered by reference type / user)
+export async function clearAllNotifications(filterType = "all", userId = null) {
+  const current = readStorageNotifications();
+  const updated = current.filter((n) => {
+    let match = true;
+    if (filterType === "quotation") {
+      match =
+        n.reference_type === "quotation" ||
+        n.title?.toLowerCase().includes("quotation");
+    } else if (filterType === "invoice") {
+      match =
+        n.reference_type === "invoice" ||
+        n.title?.toLowerCase().includes("invoice");
+    }
+    if (userId && n.target_user_id && String(n.target_user_id) !== String(userId)) {
+      match = false;
+    }
+    return !match;
+  });
+  writeStorageNotifications(updated);
+  notifyNotificationsChanged();
+
+  try {
+    await fetch(`${API_BASE_URL}/api/notifications/clear-all`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+  } catch {
+    // ignore
+  }
+
+  return { success: true };
 }
 
 // Fetch audit logs (Super Admin only)

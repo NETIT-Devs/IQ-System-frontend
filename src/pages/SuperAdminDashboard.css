@@ -230,14 +230,17 @@
 .sa-avatar {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  border: 1px solid #6486ba;
-  background: #dce8ff;
-  color: #1b4a91;
-  font-size: 11px;
-  font-weight: 800;
+  border-radius: 9px;
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
 }
 
 .sa-user-info {
@@ -265,51 +268,54 @@
   color: #91b8ff;
 }
 
-/* Professional compact centered signout button */
-/* Modern curved signout button matching dark navy theme */
+/* Clean modern text-only red signout action in sidebar */
 .sa-signout-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   width: auto;
-  min-width: 128px;
-  max-width: 160px;
-  height: 35px;
-  min-height: 35px;
-  margin: 10px auto 0;
-  padding: 0 16px;
-  border: 1.5px solid #000000;
-  border-radius: 10px;
-  background: #0b1932 !important;
-  color: #ffffff !important;
-  font-size: 11.5px;
-  font-weight: 650;
+  min-width: auto;
+  height: auto;
+  min-height: auto;
+  margin: 8px auto 2px;
+  padding: 6px 12px;
+  border: none !important;
+  border-radius: 8px;
+  background: transparent !important;
+  color: #f87171 !important;
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.2px;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  transition: all 0.2s ease;
+  box-shadow: none !important;
+  transition: color 0.18s ease, background 0.18s ease;
 }
 
 .sa-signout-button span {
-  color: #ffffff !important;
+  color: #f87171 !important;
 }
 
 .sa-signout-button svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
-  color: #ffffff !important;
-  transition: transform 0.2s ease;
+  color: #f87171 !important;
+  transition: transform 0.2s ease, color 0.18s ease;
 }
 
 .sa-signout-button:hover {
-  border-color: #000000;
-  background: #112445 !important;
-  color: #ffffff !important;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  border: none !important;
+  background: rgba(248, 113, 113, 0.1) !important;
+  color: #fca5a5 !important;
+  transform: none;
+  box-shadow: none !important;
+}
+
+.sa-signout-button:hover span,
+.sa-signout-button:hover svg {
+  color: #fca5a5 !important;
 }
 
 .sa-signout-button:hover svg {
@@ -317,7 +323,7 @@
 }
 
 .sa-signout-button:active {
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Main content starts beside the fixed sidebar. */
@@ -406,7 +412,11 @@
   box-shadow: none;
 }
 
-.sa-topbar .notif-bell-btn svg { fill: currentColor !important; } .sa-topbar .notif-bell-btn:hover {
+.sa-topbar .notif-bell-btn svg {
+  fill: currentColor !important;
+}
+
+.sa-topbar .notif-bell-btn:hover {
   background: rgba(75, 85, 99, 0.08) !important;
   color: #1f2937 !important;
   background: rgba(255, 255, 255, 0.08);
@@ -422,12 +432,13 @@
   flex-shrink: 0;
 }
 
-/* Welcome bar right below topbar: Title on left, Review Approvals on right */
+/* Welcome bar right below topbar: Title on left, Overview filter bar on right */
 .sa-welcome-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-bottom: 20px;
 }
 
@@ -495,7 +506,7 @@
   line-height: 1.5;
 }
 
-/* Search field with clean white styling */
+/* Modern header search icon button (expands into search bar when clicked) */
 .sa-search-container {
   position: relative;
   display: inline-flex;
@@ -505,57 +516,66 @@
 .sa-search-box {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 8px;
-  width: 240px;
-  min-width: 180px;
-  max-width: 280px;
-  height: 36px;
-  padding: 0 10px 0 10px;
-  border: 1.5px solid #e2e8f0;
+  width: 38px;
+  min-width: 38px;
+  max-width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
-  background: #f8fafc;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-  cursor: text;
-  transition: all 0.2s ease;
-  overflow: visible;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 .sa-search-box:hover {
-  background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #93c5fd;
+  background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
 }
 
-.sa-search-box:focus-within {
-  background: #ffffff;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+.sa-search-box:active {
+  transform: translateY(0);
 }
 
 .sa-search-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: none;
   background: transparent;
-  color: #64748b !important;
+  color: #334155 !important;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.18s ease;
+  transition: color 0.18s ease, transform 0.2s ease;
 }
 
+.sa-search-box:hover .sa-search-btn,
 .sa-search-btn:hover {
-  color: #0b1932 !important;
+  color: #2563eb !important;
+}
+
+.sa-search-box:hover .sa-search-btn svg {
+  transform: scale(1.08);
+}
+
+.sa-search-btn svg {
+  transition: transform 0.2s ease;
 }
 
 .sa-search-box input {
-  display: block !important;
+  display: none !important;
   flex: 1;
   width: 100%;
-  opacity: 1 !important;
+  opacity: 0 !important;
   padding: 0;
   border: 0 !important;
   outline: none !important;
@@ -564,6 +584,50 @@
   font-size: 12.5px;
   font-weight: 500;
   line-height: 1.4;
+}
+
+.sa-clear-search {
+  display: none !important;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.sa-search-container.mobile-open .sa-search-box {
+  justify-content: flex-start;
+  width: 250px;
+  min-width: 210px;
+  max-width: 280px;
+  padding: 0 10px;
+  border: 1.5px solid #3b82f6;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+  cursor: text;
+  overflow: visible;
+}
+
+.sa-search-container.mobile-open .sa-search-btn {
+  width: 18px;
+  height: 18px;
+  color: #64748b !important;
+}
+
+.sa-search-container.mobile-open .sa-search-box input {
+  display: block !important;
+  opacity: 1 !important;
+}
+
+.sa-search-container.mobile-open .sa-clear-search {
+  display: grid !important;
 }
 
 .sa-search-box input::placeholder {
@@ -584,21 +648,6 @@
 
 .sa-search-box input:focus-visible {
   outline: none;
-}
-
-.sa-clear-search {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 0;
-  background: #e2e8f0;
-  color: #64748b;
-  cursor: pointer;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
 }
 
 .sa-clear-search:hover {
@@ -903,18 +952,22 @@
 /* Four summary cards. */
 .sa-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 295px));
+  justify-content: space-between;
   gap: 14px;
 }
 
-/* Modern curved overview stat cards with increased height */
+/* Compact curved overview stat cards (280-295px x 110px) */
 .sa-stat-card {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 14px;
+  width: 100%;
+  max-width: 295px;
   min-width: 0;
-  min-height: 138px;
-  padding: 22px 18px;
+  height: 110px;
+  min-height: 110px;
+  padding: 16px 18px;
   border: 1px solid var(--sa-border);
   border-radius: 14px;
   background: #ffffff;
@@ -1016,24 +1069,30 @@
 }
 
 .sa-stat-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   flex: 1;
   min-width: 0;
 }
 
 .sa-stat-content p {
-  margin: 1px 0 10px;
+  margin: 0 0 4px;
   color: #738197;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.5;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sa-stat-content h3 {
-  margin: 0 0 8px;
+  margin: 0;
   color: #152a49;
-  font-size: clamp(17px, 1.7vw, 23px);
+  font-size: clamp(17px, 1.5vw, 21px);
   font-weight: 750;
-  line-height: 1.25;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
@@ -1208,6 +1267,58 @@
   color: #76889f;
   font-size: 9.5px;
   font-weight: 500;
+}
+
+.sa-chart-bars-layer {
+  position: absolute;
+  inset: 4px 8px 0 8px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 8px;
+  z-index: 2;
+}
+
+.sa-chart-bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  flex: 1;
+  max-width: 56px;
+  justify-content: flex-end;
+}
+
+.sa-chart-bars-pair {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+}
+
+.sa-chart-bar {
+  width: 12px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.25s ease;
+}
+
+.sa-chart-bar.income {
+  background: #2563eb;
+}
+
+.sa-chart-bar.expense {
+  background: #f59e0b;
+}
+
+.sa-chart-bar-label {
+  position: absolute;
+  bottom: -18px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
 }
 
 .sa-chart-empty {
@@ -2105,14 +2216,22 @@
     padding-left: 22px;
   }
 
+  .sa-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
   .sa-stat-card {
-    gap: 10px;
-    padding: 14px 11px;
+    max-width: none;
+    height: 110px;
+    min-height: 110px;
+    gap: 12px;
+    padding: 14px 16px;
   }
 
   .sa-stat-icon {
-    width: 35px;
-    height: 35px;
+    width: 38px;
+    height: 38px;
   }
 
   .sa-charts-grid,
@@ -2266,35 +2385,37 @@
   }
 
   .sa-search-box {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    max-width: 36px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    max-width: 38px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    background: transparent;
-    border: none;
-    box-shadow: none;
+    border-radius: 10px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
     cursor: pointer;
     overflow: hidden;
-    transition: all 0.18s ease;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .sa-search-box:hover {
-    background: rgba(11, 25, 50, 0.06);
+    border-color: #93c5fd;
+    background: linear-gradient(145deg, #ffffff 0%, #eff6ff 100%);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.14);
   }
 
   .sa-search-btn {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: #4b5563 !important;
+    color: #334155 !important;
     border: none;
     background: transparent;
     padding: 0;
@@ -2495,8 +2616,10 @@
   }
 
   .sa-stat-card {
-    min-height: auto;
-    padding: 14px 12px;
+    max-width: none;
+    height: auto;
+    min-height: 98px;
+    padding: 12px 14px;
     gap: 10px;
     border-radius: 12px;
   }
@@ -2515,15 +2638,15 @@
   .sa-stat-content p {
     font-size: 11.5px;
     font-weight: 600;
-    margin: 0 0 4px;
-    line-height: 1.35;
+    margin: 0 0 3px;
+    line-height: 1.3;
     color: #64748b;
   }
 
   .sa-stat-content h3 {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 750;
-    margin: 0 0 4px;
+    margin: 0;
     line-height: 1.2;
     color: #0f172a;
   }
@@ -2879,8 +3002,10 @@
   }
 
   .sa-stat-card {
-    min-height: auto;
-    padding: 12px 9px;
+    max-width: none;
+    height: auto;
+    min-height: 88px;
+    padding: 11px 10px;
     gap: 8px;
     border-radius: 12px;
   }
@@ -2898,12 +3023,12 @@
 
   .sa-stat-content p {
     font-size: 10.5px;
-    margin: 0 0 3px;
+    margin: 0 0 2px;
   }
 
   .sa-stat-content h3 {
-    font-size: 15px;
-    margin: 0 0 3px;
+    font-size: 14.5px;
+    margin: 0;
   }
 
   .sa-stat-note {
@@ -3392,4 +3517,543 @@
   .sa-qp-card-body h3 {
     font-size: 15px;
   }
+}
+
+@media (max-width: 360px) {
+  .sa-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .sa-stat-card {
+    min-height: 82px;
+    padding: 12px 14px;
+  }
+}
+
+.sa-welcome-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sa-review-approvals-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 39px;
+  padding: 0 13px;
+  border: 1px solid #0b1932;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0b1932 0%, #163b75 100%);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(11, 25, 50, 0.22);
+  transition: transform 0.14s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.sa-review-approvals-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(11, 25, 50, 0.28);
+}
+
+.sa-review-approvals-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+
+/* Single navy blue overview period filter + modern dropdown */
+.sa-period-filter {
+  position: relative;
+  flex-shrink: 0;
+  max-width: 100%;
+}
+
+.sa-period-bar {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sa-period-dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 156px;
+  height: 39px;
+  padding: 0 18px;
+  border: 1px solid #0b1932;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0b1932 0%, #163b75 100%);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  white-space: nowrap;
+  max-width: 100%;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(11, 25, 50, 0.22);
+  transition: transform 0.14s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.sa-period-dropdown-btn:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(11, 25, 50, 0.28);
+}
+
+.sa-period-dropdown-btn.open,
+.sa-period-dropdown-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 4px 12px rgba(11, 25, 50, 0.28),
+    0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+.sa-period-dropdown-btn-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sa-period-dropdown-btn-left span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sa-period-btn-icon {
+  flex-shrink: 0;
+  color: #93c5fd;
+}
+
+.sa-period-dropdown-chevron {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.18s ease;
+}
+
+.sa-period-dropdown-chevron.open {
+  transform: rotate(180deg);
+  color: #ffffff;
+}
+
+.sa-period-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  z-index: 65;
+  min-width: 264px;
+  max-width: calc(100vw - 26px);
+  padding: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow:
+    0 14px 32px -6px rgba(15, 23, 42, 0.18),
+    0 6px 14px -4px rgba(15, 23, 42, 0.08);
+  animation: saPeriodDropdownFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes saPeriodDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sa-period-dropdown-header {
+  padding: 6px 10px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sa-period-dropdown-header span {
+  display: block;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.sa-period-dropdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sa-period-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #1e293b;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.sa-period-dropdown-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.sa-period-dropdown-item.selected {
+  background: #eff6ff;
+  color: #163b73;
+  font-weight: 650;
+}
+
+.sa-period-dropdown-item-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.sa-period-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.sa-period-dropdown-item-text {
+  font-size: 12px;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.sa-period-dropdown-check {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.sa-period-dropdown-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: #f1f5f9;
+}
+
+.sa-period-custom-option-icon {
+  color: #163b75;
+  flex-shrink: 0;
+}
+
+.sa-period-sub-chevron {
+  color: #64748b;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.sa-period-sub-chevron.open {
+  transform: rotate(180deg);
+  color: #163b75;
+}
+
+.sa-period-custom-inline {
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.sa-period-custom-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sa-period-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sa-period-date-field span {
+  font-size: 10.5px;
+  font-weight: 650;
+  color: #475569;
+}
+
+.sa-period-date-field input {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.sa-period-date-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.sa-period-custom-error {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.sa-period-custom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.sa-period-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.sa-period-reset-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.sa-period-reset-link:hover {
+  text-decoration: underline;
+}
+
+.sa-period-cancel-btn {
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sa-period-cancel-btn:hover {
+  background: #f1f5f9;
+}
+
+.sa-period-apply-btn {
+  height: 32px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0b1932 0%, #163b75 100%);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(11, 25, 50, 0.25);
+}
+
+.sa-period-apply-btn:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 768px) {
+  .sa-period-filter {
+    max-width: 100%;
+  }
+
+  .sa-period-bar {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .sa-period-dropdown-btn {
+    min-width: 148px;
+    height: 37px;
+    padding: 0 15px;
+    font-size: 12.5px;
+  }
+
+  .sa-period-dropdown-menu {
+    left: 0;
+    right: auto;
+    min-width: 256px;
+    max-width: calc(100vw - 26px);
+  }
+}
+
+@media (max-width: 420px) {
+  .sa-period-filter {
+    width: 100%;
+  }
+
+  .sa-period-bar {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sa-period-dropdown-btn {
+    width: 100%;
+  }
+
+  .sa-period-custom-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+[data-theme="dark"] .sa-period-bar {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .sa-period-dropdown-btn {
+  background: linear-gradient(135deg, #0b1932 0%, #1d4ed8 100%);
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .sa-period-dropdown-btn.open,
+[data-theme="dark"] .sa-period-dropdown-btn:focus-visible {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.45),
+    0 0 0 3px rgba(59, 130, 246, 0.28);
+}
+
+[data-theme="dark"] .sa-period-dropdown-chevron {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .sa-period-dropdown-chevron.open {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .sa-period-dropdown-menu {
+  background: #10192e;
+  border-color: #1c2b47;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .sa-period-dropdown-header {
+  border-bottom-color: #1c2b47;
+}
+
+[data-theme="dark"] .sa-period-dropdown-header span {
+  color: #64748b;
+}
+
+[data-theme="dark"] .sa-period-dropdown-item {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .sa-period-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .sa-period-dropdown-item.selected {
+  background: rgba(37, 99, 235, 0.22);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .sa-period-dropdown-dot {
+  box-shadow: 0 0 0 2px rgba(16, 25, 46, 0.85);
+}
+
+[data-theme="dark"] .sa-period-dropdown-check {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .sa-period-dropdown-divider {
+  background: #1c2b47;
+}
+
+[data-theme="dark"] .sa-period-custom-option-icon {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .sa-period-sub-chevron {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .sa-period-sub-chevron.open {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .sa-period-custom-inline {
+  background: #15223c;
+  border-color: #24375a;
+}
+
+[data-theme="dark"] .sa-period-date-field span {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .sa-period-date-field input {
+  background: #10192e;
+  border-color: #24375a;
+  color: #f8fafc;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .sa-period-cancel-btn {
+  background: #10192e;
+  border-color: #24375a;
+  color: #cbd5e1;
 }

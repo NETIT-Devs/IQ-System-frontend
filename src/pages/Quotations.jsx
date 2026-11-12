@@ -36,6 +36,7 @@ import {
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
 import { getAuthenticatedUser } from "../utils/authStorage";
+import { getNextQuotationNumber } from "../utils/formatters";
 import "./Quotations.css";
 
 const statusOptions = [
@@ -44,7 +45,24 @@ const statusOptions = [
   { label: "Pending Approval", value: "Pending Approval", color: "#0284c7" },
   { label: "Approved", value: "Approved", color: "#16a34a" },
   { label: "Rejected", value: "Rejected", color: "#dc2626" },
+  { label: "Customer Accepted", value: "Customer Accepted", color: "#15803d" },
+  { label: "Sent to Customer", value: "Sent to Customer", color: "#0369a1" },
+  { label: "Customer Rejected", value: "Customer Rejected", color: "#b91c1c" },
 ];
+
+const CUSTOMER_STATUS_FILTER_VALUES = new Set([
+  "Customer Accepted",
+  "Sent to Customer",
+  "Customer Rejected",
+]);
+
+function getNormalizedCustomerStatus(quotation) {
+  const cs = String(quotation?.customer_status || "").trim().toLowerCase();
+  if (cs === "customer accepted" || cs === "accepted") return "Customer Accepted";
+  if (cs === "customer rejected" || cs === "rejected") return "Customer Rejected";
+  if (cs === "sent to customer" || cs === "sent") return "Sent to Customer";
+  return "";
+}
 
 const dateOptions = [
   { label: "All time", value: "all", desc: "Show complete history" },
@@ -102,6 +120,21 @@ function formatDate(value) {
   }
 }
 
+// Format short date for Custom Range button label
+function formatShortRangeDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
 // Return an icon based on the quotation status
 function getStatusIcon(status) {
   const s = String(status || "").toLowerCase();
@@ -133,15 +166,17 @@ function getCreatorRole(quotation) {
   if (role) {
     const lower = String(role).trim().toLowerCase();
     if (lower.includes("super")) return "Super Admin";
-    if (lower.includes("admin")) return "Admin";
+    if (lower.includes("admin")) {
+      return quotation.created_by_name ? `Admin: ${quotation.created_by_name}` : "Admin";
+    }
     return role;
   }
   if (quotation.created_by === 2) return "Super Admin";
-  if (quotation.created_by === 1) return "Admin";
+  if (quotation.created_by === 1) return quotation.created_by_name ? `Admin: ${quotation.created_by_name}` : "Admin";
   if (quotation.created_by_name) {
     const lower = String(quotation.created_by_name).trim().toLowerCase();
     if (lower.includes("super")) return "Super Admin";
-    if (lower.includes("admin")) return "Admin";
+    if (lower.includes("admin")) return `Admin: ${quotation.created_by_name}`;
     return quotation.created_by_name;
   }
   return quotation.created_by ? `User #${quotation.created_by}` : "—";
@@ -155,18 +190,27 @@ export default function Quotations() {
   const [loadError, setLoadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
+  const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
   // Modern Dropdown Popups state & refs
   const [dateDropdownOpen, setDateDropdownOpen] = useState(false);
+  const [customDropdownOpen, setCustomDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [draftCustomStart, setDraftCustomStart] = useState("");
+  const [draftCustomEnd, setDraftCustomEnd] = useState("");
+  const [customRangeError, setCustomRangeError] = useState("");
   const dateDropdownRef = useRef(null);
+  const customDropdownRef = useRef(null);
   const statusDropdownRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target)) {
         setDateDropdownOpen(false);
+      }
+      if (customDropdownRef.current && !customDropdownRef.current.contains(event.target)) {
+        setCustomDropdownOpen(false);
       }
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setStatusDropdownOpen(false);
@@ -175,6 +219,7 @@ export default function Quotations() {
     function handleEscape(event) {
       if (event.key === "Escape") {
         setDateDropdownOpen(false);
+        setCustomDropdownOpen(false);
         setStatusDropdownOpen(false);
       }
     }
@@ -286,14 +331,26 @@ export default function Quotations() {
       if (counts[s] !== undefined) {
         counts[s] += 1;
       }
+      const cs = getNormalizedCustomerStatus(q);
+      if (cs && counts[cs] !== undefined) {
+        counts[cs] += 1;
+      }
     });
     return counts;
   }, [quotations]);
 
-  // Filter quotations using the search term, date range, and status
+  // Filter quotations using the search term, date range, custom range, and status
   const filteredQuotations = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const cutoff = getDateCutoff(dateRange);
+    const hasCustomRange = Boolean(customRange.startDate || customRange.endDate);
+    const customStartBound = customRange.startDate
+      ? new Date(`${customRange.startDate}T00:00:00`)
+      : null;
+    const customEndBound = customRange.endDate
+      ? new Date(`${customRange.endDate}T23:59:59.999`)
+      : null;
+    const isCustomerStatusFilter = CUSTOMER_STATUS_FILTER_VALUES.has(statusFilter);
 
     return quotations.filter((quotation) => {
       const matchesSearch =
@@ -316,22 +373,67 @@ export default function Quotations() {
         (!Number.isNaN(quotationDate.getTime()) &&
           quotationDate >= cutoff);
 
+      const matchesCustomRange =
+        !hasCustomRange ||
+        (!Number.isNaN(quotationDate.getTime()) &&
+          (!customStartBound || quotationDate >= customStartBound) &&
+          (!customEndBound || quotationDate <= customEndBound));
+
       const matchesStatus =
         statusFilter === "All Statuses" ||
-        quotation.status === statusFilter;
+        (isCustomerStatusFilter
+          ? getNormalizedCustomerStatus(quotation) === statusFilter
+          : quotation.status === statusFilter);
 
-      return matchesSearch && matchesDate && matchesStatus;
+      return matchesSearch && matchesDate && matchesCustomRange && matchesStatus;
     });
-  }, [quotations, searchTerm, dateRange, statusFilter]);
+  }, [quotations, searchTerm, dateRange, customRange, statusFilter]);
+
+  function handleApplyCustomRange(e) {
+    e.preventDefault();
+    if (!draftCustomStart && !draftCustomEnd) {
+      setCustomRangeError("Select at least a From or To date.");
+      return;
+    }
+    if (draftCustomStart && draftCustomEnd && draftCustomStart > draftCustomEnd) {
+      setCustomRangeError("From date cannot be after To date.");
+      return;
+    }
+    setCustomRangeError("");
+    setCustomRange({ startDate: draftCustomStart, endDate: draftCustomEnd });
+    setDateRange("all");
+    setCustomDropdownOpen(false);
+  }
+
+  function handleResetCustomRange() {
+    setDraftCustomStart("");
+    setDraftCustomEnd("");
+    setCustomRange({ startDate: "", endDate: "" });
+    setCustomRangeError("");
+    setCustomDropdownOpen(false);
+  }
+
+  const hasActiveCustomRange = Boolean(customRange.startDate || customRange.endDate);
+  let customRangeLabel = "Custom Range";
+  if (customRange.startDate && customRange.endDate) {
+    customRangeLabel = `${formatShortRangeDate(customRange.startDate)} – ${formatShortRangeDate(
+      customRange.endDate
+    )}`;
+  } else if (customRange.startDate) {
+    customRangeLabel = `From ${formatShortRangeDate(customRange.startDate)}`;
+  } else if (customRange.endDate) {
+    customRangeLabel = `Until ${formatShortRangeDate(customRange.endDate)}`;
+  }
   const quotationSchemaError =
     loadError.toLowerCase().includes("unknown column") &&
     loadError.toLowerCase().includes("status");
 
-  // Open creation modal
+  // Open creation screen
   function openCreateModal() {
     setSelectedQuotation(null);
-    setNewQuotationNumber(`QUO-${Date.now().toString(36).toUpperCase()}`);
+    setNewQuotationNumber(getNextQuotationNumber(quotations));
     setShowFormModal(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const authUser = getAuthenticatedUser();
@@ -351,10 +453,11 @@ export default function Quotations() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
-  // Open edit modal
+  // Open edit screen
   function openEditModal(quotation) {
     setSelectedQuotation(quotation);
     setShowFormModal(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // Open view details modal
@@ -428,7 +531,7 @@ export default function Quotations() {
     const duplicated = {
       ...quotation,
       quotation_id: undefined,
-      quotation_number: `QUO-${Date.now().toString(36).toUpperCase()}`,
+      quotation_number: getNextQuotationNumber(quotations),
       status: "Draft",
       quotation_date: new Date().toISOString().slice(0, 10),
     };
@@ -503,6 +606,25 @@ export default function Quotations() {
     },
   ];
 
+  if (showFormModal) {
+    return (
+      <QuotationForm
+        isPage
+        initialData={selectedQuotation}
+        quotationNumber={newQuotationNumber}
+        onSave={async () => {
+          setShowFormModal(false);
+          setSelectedQuotation(null);
+          await loadQuotations();
+        }}
+        onClose={() => {
+          setShowFormModal(false);
+          setSelectedQuotation(null);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="quotation-app">
       <div className="quotation-main">
@@ -530,7 +652,7 @@ export default function Quotations() {
 
           <div className="quotation-header-actions">
             <ThemeToggle />
-            <NotificationBell />
+            <NotificationBell filter="quotation" />
 
             <span className="quotation-date-badge" title="Today's Date">
               <span className="quotation-date-full">
@@ -578,58 +700,15 @@ export default function Quotations() {
             </button>
           </div>
 
-          {/* Summary Cards matching Overview Card Size */}
-          <section className="quotation-stats-grid" aria-label="Quotation statistics">
-            {statCards.map(({ label, value, icon: Icon, color, note }) => (
-              <article key={label} className="quotation-stat-card">
-                <div className={`quotation-stat-icon ${color}`}>
-                  <Icon size={18} strokeWidth={1.9} />
-                </div>
-
-                <div className="quotation-stat-content">
-                  <p>{label}</p>
-                  <h3>{value}</h3>
-                  <span className="quotation-stat-note">{note}</span>
-                </div>
-              </article>
-            ))}
-          </section>
-
-          {/* Table, Search, and Filters */}
-          <section className="quotation-list-section">
-            <div className="quotation-list-heading">
-              <div>
-                <h2>All Quotations</h2>
-                <p>View and manage your quotation records.</p>
-              </div>
-              <span className="quotation-record-count">
-                {filteredQuotations.length} records
-              </span>
-            </div>
-
-            {loadError && (
-              <div
-                className="quotation-load-error"
-                role="alert"
-                aria-live="assertive"
-              >
-                <strong>
-                  {quotationSchemaError
-                    ? "Quotation data is unavailable"
-                    : "Could not load quotations"}
-                </strong>
-                <span>
-                  {quotationSchemaError
-                    ? "The connected database does not store quotation status. Restart the backend with the schema-compatible quotation update so saved records can be displayed without status fields."
-                    : loadError}
-                </span>
-              </div>
-            )}
-
+          {/* Separated Search & Filter Bar */}
+          <section
+            className="quotation-toolbar-panel"
+            aria-label="Search and filter quotations"
+          >
             <div className="quotation-filters">
               {/* Search */}
               <label className="quotation-search">
-                <Search size={19} />
+                <Search size={15} />
 
                 <input
                   type="search"
@@ -650,65 +729,7 @@ export default function Quotations() {
                 )}
               </label>
 
-              {/* Modern Date Filter Dropdown */}
-              <div className="quotation-dropdown-wrap" ref={dateDropdownRef}>
-                <button
-                  type="button"
-                  className={`quotation-filter-btn ${dateDropdownOpen ? "active" : ""}`}
-                  onClick={() => {
-                    setDateDropdownOpen((prev) => !prev);
-                    setStatusDropdownOpen(false);
-                  }}
-                  aria-expanded={dateDropdownOpen}
-                  aria-haspopup="listbox"
-                  title="Filter by date range"
-                >
-                  <CalendarDays size={16} className="quotation-filter-icon" />
-                  <span className="quotation-filter-label">
-                    {dateOptions.find((o) => o.value === dateRange)?.label || "Date Filter"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`quotation-filter-chevron ${dateDropdownOpen ? "open" : ""}`}
-                  />
-                </button>
-
-                {dateDropdownOpen && (
-                  <div className="quotation-dropdown-menu date-menu" role="listbox">
-                    <div className="quotation-dropdown-header">
-                      <span>Filter by Date</span>
-                    </div>
-                    <div className="quotation-dropdown-list">
-                      {dateOptions.map((opt) => {
-                        const isSelected = dateRange === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`quotation-dropdown-item ${isSelected ? "selected" : ""}`}
-                            role="option"
-                            aria-selected={isSelected}
-                            onClick={() => {
-                              setDateRange(opt.value);
-                              setDateDropdownOpen(false);
-                            }}
-                          >
-                            <div className="quotation-dropdown-item-info">
-                              <span className="quotation-item-title">{opt.label}</span>
-                              {opt.desc && (
-                                <span className="quotation-item-desc">{opt.desc}</span>
-                              )}
-                            </div>
-                            {isSelected && <Check size={15} className="quotation-item-check" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Modern Status Filter Dropdown */}
+              {/* 1. Modern Status Filter Dropdown */}
               <div className="quotation-dropdown-wrap" ref={statusDropdownRef}>
                 <button
                   type="button"
@@ -716,6 +737,7 @@ export default function Quotations() {
                   onClick={() => {
                     setStatusDropdownOpen((prev) => !prev);
                     setDateDropdownOpen(false);
+                    setCustomDropdownOpen(false);
                   }}
                   aria-expanded={statusDropdownOpen}
                   aria-haspopup="listbox"
@@ -770,7 +792,191 @@ export default function Quotations() {
                   </div>
                 )}
               </div>
+
+              {/* 2. Modern Date Filter Dropdown */}
+              <div className="quotation-dropdown-wrap" ref={dateDropdownRef}>
+                <button
+                  type="button"
+                  className={`quotation-filter-btn ${dateDropdownOpen ? "active" : ""}`}
+                  onClick={() => {
+                    setDateDropdownOpen((prev) => !prev);
+                    setStatusDropdownOpen(false);
+                    setCustomDropdownOpen(false);
+                  }}
+                  aria-expanded={dateDropdownOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by date range"
+                >
+                  <CalendarDays size={16} className="quotation-filter-icon" />
+                  <span className="quotation-filter-label">
+                    {dateOptions.find((o) => o.value === dateRange)?.label || "Date Filter"}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`quotation-filter-chevron ${dateDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+
+                {dateDropdownOpen && (
+                  <div className="quotation-dropdown-menu date-menu" role="listbox">
+                    <div className="quotation-dropdown-header">
+                      <span>Filter by Date</span>
+                    </div>
+                    <div className="quotation-dropdown-list">
+                      {dateOptions.map((opt) => {
+                        const isSelected = !hasActiveCustomRange && dateRange === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`quotation-dropdown-item ${isSelected ? "selected" : ""}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setDateRange(opt.value);
+                              setCustomRange({ startDate: "", endDate: "" });
+                              setDraftCustomStart("");
+                              setDraftCustomEnd("");
+                              setCustomRangeError("");
+                              setDateDropdownOpen(false);
+                            }}
+                          >
+                            <div className="quotation-dropdown-item-info">
+                              <span className="quotation-item-title">{opt.label}</span>
+                              {opt.desc && (
+                                <span className="quotation-item-desc">{opt.desc}</span>
+                              )}
+                            </div>
+                            {isSelected && <Check size={15} className="quotation-item-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 3. Custom Date Range Dropdown */}
+              <div className="quotation-dropdown-wrap" ref={customDropdownRef}>
+                <button
+                  type="button"
+                  className={`quotation-filter-btn ${customDropdownOpen || hasActiveCustomRange ? "active" : ""
+                    }`}
+                  onClick={() => {
+                    if (!customDropdownOpen) {
+                      setDraftCustomStart(customRange.startDate);
+                      setDraftCustomEnd(customRange.endDate);
+                      setCustomRangeError("");
+                    }
+                    setCustomDropdownOpen((prev) => !prev);
+                    setDateDropdownOpen(false);
+                    setStatusDropdownOpen(false);
+                  }}
+                  aria-expanded={customDropdownOpen}
+                  aria-haspopup="dialog"
+                  title="Filter by custom date range"
+                >
+                  <CalendarDays size={16} className="quotation-filter-icon" />
+                  <span className="quotation-filter-label">{customRangeLabel}</span>
+                  <ChevronDown
+                    size={14}
+                    className={`quotation-filter-chevron ${customDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+
+                {customDropdownOpen && (
+                  <form
+                    className="quotation-dropdown-menu custom-range-menu"
+                    onSubmit={handleApplyCustomRange}
+                    aria-label="Custom date range filter"
+                  >
+                    <div className="quotation-dropdown-header">
+                      <span>Custom Date Range</span>
+                    </div>
+
+                    <div className="quotation-custom-fields">
+                      <label className="quotation-custom-field">
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={draftCustomStart}
+                          onChange={(e) => {
+                            setDraftCustomStart(e.target.value);
+                            setCustomRangeError("");
+                          }}
+                        />
+                      </label>
+
+                      <label className="quotation-custom-field">
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={draftCustomEnd}
+                          min={draftCustomStart || undefined}
+                          onChange={(e) => {
+                            setDraftCustomEnd(e.target.value);
+                            setCustomRangeError("");
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {customRangeError && (
+                      <p className="quotation-custom-error" role="alert">
+                        {customRangeError}
+                      </p>
+                    )}
+
+                    <div className="quotation-custom-actions">
+                      {hasActiveCustomRange && (
+                        <button
+                          type="button"
+                          className="quotation-custom-reset"
+                          onClick={handleResetCustomRange}
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <div className="quotation-custom-btn-group">
+                        <button
+                          type="button"
+                          className="quotation-custom-cancel"
+                          onClick={() => setCustomDropdownOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button type="submit" className="quotation-custom-apply">
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
+          </section>
+
+          {/* Quotations Details Table Panel */}
+          <section className="quotation-list-section" aria-label="Quotations list">
+            {loadError && (
+              <div
+                className="quotation-load-error"
+                role="alert"
+                aria-live="assertive"
+                style={{ marginTop: "16px" }}
+              >
+                <strong>
+                  {quotationSchemaError
+                    ? "Quotation data is unavailable"
+                    : "Could not load quotations"}
+                </strong>
+                <span>
+                  {quotationSchemaError
+                    ? "The connected database does not store quotation status. Restart the backend with the schema-compatible quotation update so saved records can be displayed without status fields."
+                    : loadError}
+                </span>
+              </div>
+            )}
 
             {/* Table */}
             <div className="quotation-table-wrapper">
@@ -780,9 +986,7 @@ export default function Quotations() {
                     <th>QUOTATION ID</th>
                     <th>CLIENT</th>
                     <th>PROJECT</th>
-                    <th>ISSUED DATE</th>
                     <th>CREATED BY</th>
-                    <th>VALID UNTIL</th>
                     <th className="amount-column">TOTAL</th>
                     <th>STATUS</th>
                     <th>CUSTOMER STATUS</th>
@@ -799,21 +1003,26 @@ export default function Quotations() {
                     return (
                       <tr key={quotation.id || quotation.quotation_id}>
                         <td>
-                          <button
-                            type="button"
-                            className="quotation-id"
-                            style={{
-                              background: "none",
-                              border: "none",
-                              cursor: "pointer",
-                              textAlign: "left",
-                              padding: 0,
-                            }}
-                            title="Click to view quotation details and download PDF"
-                            onClick={() => openDetailsModal(quotation)}
-                          >
-                            {quotation.id}
-                          </button>
+                          <div className="quotation-id-cell">
+                            <button
+                              type="button"
+                              className="quotation-id"
+                              style={{
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                textAlign: "left",
+                                padding: 0,
+                              }}
+                              title="Click to view quotation details and download PDF"
+                              onClick={() => openDetailsModal(quotation)}
+                            >
+                              {quotation.id}
+                            </button>
+                            <span className="quotation-id-date">
+                              {formatDate(quotation.issuedDate)}
+                            </span>
+                          </div>
                         </td>
 
                         <td>
@@ -838,8 +1047,6 @@ export default function Quotations() {
                           </span>
                         </td>
 
-                        <td>{formatDate(quotation.issuedDate)}</td>
-
                         <td>
                           {(() => {
                             const creatorRole = getCreatorRole(quotation);
@@ -847,29 +1054,20 @@ export default function Quotations() {
 
                             return (
                               <span
-                                style={{
-                                  display: "inline-block",
-                                  padding: "2px 8px",
-                                  fontSize: "11px",
-                                  fontWeight: "600",
-                                  borderRadius: "4px",
-                                  background: isSuper ? "#f5f3ff" : "#eff6ff",
-                                  color: isSuper ? "#6d28d9" : "#1d4ed8",
-                                  border: isSuper ? "1px solid #ddd6fe" : "1px solid #bfdbfe",
-                                }}
+                                className={`quotation-creator-badge ${isSuper ? "super" : "admin"
+                                  }`}
                                 title={
                                   quotation.created_by_name
                                     ? `${creatorRole} (${quotation.created_by_name})`
                                     : creatorRole
                                 }
                               >
-                                {creatorRole}
+                                <span className="quotation-creator-dot" aria-hidden="true" />
+                                <span className="quotation-creator-text">{creatorRole}</span>
                               </span>
                             );
                           })()}
                         </td>
-
-                        <td>{formatDate(quotation.validUntil)}</td>
 
                         <td className="amount-column quotation-amount">
                           {formatCurrency(quotation.total, quotation.currency)}
@@ -877,25 +1075,41 @@ export default function Quotations() {
 
                         <td>
                           <span className={`quotation-status status-${(quotation.status || "").toLowerCase().replace(/\s+/g, "-")}`}>
-                            <StatusIcon size={14} />
+                            <StatusIcon size={11} />
                             {quotation.status}
                           </span>
                         </td>
 
                         <td>
-                          <div className="quotation-status-control" title="Manually update customer response">
-                            <select
-                              value={quotation.customer_status || "Not Sent"}
-                              disabled={updatingStatusId === (quotation.quotation_id || quotation.id)}
-                              onChange={(e) => handleCustomerStatusUpdate(quotation, e.target.value)}
-                              className={`quotation-status-select cust-status-badge status-${(quotation.customer_status || "notsent").toLowerCase().replace(/\s+/g, "")}`}
-                            >
-                              <option value="Not Sent">Not Sent</option>
-                              <option value="Sent to Customer">📤 Sent to Customer</option>
-                              <option value="Customer Accepted">✅ Customer Accepted</option>
-                              <option value="Customer Rejected">❌ Customer Rejected</option>
-                            </select>
-                          </div>
+                          {(() => {
+                            const statusSlug = (quotation.customer_status || "notsent")
+                              .toLowerCase()
+                              .replace(/\s+/g, "");
+                            return (
+                              <div
+                                className={`quotation-status-control status-${statusSlug}`}
+                                title="Update customer response"
+                              >
+                                <select
+                                  value={quotation.customer_status || "Not Sent"}
+                                  disabled={updatingStatusId === (quotation.quotation_id || quotation.id)}
+                                  onChange={(e) => handleCustomerStatusUpdate(quotation, e.target.value)}
+                                  className={`quotation-status-select cust-status-badge status-${statusSlug}`}
+                                  aria-label={`Customer status for ${quotation.id}`}
+                                >
+                                  <option value="Not Sent">Not Sent</option>
+                                  <option value="Sent to Customer">Sent</option>
+                                  <option value="Customer Accepted">Accepted</option>
+                                  <option value="Customer Rejected">Rejected</option>
+                                </select>
+                                <ChevronDown
+                                  size={11}
+                                  className="quotation-status-select-chevron"
+                                  aria-hidden="true"
+                                />
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         <td className="actions-column">
@@ -988,7 +1202,7 @@ export default function Quotations() {
                   {/* Empty state */}
                   {filteredQuotations.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="quotation-empty-cell">
+                      <td colSpan={8} className="quotation-empty-cell">
                         <div className="quotation-empty-state">
                           <div className="empty-state-icon">
                             <FileText size={29} />
@@ -1062,23 +1276,6 @@ export default function Quotations() {
         </div>
       </div>
 
-      {/* Quotation Creation & Editing Modal */}
-      {showFormModal && (
-        <QuotationForm
-          initialData={selectedQuotation}
-          quotationNumber={newQuotationNumber}
-          onSave={async () => {
-            setShowFormModal(false);
-            setSelectedQuotation(null);
-            await loadQuotations();
-          }}
-          onClose={() => {
-            setShowFormModal(false);
-            setSelectedQuotation(null);
-          }}
-        />
-      )}
-
       {/* Quotation Details Modal */}
       {showDetailsModal && selectedQuotation && (
         <QuotationDetails
@@ -1092,6 +1289,7 @@ export default function Quotations() {
             setShowDetailsModal(false);
             setSelectedQuotation(q);
             setShowFormModal(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }}
         />
       )}

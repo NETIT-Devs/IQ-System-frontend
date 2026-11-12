@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useLocation } from "react-router-dom";
 import {
   Search,
   RefreshCw,
@@ -17,9 +17,12 @@ import {
   Filter,
   Menu,
   ChevronDown,
+  Wallet,
+  ExternalLink,
 } from "lucide-react";
 import API_BASE_URL from "../services/api";
 import ThemeToggle from "../components/ThemeToggle";
+import NotificationBell from "../components/NotificationBell";
 import {
   getQuotations,
   getQuotationById,
@@ -28,7 +31,18 @@ import {
   approveQuotation,
   rejectQuotation,
   getNotifications,
+  addNotification,
 } from "../services/quotationService";
+import {
+  getInvoices,
+  approveInvoice as approveInvoiceService,
+  rejectInvoice as rejectInvoiceService,
+} from "../services/invoiceService";
+import {
+  getPayments,
+  approvePayment as approvePaymentService,
+  rejectPayment as rejectPaymentService,
+} from "../services/paymentService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import { openQuotationPdf } from "../utils/pdfGenerator";
 import QuotationDetails from "./QuotationDetails";
@@ -62,17 +76,38 @@ function formatDate(date) {
   });
 }
 
-function getQuotationStatusCategory(quotation) {
+function isSuperCreatorItem(item, currentUserId = null) {
+  const role = String(
+    item?.created_by_role || item?.creator_role || item?.creatorRole || ""
+  )
+    .trim()
+    .toLowerCase();
+  const name = String(item?.created_by_name || "").trim().toLowerCase();
+  const createdBy = Number(item?.created_by);
+
+  if (
+    role.includes("super") ||
+    name.includes("super admin") ||
+    name.includes("super_admin")
+  ) {
+    return true;
+  }
+  if (createdBy === 2) {
+    return true;
+  }
+  if (currentUserId && Number(currentUserId) === createdBy) {
+    return true;
+  }
+  return false;
+}
+
+function getQuotationStatusCategory(quotation, currentUserId = null) {
+  if (isSuperCreatorItem(quotation, currentUserId)) {
+    return "super_admin";
+  }
+
   const approval = String(quotation?.approval_status || "").trim().toLowerCase();
   const status = String(quotation?.status || "").trim().toLowerCase();
-  const role = String(quotation?.created_by_role || "").trim().toLowerCase();
-  const isSuperCreator = role.includes("super") || quotation?.created_by === 2;
-
-  // Super Admin finalized quotations are always Approved and never need pending approval!
-  if (isSuperCreator) {
-    if (status === "draft") return "draft";
-    return "approved";
-  }
 
   // Admin submitted quotations
   if (approval === "approved" || status.includes("approv") || status.includes("accept")) {
@@ -91,16 +126,13 @@ function getQuotationStatusCategory(quotation) {
   return "draft";
 }
 
-function getInvoiceStatusCategory(invoice) {
+function getInvoiceStatusCategory(invoice, currentUserId = null) {
+  if (isSuperCreatorItem(invoice, currentUserId)) {
+    return "super_admin";
+  }
+
   const approval = String(invoice?.approval_status || "").trim().toLowerCase();
   const status = String(invoice?.status || invoice?.payment_status || "").trim().toLowerCase();
-  const role = String(invoice?.created_by_role || "").trim().toLowerCase();
-  const isSuperCreator = role.includes("super") || invoice?.created_by === 2;
-
-  if (isSuperCreator) {
-    if (status === "draft") return "draft";
-    return "approved";
-  }
 
   if (approval === "approved" || status.includes("approv") || status === "paid" || status === "partial" || status === "unpaid") {
     if (approval === "pending" || status.includes("pending")) return "pending";
@@ -143,14 +175,35 @@ function SummaryCard({ label, value, icon, note, tone = "blue", active = false, 
 
 export default function Approvals() {
   const { openSidebar } = useOutletContext() || {};
+  const location = useLocation();
   const user = getAuthenticatedUser();
   const role = String(user?.role || "").trim().toLowerCase();
   const isSuperAdmin = role === "super admin";
 
-  const [activeTab, setActiveTab] = useState("quotations"); // "quotations" | "invoices"
+  const [activeTab, setActiveTab] = useState("quotations"); // "quotations" | "invoices" | "payments"
   const [statusFilter, setStatusFilter] = useState("pending"); // "pending" | "approved" | "rejected" | "draft" | "all"
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
+
+  // Sync tab and filter from router navigation state (e.g. from notification clicks)
+  useEffect(() => {
+    if (location.state?.tab === "invoices") {
+      setActiveTab("invoices");
+      if (location.state?.status) {
+        setInvoiceStatusFilter(location.state.status);
+      }
+    } else if (location.state?.tab === "payments") {
+      setActiveTab("payments");
+      if (location.state?.status) {
+        setPaymentStatusFilter(location.state.status);
+      }
+    } else if (location.state?.tab === "quotations") {
+      setActiveTab("quotations");
+      if (location.state?.status) {
+        setStatusFilter(location.state.status);
+      }
+    }
+  }, [location.state]);
 
   // Invoice Approvals state
   const [allInvoices, setAllInvoices] = useState([]);
@@ -163,6 +216,18 @@ export default function Approvals() {
   const [rejectingInvoice, setRejectingInvoice] = useState(null);
   const [invoiceRejectionReason, setInvoiceRejectionReason] = useState("");
   const [invoiceRejectionError, setInvoiceRejectionError] = useState("");
+
+  // Payment Approvals state
+  const [allPayments, setAllPayments] = useState([]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("pending"); // "pending" | "approved" | "rejected" | "all"
+  const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
+  const paymentDropdownRef = useRef(null);
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [viewingPayment, setViewingPayment] = useState(null);
+  const [approvingPayment, setApprovingPayment] = useState(null);
+  const [rejectingPayment, setRejectingPayment] = useState(null);
+  const [paymentRejectionReason, setPaymentRejectionReason] = useState("");
+  const [paymentRejectionError, setPaymentRejectionError] = useState("");
 
   useEffect(() => {
     function handleOutsideClick(e) {
@@ -177,6 +242,12 @@ export default function Approvals() {
         !invoiceDropdownRef.current.contains(e.target)
       ) {
         setInvoiceDropdownOpen(false);
+      }
+      if (
+        paymentDropdownRef.current &&
+        !paymentDropdownRef.current.contains(e.target)
+      ) {
+        setPaymentDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleOutsideClick);
@@ -202,9 +273,11 @@ export default function Approvals() {
     setError("");
 
     try {
-      const [records, notifications] = await Promise.all([
+      const [records, notifications, invoicesList, paymentsList] = await Promise.all([
         getQuotations(),
         getNotifications().catch(() => []),
+        getInvoices().catch(() => []),
+        getPayments({ approval_queue: true }).catch(() => []),
       ]);
 
       const storedReasons = (() => {
@@ -255,31 +328,8 @@ export default function Approvals() {
       );
 
       setAllQuotations(mergedQuotations);
-
-      // Fetch invoices for Invoice Approvals tab (gracefully fallback to [] until Invoice module is built)
-      try {
-        const token =
-          localStorage.getItem("authToken") ||
-          sessionStorage.getItem("authToken") ||
-          "";
-        const headers = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const invRes = await fetch(`${API_BASE_URL}/api/invoices`, {
-          method: "GET",
-          headers,
-        });
-        if (invRes.ok) {
-          const invData = await invRes.json().catch(() => null);
-          const invList = Array.isArray(invData)
-            ? invData
-            : invData?.invoices || invData?.data || [];
-          setAllInvoices(Array.isArray(invList) ? invList : []);
-        } else {
-          setAllInvoices([]);
-        }
-      } catch {
-        setAllInvoices([]);
-      }
+      setAllInvoices(Array.isArray(invoicesList) ? invoicesList : []);
+      setAllPayments(Array.isArray(paymentsList) ? paymentsList : []);
     } catch (err) {
       console.error("Failed to load approvals data:", err);
       setError(
@@ -292,7 +342,18 @@ export default function Approvals() {
 
   useEffect(() => {
     loadData();
+
+    const handleUpdate = () => loadData();
+    window.addEventListener("iq-notifications-updated", handleUpdate);
+    window.addEventListener("storage", handleUpdate);
+
+    return () => {
+      window.removeEventListener("iq-notifications-updated", handleUpdate);
+      window.removeEventListener("storage", handleUpdate);
+    };
   }, [loadData]);
+
+  const currentSuperAdminId = isSuperAdmin ? user?.user_id || user?.id : null;
 
   // Overall counts for summary cards
   const stats = useMemo(() => {
@@ -302,28 +363,38 @@ export default function Approvals() {
     let drafts = 0;
 
     allQuotations.forEach((q) => {
-      const cat = getQuotationStatusCategory(q);
+      if (isSuperCreatorItem(q, currentSuperAdminId)) return;
+      const cat = getQuotationStatusCategory(q, currentSuperAdminId);
       if (cat === "pending") pending += 1;
       else if (cat === "approved") approved += 1;
       else if (cat === "rejected") rejected += 1;
-      else drafts += 1;
+      else if (cat === "draft") drafts += 1;
     });
 
+    const totalRequests = pending + approved + rejected;
+
     return {
-      total: allQuotations.length,
+      total: totalRequests,
       pending,
       approved,
       rejected,
       drafts,
     };
-  }, [allQuotations]);
+  }, [allQuotations, currentSuperAdminId]);
 
   // Filter quotations by status filter & search query
   const filteredQuotations = useMemo(() => {
     const q = search.trim().toLowerCase();
 
     return allQuotations.filter((item) => {
-      const cat = getQuotationStatusCategory(item);
+      if (isSuperCreatorItem(item, currentSuperAdminId)) {
+        return false;
+      }
+      const cat = getQuotationStatusCategory(item, currentSuperAdminId);
+      // Draft quotations are not approval requests and should never appear in Approvals page or Total Requests
+      if (cat === "draft" || cat === "super_admin") {
+        return false;
+      }
       if (statusFilter !== "all" && cat !== statusFilter) {
         return false;
       }
@@ -348,7 +419,7 @@ export default function Approvals() {
         reason.toLowerCase().includes(q)
       );
     });
-  }, [allQuotations, statusFilter, search]);
+  }, [allQuotations, statusFilter, search, currentSuperAdminId]);
 
   const headingInfo = useMemo(() => {
     switch (statusFilter) {
@@ -394,28 +465,38 @@ export default function Approvals() {
     let drafts = 0;
 
     allInvoices.forEach((inv) => {
-      const cat = getInvoiceStatusCategory(inv);
+      if (isSuperCreatorItem(inv, currentSuperAdminId)) return;
+      const cat = getInvoiceStatusCategory(inv, currentSuperAdminId);
       if (cat === "pending") pending += 1;
       else if (cat === "approved") approved += 1;
       else if (cat === "rejected") rejected += 1;
-      else drafts += 1;
+      else if (cat === "draft") drafts += 1;
     });
 
+    const totalRequests = pending + approved + rejected;
+
     return {
-      total: allInvoices.length,
+      total: totalRequests,
       pending,
       approved,
       rejected,
       drafts,
     };
-  }, [allInvoices]);
+  }, [allInvoices, currentSuperAdminId]);
 
   // Filter invoices by status filter & search query
   const filteredInvoices = useMemo(() => {
     const q = invoiceSearch.trim().toLowerCase();
 
     return allInvoices.filter((item) => {
-      const cat = getInvoiceStatusCategory(item);
+      if (isSuperCreatorItem(item, currentSuperAdminId)) {
+        return false;
+      }
+      const cat = getInvoiceStatusCategory(item, currentSuperAdminId);
+      // Draft invoices are not approval requests and should never appear in Approvals page or Total Requests
+      if (cat === "draft" || cat === "super_admin") {
+        return false;
+      }
       if (invoiceStatusFilter !== "all" && cat !== invoiceStatusFilter) {
         return false;
       }
@@ -479,6 +560,182 @@ export default function Approvals() {
   }, [invoiceStatusFilter, filteredInvoices.length]);
 
   // Approve Invoice handler
+  const paymentStats = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    let rejected = 0;
+
+    allPayments.forEach((p) => {
+      const s = String(p?.status || "").trim().toLowerCase();
+      if (s === "approved") approved += 1;
+      else if (s === "rejected") rejected += 1;
+      else pending += 1;
+    });
+
+    return {
+      total: pending + approved + rejected,
+      pending,
+      approved,
+      rejected,
+    };
+  }, [allPayments]);
+
+  const filteredPayments = useMemo(() => {
+    const q = paymentSearch.trim().toLowerCase();
+
+    return allPayments.filter((p) => {
+      const s = String(p?.status || "").trim().toLowerCase();
+      const cat = s === "approved" ? "approved" : s === "rejected" ? "rejected" : "pending";
+      if (paymentStatusFilter !== "all" && cat !== paymentStatusFilter) {
+        return false;
+      }
+
+      if (!q) return true;
+
+      const payNum = p.payment_number || "";
+      const invNum = p.invoice_number || "";
+      const client = p.customer_name || "";
+      const method = p.payment_method || "";
+      const recordedBy = p.recorded_by_name || "";
+      const reason = p.rejection_reason || "";
+
+      return (
+        payNum.toLowerCase().includes(q) ||
+        invNum.toLowerCase().includes(q) ||
+        client.toLowerCase().includes(q) ||
+        method.toLowerCase().includes(q) ||
+        recordedBy.toLowerCase().includes(q) ||
+        reason.toLowerCase().includes(q)
+      );
+    });
+  }, [allPayments, paymentStatusFilter, paymentSearch]);
+
+  const paymentHeadingInfo = useMemo(() => {
+    switch (paymentStatusFilter) {
+      case "approved":
+        return {
+          title: "Approved Payments History",
+          subtitle: "Payments verified by Super Admin and applied to invoice balances.",
+          badge: `${filteredPayments.length} Approved`,
+        };
+      case "rejected":
+        return {
+          title: "Rejected Payments History",
+          subtitle: "Payments rejected by Super Admin with feedback notes.",
+          badge: `${filteredPayments.length} Rejected`,
+        };
+      case "all":
+        return {
+          title: "All Payment Approvals History",
+          subtitle: "Complete trail of payment verification requests submitted by administrators.",
+          badge: `${filteredPayments.length} Total`,
+        };
+      case "pending":
+      default:
+        return {
+          title: "Pending Payments Awaiting Approval",
+          subtitle: "Payments recorded by administrators awaiting Super Admin verification.",
+          badge: `${filteredPayments.length} Pending`,
+        };
+    }
+  }, [paymentStatusFilter, filteredPayments.length]);
+
+  const handleApprovePayment = (payment) => {
+    if (!isSuperAdmin) {
+      setFeedback("Only Super Admin can authorize payment approvals.");
+      return;
+    }
+    setApprovingPayment(payment);
+  };
+
+  const handleConfirmApprovePayment = async () => {
+    if (!approvingPayment) return;
+    const payment = approvingPayment;
+    const payId = payment.payment_id;
+    const payNum = payment.payment_number || `PAY-${payId}`;
+    const invNum = payment.invoice_number || `INV-${payment.invoice_id}`;
+
+    try {
+      setActionLoading(true);
+      setFeedback("");
+      await approvePaymentService(payId);
+
+      try {
+        await addNotification({
+          title: `Payment Approved: ${payNum}`,
+          message: `Payment ${payNum} (${formatCurrency(payment.amount, payment.currency)}) for Invoice ${invNum} was approved by Super Admin. Invoice balance updated automatically.`,
+          type: "success",
+          reference_type: "payment",
+          reference_id: payId,
+          target_role: "admin",
+          target_user_id: payment.received_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch payment approval notification:", err);
+      }
+
+      setApprovingPayment(null);
+      setFeedback(`Payment ${payNum} approved and invoice ${invNum} updated!`);
+      await loadData();
+    } catch (err) {
+      setFeedback(err.message || "Failed to approve payment.");
+      setApprovingPayment(null);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openRejectPaymentModal = (payment) => {
+    setRejectingPayment(payment);
+    setPaymentRejectionReason("");
+    setPaymentRejectionError("");
+  };
+
+  const handleConfirmRejectPayment = async () => {
+    if (!paymentRejectionReason.trim()) {
+      setPaymentRejectionError("Please provide a rejection reason for the admin.");
+      return;
+    }
+
+    const payment = rejectingPayment;
+    const payId = payment.payment_id;
+    const payNum = payment.payment_number || `PAY-${payId}`;
+    const invNum = payment.invoice_number || `INV-${payment.invoice_id}`;
+    const cleanReason = paymentRejectionReason.trim();
+
+    try {
+      setActionLoading(true);
+      setPaymentRejectionError("");
+      await rejectPaymentService(payId, cleanReason);
+
+      try {
+        await addNotification({
+          title: `Payment Rejected: ${payNum}`,
+          message: `Payment ${payNum} for Invoice ${invNum} was rejected. Reason: "${cleanReason}".`,
+          type: "error",
+          reference_type: "payment",
+          reference_id: payId,
+          target_role: "admin",
+          target_user_id: payment.received_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch payment rejection notification:", err);
+      }
+
+      setRejectingPayment(null);
+      setFeedback(`Payment ${payNum} has been rejected.`);
+      await loadData();
+    } catch (err) {
+      setPaymentRejectionError(err.message || "Failed to reject payment.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleApproveInvoice = (invoice) => {
     if (!isSuperAdmin) {
       setFeedback("Only Super Admin can authorize invoice approvals.");
@@ -492,25 +749,33 @@ export default function Approvals() {
     const invoice = approvingInvoice;
     const invId = invoice.invoice_id || invoice.id;
     const invNum = invoice.invoice_number || `ID #${invId}`;
+    const clientName =
+      invoice.customer_name || invoice.client_name || "client";
 
     try {
       setActionLoading(true);
       setFeedback("");
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken") ||
-        "";
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE_URL}/api/invoices/${invId}/approve`, {
-        method: "POST",
-        headers,
-      });
-      const data = await res.json().catch(() => null);
+      await approveInvoiceService(invId);
+
+      // Dispatch real-time notification to the creator admin
+      try {
+        await addNotification({
+          title: `Invoice Approved: ${invNum}`,
+          message: `Your invoice ${invNum} for ${clientName} has been approved and issued by Super Admin.`,
+          type: "success",
+          reference_type: "invoice",
+          reference_id: invId,
+          target_role: "admin",
+          target_user_id: invoice.created_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch approval notification:", err);
+      }
+
       setApprovingInvoice(null);
-      setFeedback(
-        data?.message || `Invoice ${invNum} has been approved successfully!`
-      );
+      setFeedback(`Invoice ${invNum} has been approved successfully!`);
       await loadData();
     } catch (err) {
       setFeedback(err.message || "Failed to approve invoice.");
@@ -536,24 +801,34 @@ export default function Approvals() {
     const invoice = rejectingInvoice;
     const invId = invoice.invoice_id || invoice.id;
     const invNum = invoice.invoice_number || `ID #${invId}`;
+    const clientName =
+      invoice.customer_name || invoice.client_name || "client";
+    const cleanReason = invoiceRejectionReason.trim();
 
     try {
       setActionLoading(true);
       setInvoiceRejectionError("");
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken") ||
-        "";
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`${API_BASE_URL}/api/invoices/${invId}/reject`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ reason: invoiceRejectionReason.trim() }),
-      });
-      const data = await res.json().catch(() => null);
+      await rejectInvoiceService(invId, cleanReason);
+
+      // Dispatch real-time notification to creator admin
+      try {
+        await addNotification({
+          title: `Invoice Rejected: ${invNum}`,
+          message: `Your invoice ${invNum} for ${clientName} was rejected. Reason: "${cleanReason}".`,
+          type: "error",
+          reference_type: "invoice",
+          reference_id: invId,
+          target_role: "admin",
+          target_user_id: invoice.created_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch rejection notification:", err);
+      }
+
       setRejectingInvoice(null);
-      setFeedback(data?.message || `Invoice ${invNum} has been rejected.`);
+      setFeedback(`Invoice ${invNum} has been rejected.`);
       await loadData();
     } catch (err) {
       setInvoiceRejectionError(err.message || "Failed to reject invoice.");
@@ -561,6 +836,7 @@ export default function Approvals() {
       setActionLoading(false);
     }
   };
+
 
   // View Quotation PDF directly
   const handleViewPdf = async (quotation) => {
@@ -667,11 +943,31 @@ export default function Approvals() {
     if (!approvingQuotation) return;
     const quotation = approvingQuotation;
     const qNum = quotation.quotation_number || `ID #${quotation.quotation_id}`;
+    const clientName =
+      quotation.customer_name || quotation.client_name || "client";
 
     try {
       setActionLoading(true);
       setFeedback("");
       const res = await approveQuotation(quotation.quotation_id);
+
+      // Dispatch real-time notification to the creator admin
+      try {
+        await addNotification({
+          title: `Quotation Approved: ${qNum}`,
+          message: `Your quotation ${qNum} for ${clientName} has been approved by Super Admin.`,
+          type: "success",
+          reference_type: "quotation",
+          reference_id: quotation.quotation_id,
+          target_role: "admin",
+          target_user_id: quotation.created_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch approval notification:", err);
+      }
+
       setApprovingQuotation(null);
       setFeedback(
         res?.message || `Quotation ${qNum} has been approved successfully!`
@@ -701,6 +997,8 @@ export default function Approvals() {
 
     const quotation = rejectingQuotation;
     const qNum = quotation.quotation_number || `ID #${quotation.quotation_id}`;
+    const clientName =
+      quotation.customer_name || quotation.client_name || "client";
 
     try {
       setActionLoading(true);
@@ -726,6 +1024,23 @@ export default function Approvals() {
         );
       } catch {
         // ignore storage errors
+      }
+
+      // Dispatch real-time notification to the creator admin
+      try {
+        await addNotification({
+          title: `Quotation Rejected: ${qNum}`,
+          message: `Your quotation ${qNum} for ${clientName} was rejected. Reason: "${cleanReason}".`,
+          type: "error",
+          reference_type: "quotation",
+          reference_id: quotation.quotation_id,
+          target_role: "admin",
+          target_user_id: quotation.created_by,
+          created_by: user?.user_id || user?.id,
+          created_by_name: user?.name || "Super Admin",
+        });
+      } catch (err) {
+        console.warn("Could not dispatch rejection notification:", err);
       }
 
       setRejectingQuotation(null);
@@ -766,15 +1081,16 @@ export default function Approvals() {
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <ThemeToggle />
+          <NotificationBell filter="all" />
           <button
             type="button"
             className="approval-btn-action approval-btn-refresh"
             onClick={loadData}
             disabled={loading}
             title="Refresh approvals queue"
+            aria-label="Refresh approvals queue"
           >
-            <RefreshCw size={14} className={loading ? "spin" : ""} />
-            <span>Refresh Queue</span>
+            <RefreshCw size={17} className={loading ? "spin" : ""} />
           </button>
         </div>
       </div>
@@ -858,65 +1174,37 @@ export default function Approvals() {
               </div>
             </div>
           </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "payments"}
+            className={`approval-tab-card ${activeTab === "payments" ? "active" : ""}`}
+            onClick={() => setActiveTab("payments")}
+          >
+            <div className="approval-tab-icon-box">
+              <Wallet size={16} />
+            </div>
+            <div className="approval-tab-info">
+              <div className="approval-tab-label-group">
+                <span className="approval-tab-label">Payment Approvals</span>
+                {paymentStats.pending > 0 && (
+                  <span className="approval-tab-count highlight">
+                    <span className="approval-tab-dot" />
+                    {paymentStats.pending} Pending
+                  </span>
+                )}
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
       {/* Tab 1: Quotation Approvals */}
       {activeTab === "quotations" && (
         <>
-          {/* Summary metrics - Clickable to switch views */}
-          <section className="approval-summary">
-            <SummaryCard
-              label="Pending Approvals"
-              value={stats.pending}
-              icon={<Clock3 size={18} strokeWidth={1.9} />}
-              note="Awaiting decision"
-              tone="amber"
-              active={statusFilter === "pending"}
-              onClick={() => setStatusFilter("pending")}
-            />
-            <SummaryCard
-              label="Approved Quotations"
-              value={stats.approved}
-              icon={<Check size={18} strokeWidth={1.9} />}
-              note="Verified &amp; ready"
-              tone="green"
-              active={statusFilter === "approved"}
-              onClick={() => setStatusFilter("approved")}
-            />
-            <SummaryCard
-              label="Rejected Quotations"
-              value={stats.rejected}
-              icon={<XCircle size={18} strokeWidth={1.9} />}
-              note="Returned with notes"
-              tone="red"
-              active={statusFilter === "rejected"}
-              onClick={() => setStatusFilter("rejected")}
-            />
-            <SummaryCard
-              label="Total Requests"
-              value={stats.pending + stats.approved + stats.rejected}
-              icon={<FileText size={18} strokeWidth={1.9} />}
-              note="All approval requests"
-              tone="blue"
-              active={statusFilter === "all"}
-              onClick={() => setStatusFilter("all")}
-            />
-          </section>
-
           {/* Quotations Table Panel */}
           <section className="approval-panel">
-            <div className="approval-panel-heading">
-              <div>
-                <h2>{headingInfo.title}</h2>
-                <p>{headingInfo.subtitle}</p>
-              </div>
-
-              <span className="approval-count">
-                {headingInfo.badge}
-              </span>
-            </div>
-
             <div className="approval-toolbar">
               <label className="approval-search">
                 <Search size={16} />
@@ -944,7 +1232,7 @@ export default function Approvals() {
                         : statusFilter === "rejected"
                           ? `Rejected Quotations (${stats.rejected})`
                           : statusFilter === "all"
-                            ? `Total Requests (${stats.pending + stats.approved + stats.rejected})`
+                            ? `Total Requests (${stats.total})`
                             : `Pending Approvals (${stats.pending})`}
                     </span>
                     <ChevronDown
@@ -963,7 +1251,7 @@ export default function Approvals() {
                           { value: "pending", label: "Pending Approvals", count: stats.pending, color: "#f59e0b" },
                           { value: "approved", label: "Approved Quotations", count: stats.approved, color: "#16a34a" },
                           { value: "rejected", label: "Rejected Quotations", count: stats.rejected, color: "#dc2626" },
-                          { value: "all", label: "Total Requests", count: stats.pending + stats.approved + stats.rejected, color: "#2563eb" },
+                          { value: "all", label: "Total Requests", count: stats.total, color: "#2563eb" },
                         ].map((opt) => {
                           const isSelected = statusFilter === opt.value;
                           return (
@@ -1096,6 +1384,7 @@ export default function Approvals() {
                                   background: "#fef3c7",
                                   color: "#b45309",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1112,6 +1401,7 @@ export default function Approvals() {
                                   background: "#dcfce7",
                                   color: "#15803d",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1128,6 +1418,7 @@ export default function Approvals() {
                                   background: "#fee2e2",
                                   color: "#b91c1c",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1144,6 +1435,7 @@ export default function Approvals() {
                                   background: "#f1f5f9",
                                   color: "#475569",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1218,59 +1510,8 @@ export default function Approvals() {
       {/* Tab 2: Invoice Approvals */}
       {activeTab === "invoices" && (
         <>
-          {/* Summary metrics - 4 Cards: Pending Approvals, Approved Invoices, Rejected Invoices, Total Requests */}
-          <section className="approval-summary">
-            <SummaryCard
-              label="Pending Approvals"
-              value={invoiceStats.pending}
-              icon={<Clock3 size={18} strokeWidth={1.9} />}
-              note="Awaiting decision"
-              tone="amber"
-              active={invoiceStatusFilter === "pending"}
-              onClick={() => setInvoiceStatusFilter("pending")}
-            />
-            <SummaryCard
-              label="Approved Invoices"
-              value={invoiceStats.approved}
-              icon={<Check size={18} strokeWidth={1.9} />}
-              note="Verified &amp; ready"
-              tone="green"
-              active={invoiceStatusFilter === "approved"}
-              onClick={() => setInvoiceStatusFilter("approved")}
-            />
-            <SummaryCard
-              label="Rejected Invoices"
-              value={invoiceStats.rejected}
-              icon={<XCircle size={18} strokeWidth={1.9} />}
-              note="Returned with notes"
-              tone="red"
-              active={invoiceStatusFilter === "rejected"}
-              onClick={() => setInvoiceStatusFilter("rejected")}
-            />
-            <SummaryCard
-              label="Total Requests"
-              value={invoiceStats.pending + invoiceStats.approved + invoiceStats.rejected}
-              icon={<Receipt size={18} strokeWidth={1.9} />}
-              note="All approval requests"
-              tone="blue"
-              active={invoiceStatusFilter === "all"}
-              onClick={() => setInvoiceStatusFilter("all")}
-            />
-          </section>
-
           {/* Invoices Table Panel */}
           <section className="approval-panel">
-            <div className="approval-panel-heading">
-              <div>
-                <h2>{invoiceHeadingInfo.title}</h2>
-                <p>{invoiceHeadingInfo.subtitle}</p>
-              </div>
-
-              <span className="approval-count">
-                {invoiceHeadingInfo.badge}
-              </span>
-            </div>
-
             <div className="approval-toolbar">
               <label className="approval-search">
                 <Search size={16} />
@@ -1298,7 +1539,7 @@ export default function Approvals() {
                         : invoiceStatusFilter === "rejected"
                           ? `Rejected Invoices (${invoiceStats.rejected})`
                           : invoiceStatusFilter === "all"
-                            ? `Total Requests (${invoiceStats.pending + invoiceStats.approved + invoiceStats.rejected})`
+                            ? `Total Requests (${invoiceStats.total})`
                             : `Pending Approvals (${invoiceStats.pending})`}
                     </span>
                     <ChevronDown
@@ -1317,7 +1558,7 @@ export default function Approvals() {
                           { value: "pending", label: "Pending Approvals", count: invoiceStats.pending, color: "#f59e0b" },
                           { value: "approved", label: "Approved Invoices", count: invoiceStats.approved, color: "#16a34a" },
                           { value: "rejected", label: "Rejected Invoices", count: invoiceStats.rejected, color: "#dc2626" },
-                          { value: "all", label: "Total Requests", count: invoiceStats.pending + invoiceStats.approved + invoiceStats.rejected, color: "#2563eb" },
+                          { value: "all", label: "Total Requests", count: invoiceStats.total, color: "#2563eb" },
                         ].map((opt) => {
                           const isSelected = invoiceStatusFilter === opt.value;
                           return (
@@ -1451,6 +1692,7 @@ export default function Approvals() {
                                   background: "#fef3c7",
                                   color: "#b45309",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1467,6 +1709,7 @@ export default function Approvals() {
                                   background: "#dcfce7",
                                   color: "#15803d",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1483,6 +1726,7 @@ export default function Approvals() {
                                   background: "#fee2e2",
                                   color: "#b91c1c",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1499,6 +1743,7 @@ export default function Approvals() {
                                   background: "#f1f5f9",
                                   color: "#475569",
                                   padding: "3px 8px",
+                                  borderRadius: "7px",
                                   fontSize: "11px",
                                   fontWeight: 700,
                                 }}
@@ -1569,6 +1814,217 @@ export default function Approvals() {
           </section>
         </>
       )}
+
+      {/* Tab 3: Payment Approvals */}
+      {activeTab === "payments" && (
+        <>
+          <section className="approval-panel">
+            <div className="approval-toolbar">
+              <label className="approval-search">
+                <Search size={16} />
+                <input
+                  type="search"
+                  value={paymentSearch}
+                  onChange={(e) => setPaymentSearch(e.target.value)}
+                  placeholder="Search by payment #, invoice #, client, method..."
+                />
+              </label>
+
+              <div className="approval-filter-group" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "11.5px", fontWeight: "650", color: "#64748b" }}>Status Filter:</span>
+                <div className="approval-dropdown-wrap" ref={paymentDropdownRef}>
+                  <button
+                    type="button"
+                    className={`approval-dropdown-btn ${paymentDropdownOpen ? "active" : ""}`}
+                    onClick={() => setPaymentDropdownOpen((prev) => !prev)}
+                    aria-expanded={paymentDropdownOpen}
+                    aria-label="Filter payments by approval status"
+                  >
+                    <span className="approval-dropdown-label">
+                      {paymentStatusFilter === "approved"
+                        ? `Approved Payments (${paymentStats.approved})`
+                        : paymentStatusFilter === "rejected"
+                          ? `Rejected Payments (${paymentStats.rejected})`
+                          : paymentStatusFilter === "all"
+                            ? `Total Requests (${paymentStats.total})`
+                            : `Pending Approvals (${paymentStats.pending})`}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      className={`approval-dropdown-chevron ${paymentDropdownOpen ? "open" : ""}`}
+                    />
+                  </button>
+
+                  {paymentDropdownOpen && (
+                    <div className="approval-dropdown-menu" role="listbox">
+                      <div className="approval-dropdown-header">
+                        <span>Filter by Approval Status</span>
+                      </div>
+                      <div className="approval-dropdown-list">
+                        {[
+                          { value: "pending", label: "Pending Approvals", count: paymentStats.pending, color: "#f59e0b" },
+                          { value: "approved", label: "Approved Payments", count: paymentStats.approved, color: "#16a34a" },
+                          { value: "rejected", label: "Rejected Payments", count: paymentStats.rejected, color: "#dc2626" },
+                          { value: "all", label: "Total Requests", count: paymentStats.total, color: "#2563eb" },
+                        ].map((opt) => {
+                          const isSelected = paymentStatusFilter === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              className={`approval-dropdown-item ${isSelected ? "selected" : ""}`}
+                              onClick={() => {
+                                setPaymentStatusFilter(opt.value);
+                                setPaymentDropdownOpen(false);
+                              }}
+                            >
+                              <div className="approval-dropdown-item-left">
+                                <span
+                                  className="approval-dropdown-dot"
+                                  style={{ backgroundColor: opt.color }}
+                                />
+                                <span className="approval-dropdown-item-text">{opt.label}</span>
+                              </div>
+                              <div className="approval-dropdown-item-right">
+                                <span className="approval-dropdown-badge">{opt.count}</span>
+                                {isSelected && <Check size={14} className="approval-dropdown-check" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="approval-table-wrap">
+              <table className="approval-table">
+                <thead>
+                  <tr>
+                    <th>Payment #</th>
+                    <th>Invoice #</th>
+                    <th>Client Name</th>
+                    <th>Method</th>
+                    <th>Amount</th>
+                    <th>Recorded By</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    {(paymentStatusFilter === "rejected" || paymentStatusFilter === "all") && (
+                      <th>Rejection Reason</th>
+                    )}
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={paymentStatusFilter === "rejected" || paymentStatusFilter === "all" ? 10 : 9} className="approval-empty">
+                        Loading payment approvals...
+                      </td>
+                    </tr>
+                  ) : filteredPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={paymentStatusFilter === "rejected" || paymentStatusFilter === "all" ? 10 : 9} className="approval-empty">
+                        No {paymentStatusFilter === "all" ? "" : paymentStatusFilter} payment approval requests found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPayments.map((p) => {
+                      const s = String(p.status || "").trim().toLowerCase();
+                      const cat = s === "approved" ? "approved" : s === "rejected" ? "rejected" : "pending";
+                      const payNum = p.payment_number || `PAY-${p.payment_id}`;
+                      const invNum = p.invoice_number || `INV-${p.invoice_id}`;
+
+                      return (
+                        <tr key={p.payment_id}>
+                          <td>
+                            <span className="approval-q-num">{payNum}</span>
+                          </td>
+                          <td>{invNum}</td>
+                          <td>{p.customer_name || "—"}</td>
+                          <td>{p.payment_method || "Bank Transfer"}</td>
+                          <td>
+                            <span className="approval-amount">
+                              {formatCurrency(p.amount, p.currency || "LKR")}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="approval-creator">
+                              <User size={12} />
+                              <span>{p.recorded_by_name || "Admin"}</span>
+                            </div>
+                          </td>
+                          <td>{formatDate(p.payment_date || p.created_at)}</td>
+                          <td>
+                            <span className={`approval-status-badge ${cat}`}>
+                              {cat === "approved"
+                                ? "Approved"
+                                : cat === "rejected"
+                                  ? "Rejected"
+                                  : "Pending Approval"}
+                            </span>
+                          </td>
+                          {(paymentStatusFilter === "rejected" || paymentStatusFilter === "all") && (
+                            <td style={{ maxWidth: "230px", fontSize: "11.5px", color: p.rejection_reason ? "#991b1b" : "#94a3b8" }}>
+                              {p.rejection_reason ? (
+                                <span title={p.rejection_reason}>{p.rejection_reason}</span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          )}
+                          <td style={{ textAlign: "right" }}>
+                            <div className="approval-table-actions" style={{ justifyContent: "flex-end" }}>
+                              <button
+                                type="button"
+                                className="approval-btn-action approval-btn-view"
+                                onClick={() => setViewingPayment(p)}
+                                title="View Payment Details"
+                              >
+                                <Eye size={13} />
+                                <span>View</span>
+                              </button>
+
+                              {cat === "pending" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="approval-btn-action approval-btn-approve"
+                                    onClick={() => handleApprovePayment(p)}
+                                    disabled={actionLoading}
+                                    title="Approve payment & update invoice"
+                                  >
+                                    <Check size={13} />
+                                    <span>Approve</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="approval-btn-action approval-btn-reject"
+                                    onClick={() => openRejectPaymentModal(p)}
+                                    disabled={actionLoading}
+                                    title="Reject payment with reason"
+                                  >
+                                    <X size={13} />
+                                    <span>Reject</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
 
       {/* Invoice Details Modal */}
       {viewingInvoice && (
@@ -1776,6 +2232,249 @@ export default function Approvals() {
                 type="button"
                 className="approval-btn-action approval-btn-reject"
                 onClick={handleConfirmRejectInvoice}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Rejecting..." : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Details Modal */}
+      {viewingPayment && (
+        <div
+          className="approval-confirm-overlay"
+          onClick={() => setViewingPayment(null)}
+        >
+          <div
+            className="approval-confirm-card"
+            style={{ maxWidth: "560px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="approval-confirm-header">
+              <div className="approval-confirm-header-title">
+                <Wallet size={18} color="#3b82f6" />
+                <h3>
+                  Payment Details:{" "}
+                  {viewingPayment.payment_number || `PAY-${viewingPayment.payment_id}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="approval-modal-close-btn"
+                onClick={() => setViewingPayment(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="approval-confirm-body">
+              <div className="approval-confirm-details">
+                <div className="approval-confirm-row">
+                  <span>Invoice Number:</span>
+                  <strong>
+                    {viewingPayment.invoice_number || `INV-${viewingPayment.invoice_id}`}
+                  </strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Client Name:</span>
+                  <strong>{viewingPayment.customer_name || "—"}</strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Payment Amount:</span>
+                  <strong>
+                    {formatCurrency(viewingPayment.amount, viewingPayment.currency || "LKR")}
+                  </strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Payment Method:</span>
+                  <strong>{viewingPayment.payment_method || "—"}</strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Payment Date:</span>
+                  <strong>{formatDate(viewingPayment.payment_date)}</strong>
+                </div>
+                {viewingPayment.reference_number && (
+                  <div className="approval-confirm-row">
+                    <span>Reference #:</span>
+                    <strong>{viewingPayment.reference_number}</strong>
+                  </div>
+                )}
+                {viewingPayment.description && (
+                  <div className="approval-confirm-row">
+                    <span>Notes:</span>
+                    <strong>{viewingPayment.description}</strong>
+                  </div>
+                )}
+                {viewingPayment.payment_slip && (
+                  <div className="approval-confirm-row">
+                    <span>Payment Slip:</span>
+                    <a
+                      href={
+                        /^https?:\/\//i.test(viewingPayment.payment_slip)
+                          ? viewingPayment.payment_slip
+                          : `${API_BASE_URL}${viewingPayment.payment_slip.startsWith("/") ? "" : "/"}${viewingPayment.payment_slip}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ display: "inline-flex", alignItems: "center", gap: "4px", color: "#2563eb", fontWeight: 700 }}
+                    >
+                      <span>View Slip</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="approval-confirm-footer">
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-view"
+                onClick={() => setViewingPayment(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Payment Confirmation Modal */}
+      {approvingPayment && (
+        <div className="approval-confirm-overlay">
+          <div className="approval-confirm-card">
+            <div className="approval-confirm-header">
+              <div className="approval-confirm-header-title">
+                <CheckCircle2 size={18} color="#22c55e" />
+                <h3>
+                  Approve Payment:{" "}
+                  {approvingPayment.payment_number || `PAY-${approvingPayment.payment_id}`}
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="approval-modal-close-btn"
+                onClick={() => setApprovingPayment(null)}
+                disabled={actionLoading}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="approval-confirm-body">
+              <p className="approval-confirm-prompt">
+                Are you sure you want to approve payment{" "}
+                <strong>
+                  {approvingPayment.payment_number || `PAY-${approvingPayment.payment_id}`}
+                </strong>
+                ?
+              </p>
+
+              <div className="approval-confirm-details">
+                <div className="approval-confirm-row">
+                  <span>Invoice:</span>
+                  <strong>
+                    {approvingPayment.invoice_number || `INV-${approvingPayment.invoice_id}`}
+                  </strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Customer:</span>
+                  <strong>{approvingPayment.customer_name || "—"}</strong>
+                </div>
+                <div className="approval-confirm-row">
+                  <span>Amount:</span>
+                  <strong>
+                    {formatCurrency(approvingPayment.amount, approvingPayment.currency || "LKR")}
+                  </strong>
+                </div>
+              </div>
+
+              <p className="approval-confirm-note">
+                Once approved, the invoice paid amount, balance due, and status will be updated automatically.
+              </p>
+            </div>
+
+            <div className="approval-confirm-footer">
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-view"
+                onClick={() => setApprovingPayment(null)}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-approve"
+                onClick={handleConfirmApprovePayment}
+                disabled={actionLoading}
+              >
+                <Check size={14} />
+                <span>{actionLoading ? "Approving..." : "Approve"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Payment Modal */}
+      {rejectingPayment && (
+        <div className="approval-rejection-overlay">
+          <div className="approval-rejection-card">
+            <div className="approval-rejection-header">
+              <h3>
+                Reject Payment:{" "}
+                {rejectingPayment.payment_number || `PAY-${rejectingPayment.payment_id}`}
+              </h3>
+              <button
+                type="button"
+                className="approval-modal-close-btn"
+                onClick={() => setRejectingPayment(null)}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="approval-rejection-body">
+              <p>
+                Please state the reason for rejecting this payment so the administrator can review it.
+              </p>
+
+              {paymentRejectionError && (
+                <div className="approval-rejection-error">
+                  {paymentRejectionError}
+                </div>
+              )}
+
+              <textarea
+                className="approval-rejection-textarea"
+                rows={4}
+                placeholder="Enter rejection reason..."
+                value={paymentRejectionReason}
+                onChange={(e) => setPaymentRejectionReason(e.target.value)}
+              />
+            </div>
+
+            <div className="approval-rejection-footer">
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-view"
+                onClick={() => setRejectingPayment(null)}
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="approval-btn-action approval-btn-reject"
+                onClick={handleConfirmRejectPayment}
                 disabled={actionLoading}
               >
                 {actionLoading ? "Rejecting..." : "Confirm Rejection"}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   CheckCircle2,
@@ -50,19 +50,21 @@ function getIconForType(type) {
   }
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ filter = "all" }) {
   const navigate = useNavigate();
   const user = getAuthenticatedUser();
-  const isSuperAdmin = String(user?.role || "").trim().toLowerCase() === "super admin";
+  const role = String(user?.role || "").trim().toLowerCase();
+  const isSuperAdmin = role === "super admin" || role === "super_admin";
+  const currentUserId = user?.user_id || user?.id;
 
-  const [notifications, setNotifications] = useState([]);
+  const [rawNotifications, setRawNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
 
   const fetchNotifications = async () => {
     try {
       const data = await getNotifications();
-      setNotifications(Array.isArray(data) ? data : []);
+      setRawNotifications(Array.isArray(data) ? data : []);
     } catch {
       // keep quiet on transient errors
     }
@@ -70,6 +72,16 @@ export default function NotificationBell() {
 
   useEffect(() => {
     fetchNotifications();
+
+    const handleCustomEvent = () => fetchNotifications();
+    const handleStorageEvent = (e) => {
+      if (e.key === "iq_system_notifications_v2" || !e.key) {
+        fetchNotifications();
+      }
+    };
+
+    window.addEventListener("iq-notifications-updated", handleCustomEvent);
+    window.addEventListener("storage", handleStorageEvent);
     const interval = setInterval(fetchNotifications, 5000); // Live poll every 5s
 
     const handleClickOutside = (e) => {
@@ -82,10 +94,69 @@ export default function NotificationBell() {
 
     return () => {
       clearInterval(interval);
+      window.removeEventListener("iq-notifications-updated", handleCustomEvent);
+      window.removeEventListener("storage", handleStorageEvent);
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("touchstart", handleClickOutside);
     };
   }, []);
+
+  // Filter notifications based on role, recipient admin ID, and page filter (quotation / invoice / all)
+  const notifications = useMemo(() => {
+    return rawNotifications.filter((notif) => {
+      // 1. Role & user targeting filter
+      const targetRole = String(
+        notif.target_role || notif.targetRole || "all"
+      ).trim().toLowerCase();
+      const targetUserId = notif.target_user_id ?? notif.targetUserId;
+
+      if (isSuperAdmin) {
+        // Super admin sees all notifications targeted to super_admin or all
+        const isForSuper =
+          targetRole === "super_admin" ||
+          targetRole === "super admin" ||
+          targetRole === "all" ||
+          (!targetRole && !targetUserId);
+        if (!isForSuper) return false;
+      } else {
+        // Admin sees notifications targeted to admin or all
+        const isForAdmin =
+          targetRole === "admin" ||
+          targetRole === "all" ||
+          (!targetRole && targetUserId);
+        if (!isForAdmin) return false;
+
+        // If a specific admin is targeted, only that admin receives it
+        if (
+          targetUserId !== null &&
+          targetUserId !== undefined &&
+          currentUserId !== null &&
+          currentUserId !== undefined &&
+          String(targetUserId) !== String(currentUserId)
+        ) {
+          return false;
+        }
+      }
+
+      // 2. Page type filter: "all" | "quotation" | "invoice"
+      const refType = String(
+        notif.reference_type || notif.referenceType || ""
+      ).toLowerCase();
+      const titleLower = String(notif.title || "").toLowerCase();
+      const isQuotation =
+        refType === "quotation" || titleLower.includes("quotation");
+      const isInvoice =
+        refType === "invoice" || titleLower.includes("invoice");
+
+      if (filter === "quotation") {
+        return isQuotation;
+      }
+      if (filter === "invoice") {
+        return isInvoice;
+      }
+      return true; // "all"
+    });
+  }, [rawNotifications, isSuperAdmin, currentUserId, filter]);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -93,7 +164,7 @@ export default function NotificationBell() {
     e.stopPropagation();
     try {
       await markNotificationRead(notifId);
-      setNotifications((prev) =>
+      setRawNotifications((prev) =>
         prev.map((n) =>
           n.notification_id === notifId ? { ...n, is_read: 1 } : n
         )
@@ -107,7 +178,7 @@ export default function NotificationBell() {
     try {
       if (!notif.is_read) {
         await markNotificationRead(notif.notification_id);
-        setNotifications((prev) =>
+        setRawNotifications((prev) =>
           prev.map((n) =>
             n.notification_id === notif.notification_id
               ? { ...n, is_read: 1 }
@@ -121,33 +192,55 @@ export default function NotificationBell() {
 
     setIsOpen(false);
 
+    const refType = String(
+      notif.reference_type || notif.referenceType || ""
+    ).toLowerCase();
+    const titleLower = String(notif.title || "").toLowerCase();
+    const isPayment = refType === "payment" || titleLower.includes("payment");
+    const isInvoice = refType === "invoice" || titleLower.includes("invoice");
+
     // Route based on role and notification reference
     if (isSuperAdmin) {
-      if (
-        notif.reference_type === "quotation" ||
-        notif.title?.toLowerCase().includes("pending") ||
-        notif.type === "warning"
-      ) {
-        navigate("/super-admin/approvals");
+      if (isPayment) {
+        navigate("/super-admin/invoices");
+      } else if (isInvoice) {
+        navigate("/super-admin/approvals", {
+          state: { tab: "invoices", status: "pending" },
+        });
       } else {
-        navigate("/super-admin-dashboard");
+        navigate("/super-admin/approvals", {
+          state: { tab: "quotations", status: "pending" },
+        });
       }
     } else {
-      if (
-        notif.reference_type === "quotation" ||
-        notif.title?.toLowerCase().includes("quotation")
-      ) {
-        navigate("/quotations");
+      if (isPayment || isInvoice) {
+        navigate("/admin/invoices");
       } else {
-        navigate("/admin-dashboard");
+        navigate("/quotations");
       }
     }
   };
 
   const handleMarkAllRead = async () => {
     try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+      await markAllNotificationsRead(filter, currentUserId);
+      setRawNotifications((prev) =>
+        prev.map((n) => {
+          const refType = String(
+            n.reference_type || n.referenceType || ""
+          ).toLowerCase();
+          const titleLower = String(n.title || "").toLowerCase();
+          const isQuotation =
+            refType === "quotation" || titleLower.includes("quotation");
+          const isInvoice =
+            refType === "invoice" || titleLower.includes("invoice");
+          const matches =
+            filter === "all" ||
+            (filter === "quotation" && isQuotation) ||
+            (filter === "invoice" && isInvoice);
+          return matches ? { ...n, is_read: 1 } : n;
+        })
+      );
     } catch (err) {
       console.warn("Failed to mark all notifications read:", err);
     }
@@ -157,7 +250,7 @@ export default function NotificationBell() {
     e.stopPropagation();
     try {
       await deleteNotification(notifId);
-      setNotifications((prev) =>
+      setRawNotifications((prev) =>
         prev.filter((n) => n.notification_id !== notifId)
       );
     } catch (err) {
@@ -167,12 +260,42 @@ export default function NotificationBell() {
 
   const handleClearAll = async () => {
     try {
-      await clearAllNotifications();
-      setNotifications([]);
+      await clearAllNotifications(filter, currentUserId);
+      setRawNotifications((prev) =>
+        prev.filter((n) => {
+          const refType = String(
+            n.reference_type || n.referenceType || ""
+          ).toLowerCase();
+          const titleLower = String(n.title || "").toLowerCase();
+          const isQuotation =
+            refType === "quotation" || titleLower.includes("quotation");
+          const isInvoice =
+            refType === "invoice" || titleLower.includes("invoice");
+          const matches =
+            filter === "all" ||
+            (filter === "quotation" && isQuotation) ||
+            (filter === "invoice" && isInvoice);
+          return !matches;
+        })
+      );
     } catch (err) {
       console.warn("Failed to clear all notifications:", err);
     }
   };
+
+  const headerTitle =
+    filter === "quotation"
+      ? "Quotation Notifications"
+      : filter === "invoice"
+      ? "Invoice Notifications"
+      : "Notifications";
+
+  const emptyText =
+    filter === "quotation"
+      ? "No quotation notifications."
+      : filter === "invoice"
+      ? "No invoice notifications."
+      : "No notifications yet.";
 
   return (
     <div className="notif-bell-container" ref={containerRef}>
@@ -181,7 +304,7 @@ export default function NotificationBell() {
         className="notif-bell-btn"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label="View notifications"
-        title="Notifications"
+        title={headerTitle}
       >
         <Bell size={18} />
         {unreadCount > 0 && (
@@ -195,7 +318,7 @@ export default function NotificationBell() {
         <div className="notif-dropdown">
           <div className="notif-header">
             <h4>
-              Notifications {unreadCount > 0 ? `(${unreadCount} Unread)` : ""}
+              {headerTitle} {unreadCount > 0 ? `(${unreadCount} Unread)` : ""}
             </h4>
             <div className="notif-header-actions">
               {unreadCount > 0 && (
@@ -222,18 +345,23 @@ export default function NotificationBell() {
           <ul className="notif-list">
             {notifications.length === 0 ? (
               <li className="notif-empty">
-                <span>No notifications yet.</span>
+                <span>{emptyText}</span>
               </li>
             ) : (
               notifications.map((notif) => {
+                const refType = String(
+                  notif.reference_type || notif.referenceType || ""
+                ).toLowerCase();
+                const titleLower = String(notif.title || "").toLowerCase();
+                const isInvoice =
+                  refType === "invoice" || titleLower.includes("invoice");
                 const isPendingForSuperAdmin =
                   isSuperAdmin &&
-                  (notif.title?.toLowerCase().includes("pending") ||
-                    notif.type === "warning");
+                  (titleLower.includes("pending") || notif.type === "warning");
                 const isDecisionForAdmin =
                   !isSuperAdmin &&
-                  (notif.title?.toLowerCase().includes("approved") ||
-                    notif.title?.toLowerCase().includes("rejected"));
+                  (titleLower.includes("approved") ||
+                    titleLower.includes("rejected"));
 
                 return (
                   <li
@@ -283,7 +411,15 @@ export default function NotificationBell() {
                       )}
                       {isDecisionForAdmin && (
                         <span className="notif-action-hint">
-                          View in Quotations <ExternalLink size={11} />
+                          {isInvoice ? (
+                            <>
+                              View in Invoices <ExternalLink size={11} />
+                            </>
+                          ) : (
+                            <>
+                              View in Quotations <ExternalLink size={11} />
+                            </>
+                          )}
                         </span>
                       )}
                     </div>

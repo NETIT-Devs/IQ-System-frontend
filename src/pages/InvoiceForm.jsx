@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   X,
   Plus,
@@ -12,32 +12,159 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronDown,
+  ArrowLeft,
+  CreditCard,
+  Upload,
+  Paperclip,
+  Download,
+  Save,
+  Send,
 } from "lucide-react";
-import { getCustomers } from "../services/quotationService";
-import { getQuotations } from "../services/quotationService";
-import { createInvoice, updateInvoice } from "../services/invoiceService";
+import {
+  getAllRegisteredCustomers,
+  getQuotations,
+  getInvoices,
+  createInvoice,
+  updateInvoice,
+} from "../services/invoiceService";
+import { createPayment } from "../services/paymentService";
+import {
+  addNotification,
+  getCompanyDetails,
+} from "../services/quotationService";
+import { getAuthenticatedUser } from "../utils/authStorage";
+import {
+  getNextInvoiceNumber,
+  toInvoiceNumberFromQuotation,
+} from "../utils/formatters";
+import { downloadInvoicePdf } from "../utils/pdfGenerator";
 import "./InvoiceForm.css";
 
-function generateInvoiceNumber() {
-  const year = new Date().getFullYear();
-  const random = Math.floor(1000 + Math.random() * 9000);
-  return `INV-${year}-${random}`;
+function toDisplayMmDdYyyy(isoStr) {
+  if (!isoStr) return "";
+  const clean = String(isoStr).slice(0, 10);
+  const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return clean;
+  return `${m[2]}/${m[3]}/${m[1]}`;
 }
 
-export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClose, onSuccess }) {
+function formatDueDateInput(rawValue, prevValue = "") {
+  const raw = String(rawValue || "");
+  if (
+    raw.length < prevValue.length &&
+    prevValue.endsWith("/") &&
+    raw === prevValue.slice(0, -1)
+  ) {
+    return raw.slice(0, -1);
+  }
+
+  // Handle manual slash after a single digit month or day (e.g. "1/" -> "01/", "01/5/" -> "01/05/")
+  if (raw.endsWith("/")) {
+    const parts = raw.slice(0, -1).split("/");
+    if (parts.length === 1 && /^\d$/.test(parts[0])) {
+      const m = Math.max(1, Number(parts[0]));
+      return `${String(m).padStart(2, "0")}/`;
+    }
+    if (parts.length === 2 && /^\d{2}$/.test(parts[0]) && /^\d$/.test(parts[1])) {
+      const d = Math.max(1, Number(parts[1]));
+      return `${parts[0]}/${String(d).padStart(2, "0")}/`;
+    }
+  }
+
+  const digits = raw.replace(/\D/g, "").slice(0, 8);
+  if (!digits) return "";
+
+  if (digits.length === 1) {
+    return Number(digits[0]) > 1 ? `0${digits[0]}/` : digits;
+  }
+
+  if (digits.length === 2) {
+    const mm = Math.min(12, Math.max(1, Number(digits)));
+    return `${String(mm).padStart(2, "0")}/`;
+  }
+
+  const mm = String(Math.min(12, Math.max(1, Number(digits.slice(0, 2))))).padStart(2, "0");
+  const ddPart = digits.slice(2, 4);
+
+  if (digits.length === 3) {
+    return Number(ddPart[0]) > 3 ? `${mm}/0${ddPart[0]}/` : `${mm}/${ddPart}`;
+  }
+
+  const dd = String(Math.min(31, Math.max(1, Number(ddPart)))).padStart(2, "0");
+  if (digits.length === 4) {
+    return `${mm}/${dd}/`;
+  }
+
+  const yyyy = digits.slice(4, 8);
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function parseDueDateToIso(val) {
+  const s = String(val || "").trim();
+  if (!s) return "";
+  let year;
+  let month;
+  let day;
+  const slashMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const dashMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (slashMatch) {
+    month = Number(slashMatch[1]);
+    day = Number(slashMatch[2]);
+    year = Number(slashMatch[3]);
+  } else if (dashMatch) {
+    year = Number(dashMatch[1]);
+    month = Number(dashMatch[2]);
+    day = Number(dashMatch[3]);
+  } else {
+    return null;
+  }
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(
+    2,
+    "0"
+  )}-${String(day).padStart(2, "0")}`;
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso) {
+    return null;
+  }
+  return iso;
+}
+
+export default function InvoiceForm({
+  initialData,
+  invoiceToEdit,
+  isOpen,
+  onClose,
+  onSuccess,
+  asPage = false,
+}) {
   if (!isOpen) return null;
+
+  const authUser = getAuthenticatedUser();
+  const isSuperAdmin =
+    String(authUser?.role || "").trim().toLowerCase() === "super admin" ||
+    authUser?.role === "super_admin";
 
   const data = initialData || invoiceToEdit;
   const isEditing = Boolean(data?.invoice_id || data?.id);
 
-  // Registered customers & quotations for dropdown selection
+  // Registered customers, quotations & invoices for dropdown / sequence calculation
   const [customersList, setCustomersList] = useState([]);
   const [quotationsList, setQuotationsList] = useState([]);
+  const [invoicesList, setInvoicesList] = useState([]);
   const [loadingLookups, setLoadingLookLookups] = useState(false);
+  const isManualInvoiceNumber = useRef(Boolean(data?.invoice_number));
+
+  const defaultInvoiceDate =
+    initialData?.invoice_date || new Date().toISOString().slice(0, 10);
 
   // Form states
   const [invoiceNumber, setInvoiceNumber] = useState(
-    data?.invoice_number || generateInvoiceNumber()
+    data?.invoice_number ||
+      (data?.quotation_number
+        ? toInvoiceNumberFromQuotation(data.quotation_number)
+        : "") ||
+      getNextInvoiceNumber([], defaultInvoiceDate)
   );
   const [selectedCustomerMode, setSelectedCustomerMode] = useState("existing"); // "existing" | "new"
   const [selectedCustomerId, setSelectedCustomerId] = useState(
@@ -63,9 +190,9 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     initialData?.invoice_date || new Date().toISOString().slice(0, 10)
   );
   const [dueDate, setDueDate] = useState(
-    data?.due_date ||
-      new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+    data?.due_date ? toDisplayMmDdYyyy(data.due_date) : ""
   );
+  const dueDatePickerRef = useRef(null);
   const [currency, setCurrency] = useState(data?.currency || "LKR");
 
   // Items
@@ -90,13 +217,11 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     ];
   });
 
-  // Discounts
-  const [discountType, setDiscountType] = useState(
-    data?.discount_type || "fixed"
-  );
-  const [discountValue, setDiscountValue] = useState(
-    data?.discount_value ?? (data?.discount_amount || 0)
-  );
+  // Payment details
+  const [paymentMethod, setPaymentMethod] = useState("Bank Transfer");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentSlipFile, setPaymentSlipFile] = useState(null);
+  const paymentSlipInputRef = useRef(null);
 
   // Notes & terms
   const [notes, setNotes] = useState(
@@ -105,23 +230,35 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
   );
   const [terms, setTerms] = useState(
     data?.terms_and_conditions ||
-      "Payment is strictly due within 14 calendar days of issuance. Overdue accounts may be subject to interest."
+      "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest."
   );
 
   const [saving, setSaving] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [companyDetails, setCompanyDetails] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Load registered customers and quotations
+  // Load registered customers, quotations, existing invoices, and company branding
   useEffect(() => {
     async function loadData() {
       try {
         setLoadingLookLookups(true);
-        const [cList, qList] = await Promise.all([
-          getCustomers().catch(() => []),
+        const [cList, qList, invList, compDetails] = await Promise.all([
+          getAllRegisteredCustomers().catch(() => []),
           getQuotations().catch(() => []),
+          getInvoices().catch(() => []),
+          getCompanyDetails().catch(() => null),
         ]);
+        const normalizedInvoices = Array.isArray(invList) ? invList : [];
         setCustomersList(Array.isArray(cList) ? cList : []);
         setQuotationsList(Array.isArray(qList) ? qList : []);
+        setInvoicesList(normalizedInvoices);
+        if (compDetails) setCompanyDetails(compDetails);
+        if (!isEditing && !selectedQuotationId && !isManualInvoiceNumber.current) {
+          setInvoiceNumber(
+            getNextInvoiceNumber(normalizedInvoices, invoiceDate)
+          );
+        }
       } finally {
         setLoadingLookLookups(false);
       }
@@ -150,7 +287,13 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     const qVal = e.target.value;
     setSelectedQuotationId(qVal);
 
-    if (!qVal) return;
+    if (!qVal) {
+      if (!isEditing) {
+        isManualInvoiceNumber.current = false;
+        setInvoiceNumber(getNextInvoiceNumber(invoicesList, invoiceDate));
+      }
+      return;
+    }
     const foundQ = quotationsList.find(
       (q) =>
         String(q.quotation_id) === String(qVal) ||
@@ -158,6 +301,10 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     );
 
     if (foundQ) {
+      if (foundQ.quotation_number) {
+        isManualInvoiceNumber.current = false;
+        setInvoiceNumber(toInvoiceNumberFromQuotation(foundQ.quotation_number));
+      }
       if (foundQ.customer_id) {
         setSelectedCustomerId(String(foundQ.customer_id));
       }
@@ -212,8 +359,49 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     });
   }
 
+  function handlePaymentSlipChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".pdf"];
+    const dotIdx = file.name.lastIndexOf(".");
+    const ext = dotIdx >= 0 ? file.name.slice(dotIdx).toLowerCase() : "";
+    if (!allowedExts.includes(ext)) {
+      setErrorMessage(
+        "Unsupported slip format. Upload PNG, JPG, WEBP, GIF, or PDF."
+      );
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage("Payment slip file size must be 5 MB or less.");
+      e.target.value = "";
+      return;
+    }
+
+    setErrorMessage("");
+    setPaymentSlipFile(file);
+  }
+
+  function handleClearPaymentSlip() {
+    setPaymentSlipFile(null);
+    if (paymentSlipInputRef.current) {
+      paymentSlipInputRef.current.value = "";
+    }
+  }
+
+  const selectedQuotationObj = useMemo(() => {
+    if (!selectedQuotationId) return null;
+    return quotationsList.find(
+      (q) =>
+        String(q.quotation_id) === String(selectedQuotationId) ||
+        String(q.quotation_number) === String(selectedQuotationId)
+    );
+  }, [selectedQuotationId, quotationsList]);
+
   // Financial calculations
-  const { subtotal, discountAmount, taxAmount, totalAmount } = useMemo(() => {
+  const { subtotal, taxAmount, discountAmount, totalAmount } = useMemo(() => {
     let sub = 0;
     let tax = 0;
 
@@ -226,42 +414,110 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
       }
     });
 
-    let disc = 0;
-    const dv = Number(discountValue) || 0;
-    if (discountType === "percentage") {
-      disc = (sub * Math.min(100, Math.max(0, dv))) / 100;
-    } else {
-      disc = Math.min(sub, Math.max(0, dv));
-    }
+    const qDiscAmt = Number(
+      selectedQuotationObj?.discount_amount ?? data?.discount_amount ?? 0
+    );
+    const qDiscPct = Number(
+      selectedQuotationObj?.discount_percentage ?? data?.discount_percentage ?? 0
+    );
+    const disc =
+      qDiscAmt > 0
+        ? qDiscAmt
+        : qDiscPct > 0
+          ? Number(((sub * qDiscPct) / 100).toFixed(2))
+          : 0;
 
-    const tot = Math.max(0, sub - disc + tax);
+    const tot = Math.max(0, sub + tax - disc);
 
     return {
       subtotal: sub,
-      discountAmount: Number(disc.toFixed(2)),
       taxAmount: Number(tax.toFixed(2)),
+      discountAmount: Number(disc.toFixed(2)),
       totalAmount: Number(tot.toFixed(2)),
     };
-  }, [items, discountType, discountValue]);
+  }, [items, selectedQuotationObj, data]);
+
+  const existingPaid = Number(data?.amount_paid) || 0;
+  const rawPaymentNum = Number(paymentAmount);
+  const validPaymentAmount =
+    Number.isFinite(rawPaymentNum) && rawPaymentNum > 0
+      ? Number(rawPaymentNum.toFixed(2))
+      : 0;
+  const maxPayableAmount = Math.max(
+    0,
+    Number((totalAmount - existingPaid).toFixed(2))
+  );
+  const paymentExceedsBalance = validPaymentAmount > maxPayableAmount + 0.0001;
+  const totalPaidPreview = Number(
+    (existingPaid + Math.min(validPaymentAmount, maxPayableAmount)).toFixed(2)
+  );
+  const remainingBalance = Math.max(
+    0,
+    Number((totalAmount - totalPaidPreview).toFixed(2))
+  );
+  const paymentPreviewStatus =
+    totalAmount > 0 && remainingBalance <= 0
+      ? "Full Paid"
+      : totalPaidPreview > 0
+      ? "Partial"
+      : "Unpaid";
 
   // Submit Invoice (Draft or Unpaid/Issued)
   async function handleSubmit(saveStatus) {
     setErrorMessage("");
 
+    if (
+      paymentAmount !== "" &&
+      (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) < 0)
+    ) {
+      setErrorMessage("Please enter a valid payment amount.");
+      return;
+    }
+
+    if (paymentExceedsBalance) {
+      setErrorMessage(
+        `Payment amount cannot exceed remaining balance (${currency} ${maxPayableAmount.toLocaleString(
+          "en-LK",
+          { minimumFractionDigits: 2 }
+        )}).`
+      );
+      return;
+    }
+
+    if (validPaymentAmount > 0 && saveStatus === "Draft") {
+      setErrorMessage(
+        "Immediate payment cannot be saved with a Draft invoice. Clear the payment amount to save as Draft."
+      );
+      return;
+    }
+
+    const hasQuotation = Boolean(selectedQuotationId);
     const trimmedNumber = invoiceNumber.trim();
+    const trimmedCust = customerName.trim();
+    const isoDueDate = parseDueDateToIso(dueDate);
+    const validItems = items.filter((it) => it.item_name.trim());
+
     if (!trimmedNumber) {
       setErrorMessage("Invoice number is required.");
       return;
     }
 
-    const trimmedCust = customerName.trim();
-    if (!trimmedCust) {
+    if (!invoiceDate) {
+      setErrorMessage("Invoice date is required.");
+      return;
+    }
+
+    if (!isoDueDate) {
+      setErrorMessage("Please enter a valid Due Date in mm/dd/yyyy format.");
+      return;
+    }
+
+    if (!trimmedCust && !hasQuotation) {
       setErrorMessage("Customer name is required.");
       return;
     }
 
-    const validItems = items.filter((it) => it.item_name.trim());
-    if (validItems.length === 0) {
+    if (validItems.length === 0 && !hasQuotation) {
       setErrorMessage("Please enter at least one invoice item with a name and price.");
       return;
     }
@@ -269,9 +525,23 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     try {
       setSaving(true);
 
+      const resolvedStatus =
+        saveStatus ||
+        data?.status ||
+        (isSuperAdmin ? "Unpaid" : "Pending Approval");
+
+      const resolvedApprovalStatus =
+        resolvedStatus === "Pending Approval"
+          ? "Pending"
+          : resolvedStatus === "Draft"
+          ? "Not Required"
+          : resolvedStatus === "Rejected"
+          ? "Rejected"
+          : "Approved";
+
       const payload = {
         invoice_number: trimmedNumber,
-        quotation_id: selectedQuotationId || null,
+        quotation_id: selectedQuotationId ? Number(selectedQuotationId) : null,
         customer_id: selectedCustomerId ? Number(selectedCustomerId) : null,
         customer_name: trimmedCust,
         company_name: companyName.trim() || null,
@@ -279,12 +549,13 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
         phone: phone.trim() || null,
         address: address.trim() || null,
         invoice_date: invoiceDate,
-        due_date: dueDate,
+        due_date: isoDueDate,
         currency: currency,
-        status: saveStatus || data?.status || "Draft",
+        status: resolvedStatus,
+        approval_status: resolvedApprovalStatus,
         subtotal: subtotal,
-        discount_type: discountType,
-        discount_value: Number(discountValue) || 0,
+        discount_type: "fixed",
+        discount_value: discountAmount,
         discount_amount: discountAmount,
         tax_amount: taxAmount,
         total_amount: totalAmount,
@@ -307,11 +578,70 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
         payments: data?.payments || [],
       };
 
+      let savedInvoice = null;
       if (isEditing) {
         const id = data.invoice_id || data.id;
-        await updateInvoice(id, payload);
+        savedInvoice = await updateInvoice(id, payload);
       } else {
-        await createInvoice(payload);
+        savedInvoice = await createInvoice(payload);
+      }
+
+      const finalStatus =
+        savedInvoice?.status ||
+        saveStatus ||
+        data?.status ||
+        (isSuperAdmin ? "Unpaid" : "Pending Approval");
+
+      if (
+        validPaymentAmount > 0 &&
+        savedInvoice?.invoice_id &&
+        !["Draft", "Pending Approval", "Rejected", "Cancelled"].includes(
+          finalStatus
+        )
+      ) {
+        const fd = new FormData();
+        fd.append("invoice_id", String(savedInvoice.invoice_id));
+        fd.append(
+          "payment_date",
+          invoiceDate || new Date().toISOString().slice(0, 10)
+        );
+        fd.append("amount", String(validPaymentAmount));
+        fd.append("payment_method", paymentMethod);
+        if (paymentSlipFile) {
+          fd.append("payment_slip", paymentSlipFile);
+        }
+        await createPayment(fd);
+      }
+
+      if (finalStatus === "Pending Approval") {
+        const invNum =
+          savedInvoice?.invoice_number ||
+          data?.invoice_number ||
+          invoiceNumber ||
+          "New Invoice";
+        const clientName =
+          savedInvoice?.customer_name || trimmedCust || "Client";
+        const creatorName =
+          authUser?.name || authUser?.username || "Admin";
+
+        try {
+          await addNotification({
+            title: `Invoice Pending Approval: ${invNum}`,
+            message: `${creatorName} submitted invoice ${invNum} for ${clientName} awaiting your review.`,
+            type: "warning",
+            reference_type: "invoice",
+            reference_id:
+              savedInvoice?.invoice_id ||
+              data?.invoice_id ||
+              data?.id ||
+              null,
+            target_role: "super_admin",
+            created_by: authUser?.user_id || authUser?.id,
+            created_by_name: creatorName,
+          });
+        } catch (err) {
+          console.warn("Could not dispatch pending invoice notification:", err);
+        }
       }
 
       onSuccess?.();
@@ -323,25 +653,108 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
     }
   }
 
-  return (
-    <div className="inv-modal-overlay" onClick={onClose}>
-      <div
-        className="inv-modal-container"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Header */}
-        <div className="inv-modal-header">
-          <div className="inv-header-title">
-            <div className="inv-header-badge">
-              <Receipt size={18} />
-            </div>
-            <div>
-              <h3>{isEditing ? "Edit Invoice" : "Create New Invoice"}</h3>
-              <p>Step-by-step business billing &amp; payment tracking</p>
-            </div>
+  async function handleDownloadPdf() {
+    setErrorMessage("");
+
+    const trimmedNumber = invoiceNumber.trim() || "Invoice";
+    const trimmedCust = customerName.trim();
+    const validItems = items.filter((it) => it.item_name.trim());
+
+    if (!trimmedCust && !selectedQuotationId) {
+      setErrorMessage("Please enter a customer name before downloading PDF.");
+      return;
+    }
+
+    if (validItems.length === 0 && !selectedQuotationId) {
+      setErrorMessage("Please enter at least one invoice item before downloading PDF.");
+      return;
+    }
+
+    try {
+      setDownloadingPdf(true);
+      let activeCompany = companyDetails;
+      if (!activeCompany) {
+        activeCompany = await getCompanyDetails().catch(() => ({}));
+        if (activeCompany) setCompanyDetails(activeCompany);
+      }
+
+      const matchedQuotation = selectedQuotationId
+        ? quotationsList.find(
+            (q) =>
+              String(q.quotation_id) === String(selectedQuotationId) ||
+              String(q.quotation_number) === String(selectedQuotationId)
+          )
+        : null;
+
+      const parsedIsoDue = parseDueDateToIso(dueDate);
+      const liveInvoiceData = {
+        invoice_number: trimmedNumber,
+        invoice_date: invoiceDate,
+        due_date: parsedIsoDue || dueDate || "",
+        currency,
+        quotation_number:
+          matchedQuotation?.quotation_number || data?.quotation_number || "",
+        customer_name: trimmedCust,
+        company_name: companyName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        items: validItems.map((it) => ({
+          item_name: it.item_name.trim(),
+          description: it.description?.trim() || "",
+          price: Number(it.price) || 0,
+          tax_rate: Number(it.tax_rate) || 0,
+          line_total: Number(
+            (
+              (Number(it.price) || 0) *
+              (1 + (Number(it.tax_rate) || 0) / 100)
+            ).toFixed(2)
+          ),
+        })),
+        subtotal,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        total_amount: totalAmount,
+        amount_paid: totalPaidPreview,
+        balance_due: remainingBalance,
+        status: paymentPreviewStatus,
+        payment_method: paymentMethod,
+        notes: notes.trim(),
+        terms_and_conditions: terms.trim(),
+      };
+
+      await downloadInvoicePdf(
+        liveInvoiceData,
+        activeCompany || {},
+        `${trimmedNumber}.pdf`
+      );
+    } catch (err) {
+      console.error("Invoice PDF generation failed:", err);
+      setErrorMessage(err?.message || "Could not generate the invoice PDF.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }
+
+  const formContent = (
+    <div
+      className={asPage ? "inv-form-page-container" : "inv-modal-container"}
+      onClick={asPage ? undefined : (e) => e.stopPropagation()}
+      role={asPage ? undefined : "dialog"}
+      aria-modal={asPage ? undefined : "true"}
+    >
+      {/* Header */}
+      <div className="inv-modal-header">
+        <div className="inv-header-title">
+          <div className="inv-header-badge">
+            <Receipt size={18} />
           </div>
+          <div>
+            <h3>{isEditing ? "Edit Invoice" : "Create New Invoice"}</h3>
+            <p>Step-by-step business billing &amp; payment tracking</p>
+          </div>
+        </div>
+        {!asPage && (
           <button
             type="button"
             className="inv-modal-close"
@@ -350,7 +763,8 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
           >
             <X size={20} />
           </button>
-        </div>
+        )}
+      </div>
 
         {/* Modal Form Body */}
         <div className="inv-modal-body">
@@ -484,10 +898,20 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
                 <option value="">
                   -- None (Direct Invoice without Linked Quotation) --
                 </option>
-                {quotationsList.map((q) => (
+                {quotationsList
+                  .filter((q) => {
+                    const role = String(q.created_by_role || "").toLowerCase();
+                    const status = String(q.status || "").toLowerCase();
+                    const approval = String(q.approval_status || "").toLowerCase();
+                    if (role.includes("super") || q.created_by === 2) {
+                      return status !== "draft" && status !== "rejected" && status !== "cancelled" && approval !== "rejected";
+                    }
+                    return approval === "approved" || status === "approved" || status === "accepted";
+                  })
+                  .map((q) => (
                   <option
                     key={q.quotation_id || q.id}
-                    value={q.quotation_number || q.quotation_id}
+                    value={q.quotation_id}
                   >
                     {q.quotation_number || `#${q.quotation_id}`} — {q.customer_name || q.clientName} (Total: {currency} {Number(q.total_amount || 0).toLocaleString()})
                   </option>
@@ -597,30 +1021,85 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
               </table>
             </div>
 
-            {/* Total & Discount Calculation */}
+            {/* Total & Payment Calculation */}
             <div className="inv-calc-container">
               <div className="inv-calc-left">
-                <div className="inv-discount-box">
-                  <label>Apply Discount</label>
+                <div className="inv-payment-box">
+                  <div className="inv-payment-box-head">
+                    <CreditCard size={14} />
+                    <span>Payment Details (Optional)</span>
+                  </div>
+
                   <div className="inv-discount-row">
                     <select
-                      value={discountType}
-                      onChange={(e) => setDiscountType(e.target.value)}
-                      className="inv-select"
-                      style={{ width: "130px" }}
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="inv-select inv-discount-select"
+                      aria-label="Payment method"
                     >
-                      <option value="fixed">Fixed ({currency})</option>
-                      <option value="percentage">Percentage (%)</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Card">Card</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Online">Online</option>
+                      <option value="Other">Other</option>
                     </select>
+
+                    <div className="inv-discount-input-wrap">
+                      <input
+                        id="inv-payment-amount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={paymentAmount}
+                        onChange={(e) => setPaymentAmount(e.target.value)}
+                        className="inv-input inv-discount-input"
+                        aria-label="Payment amount"
+                      />
+                      <span className="inv-discount-unit" aria-hidden="true">
+                        {currency}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="inv-slip-upload-row">
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0"
-                      value={discountValue}
-                      onChange={(e) => setDiscountValue(e.target.value)}
-                      className="inv-input"
+                      ref={paymentSlipInputRef}
+                      id="inv-form-slip-input"
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,.gif,.pdf"
+                      onChange={handlePaymentSlipChange}
+                      className="inv-slip-file-hidden"
                     />
+                    <label
+                      htmlFor="inv-form-slip-input"
+                      className="inv-slip-upload-btn"
+                    >
+                      <Upload size={13} />
+                      <span>
+                        {paymentSlipFile
+                          ? "Change Slip"
+                          : "Attach Slip (Optional)"}
+                      </span>
+                    </label>
+
+                    {paymentSlipFile && (
+                      <div className="inv-slip-chip">
+                        <Paperclip size={12} />
+                        <span title={paymentSlipFile.name}>
+                          {paymentSlipFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="inv-slip-clear-btn"
+                          onClick={handleClearPaymentSlip}
+                          title="Remove slip"
+                          aria-label="Remove payment slip"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -630,21 +1109,55 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
                   <span>Subtotal:</span>
                   <strong>{currency} {subtotal.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
                 </div>
-                {discountAmount > 0 && (
-                  <div className="inv-calc-row" style={{ color: "#16a34a" }}>
-                    <span>Discount ({discountType === "percentage" ? `${discountValue}%` : "Fixed"}):</span>
-                    <strong>-{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                )}
                 {taxAmount > 0 && (
                   <div className="inv-calc-row">
                     <span>Tax:</span>
                     <strong>+{currency} {taxAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
                   </div>
                 )}
+                {discountAmount > 0 && (
+                  <div className="inv-calc-row" style={{ color: "#15803d" }}>
+                    <span>Discount:</span>
+                    <strong>-{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                )}
                 <div className="inv-calc-total">
                   <span>Grand Total:</span>
                   <strong>{currency} {totalAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+                </div>
+                <div className="inv-calc-row inv-calc-paid">
+                  <span>Paid Amount:</span>
+                  <strong>
+                    -{currency}{" "}
+                    {totalPaidPreview.toLocaleString("en-LK", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </strong>
+                </div>
+                <div className="inv-calc-balance">
+                  <span>Balance Due:</span>
+                  <strong
+                    className={
+                      remainingBalance <= 0 && totalAmount > 0
+                        ? "settled"
+                        : "due"
+                    }
+                  >
+                    {currency}{" "}
+                    {remainingBalance.toLocaleString("en-LK", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </strong>
+                </div>
+                <div className="inv-calc-status-row">
+                  <span>Payment Status:</span>
+                  <span
+                    className={`inv-calc-status-pill ${paymentPreviewStatus
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")}`}
+                  >
+                    {paymentPreviewStatus}
+                  </span>
                 </div>
               </div>
             </div>
@@ -663,7 +1176,10 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
                 <input
                   type="text"
                   value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  onChange={(e) => {
+                    isManualInvoiceNumber.current = true;
+                    setInvoiceNumber(e.target.value);
+                  }}
                   required
                 />
               </div>
@@ -673,19 +1189,65 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
                 <input
                   type="date"
                   value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  onChange={(e) => {
+                    const nextDate = e.target.value;
+                    setInvoiceDate(nextDate);
+                    if (
+                      !isEditing &&
+                      !selectedQuotationId &&
+                      !isManualInvoiceNumber.current
+                    ) {
+                      setInvoiceNumber(
+                        getNextInvoiceNumber(invoicesList, nextDate)
+                      );
+                    }
+                  }}
                   required
                 />
               </div>
 
               <div className="inv-form-field">
-                <label>Due Date *</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  required
-                />
+                <label htmlFor="inv-due-date-input">Due Date *</label>
+                <div className="inv-date-input-wrap">
+                  <input
+                    id="inv-due-date-input"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="mm/dd/yyyy"
+                    value={dueDate}
+                    onChange={(e) =>
+                      setDueDate((prev) => formatDueDateInput(e.target.value, prev))
+                    }
+                    required
+                  />
+                  <input
+                    ref={dueDatePickerRef}
+                    type="date"
+                    className="inv-date-picker-hidden"
+                    value={parseDueDateToIso(dueDate) || ""}
+                    onChange={(e) =>
+                      setDueDate(toDisplayMmDdYyyy(e.target.value))
+                    }
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                  <button
+                    type="button"
+                    className="inv-date-picker-btn"
+                    onClick={() => {
+                      if (dueDatePickerRef.current?.showPicker) {
+                        dueDatePickerRef.current.showPicker();
+                      } else {
+                        dueDatePickerRef.current?.click();
+                      }
+                    }}
+                    title="Pick date from calendar"
+                    aria-label="Pick due date from calendar"
+                  >
+                    <Calendar size={14} />
+                  </button>
+                </div>
               </div>
 
               <div className="inv-form-field">
@@ -736,27 +1298,82 @@ export default function InvoiceForm({ initialData, invoiceToEdit, isOpen, onClos
             Cancel
           </button>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div className="inv-footer-right-actions">
+            <button
+              type="button"
+              className="inv-btn-pdf"
+              onClick={handleDownloadPdf}
+              disabled={saving || downloadingPdf}
+              title="Download Invoice PDF"
+            >
+              <Download size={15} />
+              <span>
+                {downloadingPdf ? "Generating PDF..." : "Download PDF"}
+              </span>
+            </button>
+
             <button
               type="button"
               className="inv-btn-outline"
               disabled={saving}
               onClick={() => handleSubmit("Draft")}
             >
-              {saving ? "Saving..." : "Save as Draft"}
+              <Save size={15} />
+              <span>{saving ? "Saving..." : "Save as Draft"}</span>
             </button>
 
-            <button
-              type="button"
-              className="inv-btn-primary"
-              disabled={saving}
-              onClick={() => handleSubmit("Unpaid")}
-            >
-              {saving ? "Creating..." : isEditing ? "Update Invoice" : "Create & Issue Invoice"}
-            </button>
+            {isSuperAdmin ? (
+              <button
+                type="button"
+                className="inv-btn-primary"
+                disabled={saving}
+                onClick={() => handleSubmit("Unpaid")}
+              >
+                <CheckCircle2 size={15} />
+                <span>{saving ? "Finalizing..." : "Finalize Invoice"}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="inv-btn-primary"
+                disabled={saving}
+                onClick={() => handleSubmit("Pending Approval")}
+              >
+                <Send size={15} />
+                <span>
+                  {saving
+                    ? "Submitting..."
+                    : data?.status === "Rejected"
+                    ? "Resubmit for Approval"
+                    : "Submit for Approval"}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>
+  );
+
+  if (asPage) {
+    return (
+      <div className="inv-form-page">
+        <button
+          type="button"
+          className="inv-screen-back-btn"
+          onClick={onClose}
+          aria-label="Back to Invoices"
+          title="Back to Invoices"
+        >
+          <ArrowLeft size={20} />
+        </button>
+        {formContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="inv-modal-overlay" onClick={onClose}>
+      {formContent}
     </div>
   );
 }

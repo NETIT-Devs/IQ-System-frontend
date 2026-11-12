@@ -164,13 +164,15 @@ export default function UserManagement() {
   // Statistics
   const stats = useMemo(() => {
     const total = users.length;
+    const admins = users.filter((u) => u.role === "Admin").length;
     const activeAdmins = users.filter(
       (u) => u.role === "Admin" && u.is_active
     ).length;
     const superAdmins = users.filter((u) => u.role === "Super Admin").length;
+    const active = users.filter((u) => u.is_active).length;
     const inactive = users.filter((u) => !u.is_active).length;
 
-    return { total, activeAdmins, superAdmins, inactive };
+    return { total, admins, activeAdmins, superAdmins, active, inactive };
   }, [users]);
 
   // Handle Create User
@@ -394,57 +396,8 @@ export default function UserManagement() {
         </div>
       )}
 
-      {/* Statistics Cards */}
-      <section className="um-stats-grid">
-        <div className="um-stat-card">
-          <div className="um-stat-icon blue">
-            <Users size={18} strokeWidth={1.9} />
-          </div>
-          <div className="um-stat-info">
-            <p>Total Users</p>
-            <h3>{stats.total}</h3>
-            <span className="um-stat-note">All system accounts</span>
-          </div>
-        </div>
-
-        <div className="um-stat-card">
-          <div className="um-stat-icon navy">
-            <UserCheck size={18} strokeWidth={1.9} />
-          </div>
-          <div className="um-stat-info">
-            <p>Active Admins</p>
-            <h3>{stats.activeAdmins}</h3>
-            <span className="um-stat-note">Standard administrators</span>
-          </div>
-        </div>
-
-        <div className="um-stat-card">
-          <div className="um-stat-icon green">
-            <ShieldCheck size={18} strokeWidth={1.9} />
-          </div>
-          <div className="um-stat-info">
-            <p>Super Admins</p>
-            <h3>{stats.superAdmins}</h3>
-            <span className="um-stat-note">Full access privilege</span>
-          </div>
-        </div>
-
-        <div className="um-stat-card">
-          <div className="um-stat-icon amber">
-            <UserX size={18} strokeWidth={1.9} />
-          </div>
-          <div className="um-stat-info">
-            <p>Inactive Accounts</p>
-            <h3>{stats.inactive}</h3>
-            <span className="um-stat-note">Deactivated users</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Panel */}
-      <section className="um-panel">
-        {/* Toolbar */}
-        <div className="um-toolbar">
+      {/* Separated Search & Filter Toolbar */}
+      <div className="um-toolbar">
           <div className="um-toolbar-left">
             <div className="um-search">
               <Search size={16} />
@@ -464,8 +417,9 @@ export default function UserManagement() {
                 </button>
               )}
             </div>
+          </div>
 
-            <div className="um-dropdowns-group" ref={umDropdownRef}>
+          <div className="um-dropdowns-group" ref={umDropdownRef}>
               {/* 1. All Roles Dropdown */}
               <div className="um-dropdown-wrap">
                 <button
@@ -478,9 +432,9 @@ export default function UserManagement() {
                 >
                   <span className="um-dropdown-label">
                     {roleFilter === "Admin"
-                      ? "Admin"
+                      ? `Admin (${stats.admins})`
                       : roleFilter === "Super Admin"
-                        ? "Super Admin"
+                        ? `Super Admin (${stats.superAdmins})`
                         : "All Roles"}
                   </span>
                   <ChevronDown
@@ -496,9 +450,9 @@ export default function UserManagement() {
                     </div>
                     <div className="um-dropdown-list">
                       {[
-                        { value: "all", label: "All Roles", color: "#64748b" },
-                        { value: "Admin", label: "Admin", color: "#2563eb" },
-                        { value: "Super Admin", label: "Super Admin", color: "#16a34a" },
+                        { value: "all", label: "All Roles", count: stats.total, color: "#64748b" },
+                        { value: "Admin", label: "Admin", count: stats.admins, color: "#2563eb" },
+                        { value: "Super Admin", label: "Super Admin", count: stats.superAdmins, color: "#16a34a" },
                       ].map((opt) => {
                         const isSelected = roleFilter === opt.value;
                         return (
@@ -518,7 +472,10 @@ export default function UserManagement() {
                               />
                               <span className="um-dropdown-item-text">{opt.label}</span>
                             </div>
-                            {isSelected && <Check size={14} className="um-dropdown-check" />}
+                            <div className="um-dropdown-item-right">
+                              <span className="um-dropdown-badge">{opt.count}</span>
+                              {isSelected && <Check size={14} className="um-dropdown-check" />}
+                            </div>
                           </button>
                         );
                       })}
@@ -539,9 +496,9 @@ export default function UserManagement() {
                 >
                   <span className="um-dropdown-label">
                     {statusFilter === "active"
-                      ? "Active Only"
+                      ? `Active Only (${stats.active})`
                       : statusFilter === "inactive"
-                        ? "Inactive Only"
+                        ? `Inactive Only (${stats.inactive})`
                         : "All Status"}
                   </span>
                   <ChevronDown
@@ -557,9 +514,9 @@ export default function UserManagement() {
                     </div>
                     <div className="um-dropdown-list">
                       {[
-                        { value: "all", label: "All Status", color: "#64748b" },
-                        { value: "active", label: "Active Only", color: "#16a34a" },
-                        { value: "inactive", label: "Inactive Only", color: "#f59e0b" },
+                        { value: "all", label: "All Status", count: stats.total, color: "#64748b" },
+                        { value: "active", label: "Active Only", count: stats.active, color: "#16a34a" },
+                        { value: "inactive", label: "Inactive Only", count: stats.inactive, color: "#f59e0b" },
                       ].map((opt) => {
                         const isSelected = statusFilter === opt.value;
                         return (
@@ -579,7 +536,10 @@ export default function UserManagement() {
                               />
                               <span className="um-dropdown-item-text">{opt.label}</span>
                             </div>
-                            {isSelected && <Check size={14} className="um-dropdown-check" />}
+                            <div className="um-dropdown-item-right">
+                              <span className="um-dropdown-badge">{opt.count}</span>
+                              {isSelected && <Check size={14} className="um-dropdown-check" />}
+                            </div>
                           </button>
                         );
                       })}
@@ -588,19 +548,10 @@ export default function UserManagement() {
                 )}
               </div>
             </div>
-          </div>
-
-          <button
-            type="button"
-            className="um-refresh-btn"
-            onClick={loadData}
-            title="Refresh user list"
-          >
-            <RefreshCw size={15} />
-            <span>Refresh</span>
-          </button>
         </div>
 
+      {/* Main Panel (Users Table) */}
+      <section className="um-panel">
         {/* Users Table */}
         <div className="um-table-wrap">
           {loading ? (

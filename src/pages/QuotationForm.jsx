@@ -1,6 +1,6 @@
 
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   FileText,
   User,
@@ -23,39 +23,33 @@ import {
   Phone,
   Building2,
   Search,
+  ChevronDown,
+  Check,
+  ArrowLeft,
 } from "lucide-react";
 import {
   createQuotation,
   updateQuotation,
+  getQuotations,
+  getNextQuotationNumberApi,
   getCustomers,
+  getAllRegisteredCustomers,
   createCustomer,
   getQuotationItemOptions,
   getCompanyDetails,
+  getSuperAdminCustomers,
+  checkDuplicateCustomer,
+  checkDuplicateCustomerByNameAndEmail,
+  addNotification,
 } from "../services/quotationService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
+import {
+  formatServicePresetDescription,
+  formatDescriptionPointByPoint,
+} from "../utils/deliverablesFormatter";
 import { getAuthenticatedUser } from "../utils/authStorage";
+import { getNextQuotationNumber } from "../utils/formatters";
 import "./QuotationForm.css";
-
-// Calculate estimated project completion date using the exact backend algorithm
-function calculateEstimatedCompletionDate(startDate, duration, unit) {
-  if (!startDate || !duration || !unit) return "";
-
-  const dur = Number(duration);
-  if (!Number.isFinite(dur) || dur < 0) return "";
-
-  const date = new Date(`${startDate}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return "";
-
-  if (unit === "Days") {
-    date.setUTCDate(date.getUTCDate() + dur);
-  } else if (unit === "Weeks") {
-    date.setUTCDate(date.getUTCDate() + dur * 7);
-  } else if (unit === "Months") {
-    date.setUTCMonth(date.getUTCMonth() + dur);
-  }
-
-  return date.toISOString().slice(0, 10);
-}
 
 // Initial item model matching backend database fields
 const initialItem = {
@@ -77,6 +71,27 @@ function getServiceOptionValue(serviceCatalog, itemName) {
 function formatTermsAndConditions(terms) {
   if (!terms) return "";
   return String(terms).replace(/([^\n])\s+(\d+\.\s+)/g, "$1\n$2");
+}
+
+// Textarea that automatically grows vertically so all bullet points stay visible
+function AutoGrowTextarea({ value, minHeight = 108, className = "", ...props }) {
+  const textareaRef = useRef(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`;
+  }, [value, minHeight]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      className={className}
+      {...props}
+    />
+  );
 }
 
 // Amount input component with non-clickable .00 suffix
@@ -135,6 +150,7 @@ export default function QuotationForm({
   quotationNumber = "",
   onSave,
   onClose,
+  isPage = false,
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const customerListId = useId();
@@ -155,24 +171,28 @@ export default function QuotationForm({
     const approval = String(initialData?.approval_status || "").trim().toLowerCase();
     return Boolean(
       initialData?.quotation_id &&
-        (status === "approved" || approval === "approved")
+      (status === "approved" || approval === "approved")
     );
   }, [isSuperAdmin, initialData]);
 
   // Form state
+  const isManualQuotationNumber = useRef(Boolean(initialData?.quotation_number));
+  const [existingQuotations, setExistingQuotations] = useState([]);
   const [formData, setFormData] = useState({
-    quotation_number: initialData?.quotation_number || quotationNumber,
+    quotation_number:
+      initialData?.quotation_number ||
+      quotationNumber ||
+      getNextQuotationNumber([], today),
     client_name: initialData?.customer_name || initialData?.clientName || "",
     customer_id: initialData?.customer_id ? String(initialData.customer_id) : "",
     quotation_date: initialData?.quotation_date ? String(initialData.quotation_date).slice(0, 10) : today,
-    project_start_date: initialData?.project_start_date ? String(initialData.project_start_date).slice(0, 10) : today,
     estimated_duration: initialData?.estimated_duration ? String(initialData.estimated_duration) : "",
     duration_unit: initialData?.duration_unit || "Weeks",
     valid_until: initialData?.valid_until ? String(initialData.valid_until).slice(0, 10) : "",
     currency: initialData?.currency || "LKR",
     discount_amount:
       initialData?.discount_amount != null &&
-      Number(initialData.discount_amount) > 0
+        Number(initialData.discount_amount) > 0
         ? String(initialData.discount_amount)
         : "",
     notes: initialData?.notes || "",
@@ -185,23 +205,23 @@ export default function QuotationForm({
   const [items, setItems] = useState(
     initialData?.items?.length > 0
       ? initialData.items.map((it) => ({
-          quotation_item_id: it.quotation_item_id,
-          item_name: it.item_name || "",
-          technology: it.technology || "",
-          website_type: it.website_type || "",
-          hosting_domain: it.hosting_domain || "",
-          description: it.description || "",
-          unit_price:
-            it.unit_price != null && Number(it.unit_price) > 0
-              ? String(it.unit_price)
-              : it.Price != null && Number(it.Price) > 0
+        quotation_item_id: it.quotation_item_id,
+        item_name: it.item_name || "",
+        technology: it.technology || "",
+        website_type: it.website_type || "",
+        hosting_domain: it.hosting_domain || "",
+        description: formatDescriptionPointByPoint(it.description || ""),
+        unit_price:
+          it.unit_price != null && Number(it.unit_price) > 0
+            ? String(it.unit_price)
+            : it.Price != null && Number(it.Price) > 0
               ? String(it.Price)
               : "",
-          tax_rate:
-            it.tax_rate != null && Number(it.tax_rate) > 0
-              ? String(it.tax_rate)
-              : "",
-        }))
+        tax_rate:
+          it.tax_rate != null && Number(it.tax_rate) > 0
+            ? String(it.tax_rate)
+            : "",
+      }))
       : [{ ...initialItem }]
   );
 
@@ -229,18 +249,29 @@ export default function QuotationForm({
     company_name: "",
     phone: "",
   });
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const clientDropdownRef = useRef(null);
 
   // Load customer and service options from backend on mount
   useEffect(() => {
     let isMounted = true;
 
     async function loadData() {
-      const [customerResult, servicesResult, companyResult] =
-        await Promise.allSettled([
-          getCustomers(),
-          getQuotationItemOptions(),
-          getCompanyDetails(),
-        ]);
+      const [
+        customerResult,
+        servicesResult,
+        companyResult,
+        quotationsResult,
+        nextNumberResult,
+      ] = await Promise.allSettled([
+        getAllRegisteredCustomers(),
+        getQuotationItemOptions(),
+        getCompanyDetails(),
+        !initialData?.quotation_id ? getQuotations() : Promise.resolve([]),
+        !initialData?.quotation_id
+          ? getNextQuotationNumberApi(formData.quotation_date)
+          : Promise.resolve(""),
+      ]);
 
       if (!isMounted) return;
 
@@ -250,6 +281,22 @@ export default function QuotationForm({
         servicesResult.status === "fulfilled" ? servicesResult.value : [];
       const company =
         companyResult.status === "fulfilled" ? companyResult.value : {};
+      const quotationList =
+        quotationsResult.status === "fulfilled" && Array.isArray(quotationsResult.value)
+          ? quotationsResult.value
+          : [];
+      const serverNextNumber =
+        nextNumberResult.status === "fulfilled" ? nextNumberResult.value : "";
+
+      setExistingQuotations(quotationList);
+      if (!initialData?.quotation_id && !isManualQuotationNumber.current) {
+        setFormData((prev) => ({
+          ...prev,
+          quotation_number:
+            serverNextNumber ||
+            getNextQuotationNumber(quotationList, prev.quotation_date),
+        }));
+      }
 
       setCustomers(customerList);
       setServiceCatalog(services);
@@ -290,7 +337,7 @@ export default function QuotationForm({
 
   async function retryCustomerLoad() {
     try {
-      const customerList = await getCustomers();
+      const customerList = await getAllRegisteredCustomers();
       setCustomers(customerList);
       setCustomerLoadError("");
     } catch (error) {
@@ -320,10 +367,36 @@ export default function QuotationForm({
 
   // Update top-level form field
   const updateField = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    if (field === "quotation_number") {
+      isManualQuotationNumber.current = true;
+    }
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [field]: value,
+      };
+      if (
+        field === "quotation_date" &&
+        !initialData?.quotation_id &&
+        !isManualQuotationNumber.current
+      ) {
+        next.quotation_number = getNextQuotationNumber(existingQuotations, value);
+      }
+      return next;
+    });
+    if (
+      field === "quotation_date" &&
+      !initialData?.quotation_id &&
+      !isManualQuotationNumber.current
+    ) {
+      getNextQuotationNumberApi(value)
+        .then((serverNum) => {
+          if (serverNum && !isManualQuotationNumber.current) {
+            setFormData((prev) => ({ ...prev, quotation_number: serverNum }));
+          }
+        })
+        .catch(() => {});
+    }
     if (fieldErrors[field]) {
       setFieldErrors((prev) => {
         const next = { ...prev };
@@ -347,10 +420,11 @@ export default function QuotationForm({
       }));
     }
     const errKey = field === "customer_name" ? "client_name" : `client_${field}`;
-    if (fieldErrors[errKey]) {
+    if (fieldErrors[errKey] || (field === "email" && fieldErrors.client_name)) {
       setFieldErrors((prev) => {
         const next = { ...prev };
         delete next[errKey];
+        if (field === "email") delete next.client_name;
         return next;
       });
     }
@@ -371,25 +445,43 @@ export default function QuotationForm({
       customers.find(
         (c) =>
           c.customer_name?.toLowerCase() ===
-            formData.client_name.trim().toLowerCase() ||
+          formData.client_name.trim().toLowerCase() ||
           String(c.customer_id) === String(formData.customer_id)
       ) || null
     );
   }, [clientMode, newClientData, customers, formData.client_name, formData.customer_id]);
 
-  // Automatically calculate estimated completion date
-  const estimatedCompletionDate = useMemo(() => {
-    return calculateEstimatedCompletionDate(
-      formData.project_start_date || formData.quotation_date,
-      formData.estimated_duration,
-      formData.duration_unit
-    );
-  }, [
-    formData.project_start_date,
-    formData.quotation_date,
-    formData.estimated_duration,
-    formData.duration_unit,
-  ]);
+  // Close in-form client dropdown when clicked outside
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target)) {
+        setClientDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Lock outer page scrolling while Quotation Form is open
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
+
+  // Filtered registered customers list for in-form search dropdown
+  const filteredCustomers = useMemo(() => {
+    const term = (formData.client_name || "").trim().toLowerCase();
+    if (!term) return customers;
+    return customers.filter((c) => {
+      const name = (c.customer_name || "").toLowerCase();
+      const email = (c.email || "").toLowerCase();
+      const company = (c.company_name || "").toLowerCase();
+      return name.includes(term) || email.includes(term) || company.includes(term);
+    });
+  }, [customers, formData.client_name]);
 
   // Update item field
   const updateItem = (index, field, value) => {
@@ -428,35 +520,27 @@ export default function QuotationForm({
       defaultTech = "WordPress / Custom CMS";
     }
 
-    const description = [
-      ["Description", selectedService.description],
-      ["Core features", selectedService.core_features],
-      ["Maintenance support", selectedService.maintenance_support],
-      ["Content and SEO", selectedService.content_seo],
-    ]
-      .filter(([, value]) => value)
-      .map(([label, value]) => `${label}: ${value}`)
-      .join("\n");
+    const description = formatServicePresetDescription(selectedService);
 
     setItems((prev) =>
       prev.map((item, idx) =>
         idx === index
           ? {
-              ...item,
-              item_name: selectedService.item_name,
-              technology: defaultTech || item.technology || "",
-              // Website type is intentionally NOT auto-filled; user types it manually
-              website_type: item.website_type || "",
-              description,
-              hosting_domain: selectedService.hosting_domain || item.hosting_domain || "",
-              unit_price:
-                selectedService.default_price !== null &&
+            ...item,
+            item_name: selectedService.item_name,
+            technology: defaultTech || item.technology || "",
+            // Website type is intentionally NOT auto-filled; user types it manually
+            website_type: item.website_type || "",
+            description,
+            hosting_domain: selectedService.hosting_domain || item.hosting_domain || "",
+            unit_price:
+              selectedService.default_price !== null &&
                 selectedService.default_price !== undefined &&
                 Number(selectedService.default_price) > 0
-                  ? String(selectedService.default_price)
-                  : item.unit_price || "",
-              tax_rate: item.tax_rate || "",
-            }
+                ? String(selectedService.default_price)
+                : item.unit_price || "",
+            tax_rate: item.tax_rate || "",
+          }
           : item
       )
     );
@@ -555,20 +639,30 @@ export default function QuotationForm({
   // Prepare full quotation payload
   const buildPayload = (assignedCustomerId, statusToSave) => {
     const resolvedClientName = formData.client_name ? formData.client_name.trim() : "";
+    const isPending =
+      statusToSave === "Pending Approval" ||
+      statusToSave === "Pending" ||
+      statusToSave === "Sent";
+
     const effectiveStatus = isSuperAdmin
       ? (statusToSave === "Draft" ? "Draft" : "Approved")
-      : (statusToSave || initialData?.status || "Draft");
+      : (statusToSave === "Draft"
+        ? "Draft"
+        : isPending
+          ? "Sent"
+          : (statusToSave || initialData?.status || "Draft"));
+
     const effectiveApprovalStatus = isSuperAdmin
       ? (statusToSave === "Draft" ? "Not Required" : "Approved")
-      : (statusToSave === "Pending Approval" || statusToSave === "Pending"
+      : (isPending
         ? "Pending"
         : statusToSave === "Approved"
-        ? "Approved"
-        : statusToSave === "Rejected"
-        ? "Rejected"
-        : statusToSave === "Draft"
-        ? "Not Required"
-        : initialData?.approval_status || "Pending");
+          ? "Approved"
+          : statusToSave === "Rejected"
+            ? "Rejected"
+            : statusToSave === "Draft"
+              ? "Not Required"
+              : initialData?.approval_status || "Pending");
 
     return {
       quotation_number: formData.quotation_number.trim(),
@@ -576,7 +670,7 @@ export default function QuotationForm({
       customer_name: resolvedClientName,
       client_name: resolvedClientName,
       quotation_date: formData.quotation_date,
-      project_start_date: formData.project_start_date || formData.quotation_date,
+      project_start_date: initialData?.project_start_date ? String(initialData.project_start_date).slice(0, 10) : null,
       estimated_duration: formData.estimated_duration ? Number(formData.estimated_duration) : null,
       duration_unit: formData.estimated_duration ? formData.duration_unit : null,
       valid_until: formData.valid_until || null,
@@ -622,14 +716,6 @@ export default function QuotationForm({
       if (!name) {
         errors.client_name = "Client name is required.";
         if (!firstError) firstError = errors.client_name;
-      } else {
-        const dupName = customers.find(
-          (c) => c.customer_name?.trim().toLowerCase() === name.toLowerCase()
-        );
-        if (dupName) {
-          errors.client_name = `Customer "${name}" is already registered. Please choose "Select Registered Customer" or use a different name.`;
-          if (!firstError) firstError = errors.client_name;
-        }
       }
 
       if (!email) {
@@ -638,13 +724,18 @@ export default function QuotationForm({
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errors.client_email = "Please enter a valid email address.";
         if (!firstError) firstError = errors.client_email;
-      } else {
-        const dupEmail = customers.find(
-          (c) => c.email && c.email.trim().toLowerCase() === email.toLowerCase()
+      }
+
+      // Only identify an existing customer after BOTH name and valid email are entered
+      if (name && email && !errors.client_name && !errors.client_email) {
+        const duplicateError = checkDuplicateCustomerByNameAndEmail(
+          name,
+          email,
+          customers
         );
-        if (dupEmail) {
-          errors.client_email = `Email "${email}" is already registered for customer "${dupEmail.customer_name}".`;
-          if (!firstError) firstError = errors.client_email;
+        if (duplicateError) {
+          errors.client_name = duplicateError;
+          if (!firstError) firstError = errors.client_name;
         }
       }
 
@@ -749,16 +840,26 @@ export default function QuotationForm({
           );
         }
 
+        const duplicateError = checkDuplicateCustomerByNameAndEmail(
+          newClientData.customer_name.trim(),
+          newClientData.email.trim(),
+          customers
+        );
+        if (duplicateError) {
+          throw new Error(duplicateError);
+        }
+
         const created = await createCustomer({
           customer_name: newClientData.customer_name.trim(),
           company_name: newClientData.company_name?.trim() || null,
           email: newClientData.email.trim(),
           phone: newClientData.phone.trim(),
+          identify_by_name_and_email: true,
         });
         targetCustomerId = Number(created?.customer_id);
 
         try {
-          const freshCustomers = await getCustomers();
+          const freshCustomers = await getAllRegisteredCustomers();
           setCustomers(freshCustomers);
         } catch {
           // ignore
@@ -779,12 +880,21 @@ export default function QuotationForm({
         if (existing) {
           targetCustomerId = existing.customer_id;
         } else {
+          const duplicateError = checkDuplicateCustomer(
+            formData.client_name.trim(),
+            "",
+            ""
+          );
+          if (duplicateError) {
+            throw new Error(duplicateError);
+          }
+
           const created = await createCustomer({
             customer_name: formData.client_name.trim(),
           });
           targetCustomerId = Number(created?.customer_id);
           try {
-            const freshCustomers = await getCustomers();
+            const freshCustomers = await getAllRegisteredCustomers();
             setCustomers(freshCustomers);
           } catch {
             // ignore
@@ -809,14 +919,48 @@ export default function QuotationForm({
         statusToSave === "Draft"
           ? "Quotation saved as Draft."
           : statusToSave === "Pending Approval"
-          ? "Quotation submitted for Super Admin approval!"
-          : isSuperAdmin
-          ? "Quotation finalized and approved!"
-          : "Quotation saved successfully!";
+            ? "Quotation submitted for Super Admin approval!"
+            : isSuperAdmin
+              ? "Quotation finalized and approved!"
+              : "Quotation saved successfully!";
 
       setFormSuccess(
         response?.message || successMsg
       );
+
+      // Notify Super Admin if submitted for approval
+      if (statusToSave === "Pending Approval") {
+        const qNum =
+          response?.quotation?.quotation_number ||
+          response?.quotation_number ||
+          initialData?.quotation_number ||
+          "New Quotation";
+        const clientName =
+          formData.client_name?.trim() ||
+          newClientData.customer_name?.trim() ||
+          "Client";
+        const authUser = getAuthenticatedUser();
+        const creatorName =
+          authUser?.name || authUser?.username || "Admin";
+
+        try {
+          await addNotification({
+            title: `Quotation Pending Approval: ${qNum}`,
+            message: `${creatorName} submitted quotation ${qNum} for ${clientName} awaiting your review.`,
+            type: "warning",
+            reference_type: "quotation",
+            reference_id:
+              response?.quotation_id ||
+              response?.quotation?.quotation_id ||
+              initialData?.quotation_id,
+            target_role: "super_admin",
+            created_by: authUser?.user_id || authUser?.id,
+            created_by_name: creatorName,
+          });
+        } catch (err) {
+          console.warn("Could not dispatch pending quotation notification:", err);
+        }
+      }
 
       if (onSave) {
         await onSave({
@@ -853,6 +997,15 @@ export default function QuotationForm({
     } else if (!activeClientName) {
       errs.client_name = "Client name is required.";
       setFormError("Please enter a client name before generating PDF.");
+    } else if (clientMode === "new" && !newClientData.email.trim()) {
+      errs.client_email = "Client email address is required.";
+      setFormError("Please enter a client email address before generating PDF.");
+    } else if (
+      clientMode === "new" &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClientData.email.trim())
+    ) {
+      errs.client_email = "Please enter a valid email address.";
+      setFormError("Please enter a valid client email address before generating PDF.");
     } else {
       items.forEach((it, idx) => {
         if (!it.item_name.trim()) {
@@ -914,69 +1067,74 @@ export default function QuotationForm({
 
   // In-memory quotation object for the PDF template preview
   const liveQuotationData = {
-      quotation_number: formData.quotation_number,
-      customer_name: formData.client_name,
-      quotation_date: formData.quotation_date,
-      project_start_date: formData.project_start_date,
-      estimated_duration: formData.estimated_duration,
-      duration_unit: formData.duration_unit,
-      estimated_completion_date: estimatedCompletionDate,
-      valid_until: formData.valid_until,
-      currency: formData.currency,
-      subtotal: totals.subtotal,
-      discount_amount: totals.discount,
-      tax_amount: totals.taxAmount,
-      total_amount: totals.total,
-      grand_total: totals.total,
-      total_balance: totals.total,
-      notes: formData.notes,
-      terms_and_conditions: formData.terms_and_conditions,
-      status: initialData?.status || "Draft",
-      bank_name: companyDetails?.bank_name || "",
-      bank_account_name: companyDetails?.bank_account_name || "",
-      bank_account_number: companyDetails?.bank_account_number || "",
-      bank_branch: companyDetails?.bank_branch || "",
-      bank_swift_code: companyDetails?.bank_swift_code || "",
-      items: items.map((it) => ({
-        item_name: it.item_name,
-        technology: it.technology,
-        website_type: it.website_type,
-        hosting_domain: it.hosting_domain,
-        description: it.description,
-        unit_price: Number(it.unit_price) || 0,
-        tax_rate: Number(it.tax_rate) || 0,
-        line_total: (Number(it.unit_price) || 0) * (1 + (Number(it.tax_rate) || 0) / 100),
-      })),
-    };
+    quotation_number: formData.quotation_number,
+    customer_name: formData.client_name,
+    quotation_date: formData.quotation_date,
+    project_start_date: initialData?.project_start_date || formData.quotation_date,
+    estimated_duration: formData.estimated_duration,
+    duration_unit: formData.duration_unit,
+    estimated_completion_date: initialData?.estimated_completion_date || null,
+    valid_until: formData.valid_until,
+    currency: formData.currency,
+    subtotal: totals.subtotal,
+    discount_amount: totals.discount,
+    tax_amount: totals.taxAmount,
+    total_amount: totals.total,
+    grand_total: totals.total,
+    total_balance: totals.total,
+    notes: formData.notes,
+    terms_and_conditions: formData.terms_and_conditions,
+    status: initialData?.status || "Draft",
+    bank_name: companyDetails?.bank_name || "",
+    bank_account_name: companyDetails?.bank_account_name || "",
+    bank_account_number: companyDetails?.bank_account_number || "",
+    bank_branch: companyDetails?.bank_branch || "",
+    bank_swift_code: companyDetails?.bank_swift_code || "",
+    items: items.map((it) => ({
+      item_name: it.item_name,
+      technology: it.technology,
+      website_type: it.website_type,
+      hosting_domain: it.hosting_domain,
+      description: it.description,
+      unit_price: Number(it.unit_price) || 0,
+      tax_rate: Number(it.tax_rate) || 0,
+      line_total: (Number(it.unit_price) || 0) * (1 + (Number(it.tax_rate) || 0) / 100),
+    })),
+  };
 
-  return (
-    <div className="qf-modal-overlay">
-      <div className="qf-modal-card">
-        {/* Compact Square Header */}
-        <div className="qf-header">
-          <div className="qf-header-title">
-            <div className="qf-header-icon">
-              <FileText size={18} />
-            </div>
-            <div>
-              <h2>Quotation Form</h2>
-              <p>Configure project details, software scope, and download PDF.</p>
-            </div>
-          </div>
+  const formElement = (
+    <form onSubmit={handleSaveQuotation} noValidate>
+      <div className={`qf-body ${isPage ? "qf-page-body" : ""}`}>
+            <div className={isPage ? "qf-page-group-card" : ""}>
+              {isPage && (
+                <div className="qf-page-header">
+                  <div className="qf-page-header-left">
+                    <div className="qf-header-title">
+                      <div className="qf-header-icon">
+                        <FileText size={18} />
+                      </div>
+                      <div>
+                        <h2>
+                          {initialData?.quotation_id
+                            ? "Edit Quotation"
+                            : "Create New Quotation"}
+                        </h2>
+                        <p>
+                          Configure client details, project scope, services, and
+                          download PDF.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-          <button
-            type="button"
-            className="qf-close-btn"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
+                  <div className="qf-page-header-right">
+                    <span className="qf-page-quote-pill">
+                      {formData.quotation_number || "New Quotation"}
+                    </span>
+                  </div>
+                </div>
+              )}
 
-        {/* Main Form */}
-        <form onSubmit={handleSaveQuotation} noValidate>
-          <div className="qf-body">
             {initialData?.status === "Rejected" && (
               <div className="qf-rejection-banner" role="alert">
                 <div className="qf-rejection-title">
@@ -1034,7 +1192,7 @@ export default function QuotationForm({
             )}
 
             {/* Section A: Client Information */}
-            <section className="qf-section">
+            <section className="qf-section qf-section-highlight">
               <div className="qf-section-title">
                 <User size={15} />
                 <span>Client Information</span>
@@ -1086,24 +1244,26 @@ export default function QuotationForm({
 
               {clientMode === "registered" ? (
                 <div className="qf-grid-2">
-                  <div className="qf-field col-span-2">
+                  <div className="qf-field col-span-2 qf-client-search-field">
                     <label className="qf-label">
                       Client Name <span className="qf-required">*</span>
                     </label>
-                    <div className="qf-search-input-wrap">
+                    <div className="qf-search-input-wrap" ref={clientDropdownRef}>
                       <Search size={15} className="qf-search-input-icon" />
                       <input
                         type="text"
                         className={`qf-input qf-input-search ${fieldErrors.client_name ? "qf-input-error" : ""}`}
                         placeholder="Search client by name or email..."
-                        list={customerListId}
                         value={formData.client_name}
+                        onFocus={() => setClientDropdownOpen(true)}
+                        onClick={() => setClientDropdownOpen(true)}
                         onChange={(e) => {
                           const val = e.target.value;
+                          setClientDropdownOpen(true);
                           const match = customers.find(
                             (c) =>
                               c.customer_name?.toLowerCase() ===
-                                val.trim().toLowerCase() ||
+                              val.trim().toLowerCase() ||
                               (c.email &&
                                 c.email.toLowerCase() === val.trim().toLowerCase())
                           );
@@ -1121,21 +1281,63 @@ export default function QuotationForm({
                         autoComplete="off"
                         required
                       />
+                      <button
+                        type="button"
+                        className="qf-search-toggle-btn"
+                        onClick={() => setClientDropdownOpen((prev) => !prev)}
+                        title="Toggle registered customer list"
+                      >
+                        <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
+                      </button>
+
+                      {/* In-form Dropdown Menu */}
+                      {clientDropdownOpen && (
+                        <div className="qf-client-dropdown">
+                          {filteredCustomers.length > 0 ? (
+                            filteredCustomers.map((customer) => {
+                              const isSelected =
+                                String(formData.customer_id) === String(customer.customer_id) ||
+                                (formData.client_name &&
+                                  customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
+                              return (
+                                <div
+                                  key={customer.customer_id}
+                                  className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
+                                  onClick={() => {
+                                    updateField("client_name", customer.customer_name);
+                                    updateField("customer_id", String(customer.customer_id));
+                                    setClientDropdownOpen(false);
+                                  }}
+                                >
+                                  <div className="qf-cd-left">
+                                    <div className="qf-cd-name">
+                                      <span>{customer.customer_name}</span>
+                                      {customer.company_name && (
+                                        <span className="qf-cd-company">{customer.company_name}</span>
+                                      )}
+                                    </div>
+                                    {customer.email && (
+                                      <div className="qf-cd-email">
+                                        <Mail size={11} />
+                                        <span>{customer.email}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {isSelected && <Check size={14} className="qf-cd-check" />}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="qf-client-dropdown-empty">
+                              No registered customers match your search
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {fieldErrors.client_name && (
                       <span className="qf-error-text">{fieldErrors.client_name}</span>
                     )}
-                    <datalist id={customerListId}>
-                      {customers.map((customer) => (
-                        <option
-                          key={customer.customer_id}
-                          value={customer.customer_name}
-                          label={customer.email ? `${customer.customer_name} (${customer.email})` : customer.customer_name}
-                        >
-                          {customer.email ? `${customer.customer_name} (${customer.email})` : customer.customer_name}
-                        </option>
-                      ))}
-                    </datalist>
                   </div>
                 </div>
               ) : (
@@ -1151,6 +1353,7 @@ export default function QuotationForm({
                       placeholder="Enter client full name"
                       value={newClientData.customer_name}
                       onChange={(e) => updateNewClientField("customer_name", e.target.value)}
+                      aria-required="true"
                       required
                     />
                     {fieldErrors.client_name && (
@@ -1169,6 +1372,7 @@ export default function QuotationForm({
                       placeholder="e.g. client@example.com"
                       value={newClientData.email}
                       onChange={(e) => updateNewClientField("email", e.target.value)}
+                      aria-required="true"
                       required
                     />
                     {fieldErrors.client_email && (
@@ -1210,9 +1414,10 @@ export default function QuotationForm({
                 </div>
               )}
             </section>
+            </div>
 
             {/* Section B: Quotation & Project Timeline */}
-            <section className="qf-section">
+            <section className="qf-section qf-section-highlight">
               <div className="qf-section-title">
                 <Calendar size={15} />
                 <span>Quotation &amp; Timeline</span>
@@ -1228,7 +1433,7 @@ export default function QuotationForm({
                     className={`qf-input ${fieldErrors.quotation_number ? "qf-input-error" : ""}`}
                     value={formData.quotation_number}
                     onChange={(e) => updateField("quotation_number", e.target.value)}
-                    placeholder="e.g. QUO-2026-0001"
+                    placeholder="e.g. QUO-2611-001"
                     required
                   />
                   {fieldErrors.quotation_number && (
@@ -1268,12 +1473,13 @@ export default function QuotationForm({
 
                 <div className="qf-field">
                   <label className="qf-label">Project Start Date</label>
-                  <input
-                    type="date"
-                    className="qf-input"
-                    value={formData.project_start_date}
-                    onChange={(e) => updateField("project_start_date", e.target.value)}
-                  />
+                  <div
+                    className="qf-highlight-box"
+                    aria-label="Project Start Date: Initial Advance Payment Date"
+                  >
+                    <span className="qf-highlight-dot" aria-hidden="true" />
+                    <span>Initial Advance Payment Date</span>
+                  </div>
                 </div>
 
                 <div className="qf-field">
@@ -1302,16 +1508,6 @@ export default function QuotationForm({
                   {fieldErrors.estimated_duration && (
                     <span className="qf-error-text">{fieldErrors.estimated_duration}</span>
                   )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">Estimated Completion</label>
-                  <input
-                    type="text"
-                    className="qf-input"
-                    readOnly
-                    value={estimatedCompletionDate || "Auto-calculated"}
-                  />
                 </div>
 
                 <div className="qf-field">
@@ -1559,9 +1755,9 @@ export default function QuotationForm({
                       {/* Description / Deliverables */}
                       <div className="qf-field col-span-3">
                         <label className="qf-label">Description &amp; Deliverables</label>
-                        <textarea
-                          rows={3}
-                          className="qf-textarea"
+                        <AutoGrowTextarea
+                          rows={5}
+                          className="qf-textarea qf-textarea-deliverables"
                           placeholder="Detailed deliverables, core features, maintenance support, and SEO setup..."
                           value={item.description}
                           onChange={(e) => updateItem(index, "description", e.target.value)}
@@ -1626,7 +1822,7 @@ export default function QuotationForm({
                           <span>
                             {formatMoney(
                               (Number(item.unit_price) || 0) *
-                                (1 + (Number(item.tax_rate) || 0) / 100)
+                              (1 + (Number(item.tax_rate) || 0) / 100)
                             )}
                           </span>
                         </div>
@@ -1650,7 +1846,8 @@ export default function QuotationForm({
               </div>
             </section>
 
-            {/* Section D: Notes, Terms, and Financial Summary */}
+            {/* Section D: Notes, Terms, Financial Summary, and Actions */}
+            <div className={isPage ? "qf-page-group-card qf-page-bottom-group" : ""}>
             <div className="qf-bottom-area">
               <section className="qf-section" style={{ height: "100%" }}>
                 <div className="qf-section-title">
@@ -1734,7 +1931,7 @@ export default function QuotationForm({
                   )}
                 </div>
 
-                <div className="qf-summary-row total-row">
+                  <div className="qf-summary-row total-row">
                   <span>Grand Total:</span>
                   <span className="qf-grand-total">
                     {formatMoney(totals.total)}
@@ -1742,20 +1939,19 @@ export default function QuotationForm({
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Modal Footer with Actions */}
-          <div className="qf-footer">
-            <button
-              type="button"
-              className="qf-btn qf-btn-cancel"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-
+          {/* Footer with Actions */}
+          <div className={`qf-footer ${isPage ? "qf-page-footer" : ""}`}>
             <div className="qf-footer-actions">
+              <button
+                type="button"
+                className="qf-btn qf-btn-cancel"
+                onClick={onClose}
+                disabled={saving}
+              >
+                <span>Cancel</span>
+              </button>
+
               <button
                 type="button"
                 className="qf-btn qf-btn-pdf"
@@ -1773,7 +1969,7 @@ export default function QuotationForm({
                 }
               >
                 <Download size={15} />
-                {downloadingPdf ? "Generating PDF..." : "Download PDF"}
+                <span>{downloadingPdf ? "Generating PDF..." : "Download PDF"}</span>
               </button>
 
               <button
@@ -1784,7 +1980,7 @@ export default function QuotationForm({
                 title="Save quotation as draft without requesting approval"
               >
                 <Save size={15} />
-                {saving ? "Saving..." : "Save as Draft"}
+                <span>{saving ? "Saving..." : "Save as Draft"}</span>
               </button>
 
               {isSuperAdmin ? (
@@ -1796,35 +1992,111 @@ export default function QuotationForm({
                   title="Finalize quotation as approved"
                 >
                   <CheckCircle size={15} />
-                  {dependenciesLoading
-                    ? "Loading..."
-                    : saving
-                    ? "Finalizing..."
-                    : "Finalize Quotation"}
+                  <span>
+                    {dependenciesLoading
+                      ? "Loading..."
+                      : saving
+                        ? "Finalizing..."
+                        : "Finalize Quotation"}
+                  </span>
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="qf-btn qf-btn-primary"
+                  className={`qf-btn qf-btn-primary ${initialData?.status === "Rejected" ? "qf-btn-resubmit" : ""
+                    }`}
                   onClick={(e) => handleSaveQuotation(e, "Pending Approval")}
                   disabled={saving || downloadingPdf || dependenciesLoading}
-                  title="Submit quotation for Super Admin review and approval"
+                  title={
+                    initialData?.status === "Rejected"
+                      ? "Resubmit revised quotation for Super Admin review and approval"
+                      : "Submit quotation for Super Admin review and approval"
+                  }
                 >
                   <Send size={15} />
-                  {dependenciesLoading
-                    ? "Loading..."
-                    : saving
-                    ? "Submitting..."
-                    : initialData?.status === "Rejected"
-                    ? "Resubmit for Approval"
-                    : "Submit for Approval"}
+                  <span>
+                    {dependenciesLoading
+                      ? "Loading..."
+                      : saving
+                        ? "Submitting..."
+                        : initialData?.status === "Rejected"
+                          ? "Resubmit for Approval"
+                          : "Submit for Approval"}
+                  </span>
                 </button>
               )}
             </div>
           </div>
-        </form>
+          </div>
       </div>
+    </form>
+  );
 
+  if (isPage) {
+    return (
+      <div className="qf-page-screen">
+        <div className="qf-page-layout">
+          {onClose && (
+            <div className="qf-page-side-left">
+              <button
+                type="button"
+                className="qf-back-btn"
+                onClick={onClose}
+                disabled={saving}
+                title="Back to Quotations"
+                aria-label="Back to Quotations"
+              >
+                <ArrowLeft size={17} />
+              </button>
+            </div>
+          )}
+
+          <div className="qf-page-shell">
+            <div className="qf-page-sheet">
+              {formElement}
+            </div>
+          </div>
+
+          {onClose && <div className="qf-page-side-right" aria-hidden="true" />}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="qf-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && onClose) {
+          onClose();
+        }
+      }}
+    >
+      <div className="qf-modal-card" onClick={(e) => e.stopPropagation()}>
+        {/* Compact Square Header */}
+        <div className="qf-header">
+          <div className="qf-header-title">
+            <div className="qf-header-icon">
+              <FileText size={18} />
+            </div>
+            <div>
+              <h2>Quotation Form</h2>
+              <p>Configure project details, software scope, and download PDF.</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="qf-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {formElement}
+      </div>
     </div>
   );
 }

@@ -392,6 +392,7 @@
 }
 
 /* Welcome Bar */
+.quotation-app .quotation-welcome-bar,
 .quotation-welcome-bar {
   display: flex;
   align-items: center;
@@ -445,6 +446,19 @@
   box-shadow: 0 4px 12px rgba(11, 25, 50, 0.3);
 }
 
+/* Quotations Page Only: Light Navy Blue Create Quotation Button Color */
+.quotation-app .quotation-create-button {
+  background: #1e40af;
+  border-color: #1e40af;
+  box-shadow: 0 2px 6px rgba(30, 64, 175, 0.25);
+}
+
+.quotation-app .quotation-create-button:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.32);
+}
+
 /* Quotation summary cards matching Overview Dashboard card size */
 .quotation-app .quotation-stats-grid,
 .quotation-stats-grid {
@@ -455,6 +469,7 @@
 }
 
 @media (max-width: 1250px) {
+
   .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -462,6 +477,7 @@
 }
 
 @media (max-width: 640px) {
+
   .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -587,6 +603,40 @@
   line-height: 1.5;
 }
 
+/* Separated Search & Filter Toolbar Card (Quotations Page) */
+.quotation-app .quotation-toolbar-panel {
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  position: relative;
+  z-index: 20;
+}
+
+.quotation-app .quotation-toolbar-panel .quotation-filters {
+  padding: 0;
+}
+
+.quotation-app .quotation-list-section {
+  overflow: hidden;
+}
+
+.quotation-app .quotation-table-wrapper {
+  border-top: none;
+}
+
+[data-theme="dark"] .quotation-app .quotation-toolbar-panel {
+  background: #10192e;
+  border: 1px solid #1c2b47;
+}
+
+[data-theme="dark"] .quotation-app .quotation-toolbar-panel .quotation-filters {
+  background: transparent !important;
+  border: none !important;
+}
+
 /* Quotation list section - modern curved panel */
 .quotation-list-section {
   overflow: visible;
@@ -660,6 +710,10 @@
   flex-wrap: wrap;
 }
 
+.quotation-app .quotation-filters {
+  padding: 20px 23px;
+}
+
 .quotation-search {
   display: flex;
   flex: 0 1 320px;
@@ -700,8 +754,8 @@
   background: transparent !important;
   color: #0f172a;
   font: inherit;
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .quotation-search input:focus {
@@ -712,6 +766,8 @@
 
 .quotation-search input::placeholder {
   color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 400;
 }
 
 /* Prevent blue outline and autofill glow in all browsers */
@@ -833,6 +889,162 @@
 
 .quotation-dropdown-menu.date-menu {
   min-width: 240px;
+}
+
+.quotation-dropdown-menu.custom-range-menu {
+  min-width: 280px;
+  padding: 10px;
+}
+
+.quotation-custom-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.quotation-custom-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quotation-custom-field span {
+  font-size: 11px;
+  font-weight: 650;
+  color: #475569;
+}
+
+.quotation-custom-field input {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.quotation-custom-field input:focus {
+  outline: none;
+  border-color: #1e40af;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.14);
+}
+
+.quotation-custom-error {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.quotation-custom-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quotation-custom-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.quotation-custom-reset {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #1e40af;
+  cursor: pointer;
+}
+
+.quotation-custom-reset:hover {
+  text-decoration: underline;
+}
+
+.quotation-custom-cancel {
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quotation-custom-cancel:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.quotation-custom-apply {
+  height: 32px;
+  padding: 0 15px;
+  border: none;
+  border-radius: 8px;
+  background: #1e40af;
+  color: #ffffff;
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(30, 64, 175, 0.25);
+}
+
+.quotation-custom-apply:hover {
+  background: #1d4ed8;
+}
+
+[data-theme="dark"] .quotation-custom-field span {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .quotation-custom-field input {
+  background: #0b1932;
+  border-color: #23334d;
+  color: #f8fafc;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .quotation-custom-field input:focus {
+  border-color: #3b82f6;
+  background: #0e2040;
+}
+
+[data-theme="dark"] .quotation-custom-cancel {
+  background: #15223c;
+  border-color: #24375a;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .quotation-custom-cancel:hover {
+  background: #1e3156;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .quotation-custom-reset {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .quotation-custom-apply {
+  background: #2563eb;
+}
+
+[data-theme="dark"] .quotation-custom-apply:hover {
+  background: #1d4ed8;
 }
 
 @keyframes dropdownFadeIn {
@@ -984,18 +1196,102 @@
   text-align: left;
 }
 
+.quotation-app .quotation-table {
+  table-layout: fixed;
+  min-width: 1120px;
+  text-align: center;
+}
+
+.quotation-app .quotation-table th,
+.quotation-app .quotation-table td {
+  text-align: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.quotation-app .quotation-table th:first-child,
+.quotation-app .quotation-table td:first-child {
+  padding-left: 16px;
+}
+
+.quotation-app .quotation-table th:last-child,
+.quotation-app .quotation-table td:last-child {
+  padding-right: 16px;
+}
+
+.quotation-app .quotation-table th:nth-child(1) {
+  width: 12.5%;
+}
+
+.quotation-app .quotation-table th:nth-child(2) {
+  width: 13%;
+}
+
+.quotation-app .quotation-table th:nth-child(3) {
+  width: 13%;
+}
+
+.quotation-app .quotation-table th:nth-child(4) {
+  width: 12%;
+}
+
+.quotation-app .quotation-table th:nth-child(5) {
+  width: 10%;
+}
+
+.quotation-app .quotation-table th:nth-child(6) {
+  width: 9.5%;
+}
+
+.quotation-app .quotation-table th:nth-child(7) {
+  width: 13.5%;
+}
+
+.quotation-app .quotation-table th:nth-child(8) {
+  width: 16.5%;
+}
+
+.quotation-app .quotation-id-cell {
+  align-items: center;
+}
+
+.quotation-app .quotation-client {
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.quotation-app .quotation-client>span {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.quotation-app .quotation-project {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.quotation-app .amount-column {
+  text-align: center;
+}
+
+.quotation-app .quotation-row-actions {
+  justify-content: center;
+}
+
 .quotation-table thead {
-  background: #0b1932;
+  background: #f4f8ff;
 }
 
 .quotation-table th {
   height: 47px;
   padding: 0 13px;
-  border-bottom: 1px solid #0b1932;
-  color: #ffffff;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.65px;
+  border-bottom: 1px solid #dbeafe;
+  color: #1e3a8a;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
@@ -1030,10 +1326,114 @@
   border-bottom: 0;
 }
 
-.quotation-id {
-  color: #2864b5;
-  font-size: 10.5px;
-  font-weight: 750;
+.quotation-id-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.quotation-id,
+.quotation-app .quotation-id {
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  line-height: 1.25;
+  transition: color 0.15s ease;
+}
+
+.quotation-app .quotation-id:hover {
+  color: #1e3a8a;
+  text-decoration: underline;
+}
+
+.quotation-id-date {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+[data-theme="dark"] .quotation-app .quotation-id {
+  color: #60a5fa !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .quotation-app .quotation-id:hover {
+  color: #93c5fd !important;
+}
+
+[data-theme="dark"] .quotation-app .quotation-id-date {
+  color: #94a3b8;
+}
+
+.quotation-creator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 155px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.quotation-creator-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quotation-creator-badge.super {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.quotation-creator-badge.admin {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.quotation-creator-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.quotation-creator-name {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+[data-theme="dark"] .quotation-creator-badge.super {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+[data-theme="dark"] .quotation-creator-badge.admin {
+  background: rgba(37, 99, 235, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .quotation-creator-name {
+  color: #94a3b8;
 }
 
 .quotation-client {
@@ -1089,7 +1489,7 @@
   gap: 5px;
   padding: 5px 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 7px;
   font-size: 9.5px;
   font-weight: 700;
 }
@@ -1140,19 +1540,58 @@
 
 /* Interactive Status Selector */
 .quotation-status-control {
-  display: inline-block;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 108px;
+}
+
+.quotation-status-control.status-notsent {
+  color: #64748b;
+}
+
+.quotation-status-control.status-senttocustomer {
+  color: #0369a1;
+}
+
+.quotation-status-control.status-customeraccepted {
+  color: #15803d;
+}
+
+.quotation-status-control.status-customerrejected {
+  color: #b91c1c;
 }
 
 .quotation-status-select {
-  padding: 4px 7px;
-  font-size: 10px;
+  width: 100%;
+  min-width: 90px;
+  max-width: 108px;
+  height: 22px;
+  padding: 2px 22px 2px 9px;
+  font-size: 9.5px;
   font-weight: 700;
-  border-radius: 4px;
+  letter-spacing: 0.15px;
+  line-height: 1.3;
+  border-radius: 999px;
   border: 1px solid #dce4ef;
   cursor: pointer;
   background-color: #fff;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   transition: all 0.15s ease;
   outline: none;
+}
+
+.quotation-status-select-chevron {
+  position: absolute;
+  right: 7px;
+  pointer-events: none;
+  flex-shrink: 0;
+  color: inherit;
 }
 
 .quotation-status-select:hover:not(:disabled) {
@@ -1216,6 +1655,51 @@
   border-color: #fecaca;
   background: #fee2e2;
   color: #b91c1c;
+}
+
+[data-theme="dark"] .quotation-status-select option {
+  background: #10192e;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .quotation-status-control.status-notsent {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .quotation-status-control.status-senttocustomer {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .quotation-status-control.status-customeraccepted {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .quotation-status-control.status-customerrejected {
+  color: #f87171;
+}
+
+[data-theme="dark"] .quotation-app .cust-status-badge.status-notsent {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+[data-theme="dark"] .quotation-app .cust-status-badge.status-senttocustomer {
+  background: rgba(14, 165, 233, 0.18);
+  color: #38bdf8;
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+[data-theme="dark"] .quotation-app .cust-status-badge.status-customeraccepted {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+[data-theme="dark"] .quotation-app .cust-status-badge.status-customerrejected {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 /* Row actions */
@@ -1882,6 +2366,11 @@
     color: #0f172a !important;
   }
 
+  [data-theme="dark"] .quotation-app .quotation-stat-content h3,
+  [data-theme="dark"] .quotation-stat-content h3 {
+    color: #ffffff !important;
+  }
+
   .quotation-app .quotation-stat-note,
   .quotation-stat-note {
     font-size: 9.5px !important;
@@ -2041,6 +2530,84 @@
     padding: 0 14px 17px;
   }
 
+  .quotation-app .quotation-toolbar-panel {
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-search {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-dropdown-wrap {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-btn {
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 8px;
+    gap: 5px;
+    justify-content: space-between;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-icon {
+    width: 13px;
+    height: 13px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-size: 11px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-chevron {
+    width: 12px;
+    height: 12px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-dropdown-wrap:nth-of-type(1) .quotation-dropdown-menu {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 48px);
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-dropdown-wrap:nth-of-type(2) .quotation-dropdown-menu {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    animation: none;
+    max-width: calc(100vw - 48px);
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-dropdown-wrap:nth-of-type(3) .quotation-dropdown-menu {
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 48px);
+  }
+
+  .quotation-dropdown-menu.custom-range-menu {
+    min-width: 260px;
+    max-width: calc(100vw - 48px);
+  }
+
   .quotation-search {
     flex-basis: 100%;
     max-width: 100%;
@@ -2080,7 +2647,7 @@
     box-sizing: border-box;
   }
 
-  .quotation-table-footer > span:first-child {
+  .quotation-table-footer>span:first-child {
     white-space: nowrap;
     text-align: left;
   }
@@ -2219,6 +2786,25 @@
     padding: 16px 12px 24px;
   }
 
+  .quotation-app .quotation-toolbar-panel .quotation-filters {
+    gap: 6px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-btn {
+    padding: 0 6px;
+    gap: 4px;
+    height: 34px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-label {
+    font-size: 10px;
+  }
+
+  .quotation-app .quotation-toolbar-panel .quotation-filter-icon {
+    width: 12px;
+    height: 12px;
+  }
+
   /* 4 Stat Cards in 2 rows on small mobile <=480px matching Overview page */
   .quotation-app .quotation-stats-grid,
   .quotation-stats-grid {
@@ -2286,7 +2872,7 @@
     box-sizing: border-box !important;
   }
 
-  .quotation-table-footer > span:first-child {
+  .quotation-table-footer>span:first-child {
     white-space: nowrap !important;
     text-align: left !important;
   }
@@ -2455,7 +3041,7 @@
     box-sizing: border-box !important;
   }
 
-  .quotation-table-footer > span:first-child {
+  .quotation-table-footer>span:first-child {
     white-space: nowrap !important;
     text-align: left !important;
   }
@@ -2482,14 +3068,17 @@
 }
 
 /* Status Badges */
-.quotation-status {
+.quotation-status,
+.quotation-app .quotation-status {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  font-size: 11px;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 9.5px;
   font-weight: 700;
-  border-radius: 0;
+  letter-spacing: 0.2px;
+  line-height: 1.3;
+  border-radius: 999px;
   white-space: nowrap;
 }
 
@@ -2552,6 +3141,7 @@
     opacity: 0;
     transform: scale(0.95) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);

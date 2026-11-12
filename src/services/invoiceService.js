@@ -2,6 +2,7 @@
 // Connected directly to Backend Invoices API (MySQL) with real-time CRUD and payments.
 
 import API_BASE_URL from "./api";
+import { getNextInvoiceNumber } from "../utils/formatters";
 
 const INVOICE_STORAGE_KEY = "iq_invoices_data_v2";
 // Clean up any legacy dummy seed data from v1
@@ -107,68 +108,86 @@ export async function createInvoice(invoiceData) {
     }
   })();
 
-  const subtotal = Number(invoiceData.subtotal) || 0;
-  const discountAmount = Number(invoiceData.discount_amount) || 0;
-  const taxAmount = Number(invoiceData.tax_amount) || 0;
-  const totalAmount = Number(invoiceData.total_amount) || (subtotal - discountAmount + taxAmount);
-  const amountPaid = Number(invoiceData.amount_paid) || 0;
-  const balanceDue = Number(invoiceData.balance_due ?? (totalAmount - amountPaid));
+  const isQuotationConversion =
+    Boolean(invoiceData?.quotation_id) &&
+    !invoiceData?.status &&
+    (!Array.isArray(invoiceData?.items) || invoiceData.items.length === 0);
+  let payload;
 
-  let finalStatus = invoiceData.status || "Draft";
-  if (finalStatus !== "Draft" && finalStatus !== "Cancelled") {
-    if (balanceDue <= 0 && totalAmount > 0) finalStatus = "Paid";
-    else if (amountPaid > 0) finalStatus = "Partial";
-    else finalStatus = "Unpaid";
-  }
-
-  const payload = {
-    ...invoiceData,
-    created_by: currentUser?.user_id || invoiceData.created_by || null,
-    subtotal,
-    discount_amount: discountAmount,
-    tax_amount: taxAmount,
-    total_amount: totalAmount,
-    amount_paid: amountPaid,
-    balance_due: balanceDue,
-    status: finalStatus,
-    items: Array.isArray(invoiceData.items) ? invoiceData.items : [],
-  };
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/invoices`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      const created = data?.invoice || data?.data;
-      if (created) {
-        const existing = readStorageInvoices();
-        const next = [created, ...existing.filter((i) => i.invoice_id !== created.invoice_id)];
-        writeStorageInvoices(next);
-        return created;
-      }
-    } else {
-      const errData = await res.json().catch(() => null);
-      throw new Error(errData?.message || `Failed to create invoice (Status ${res.status})`);
-    }
-  } catch (err) {
-    console.error("Backend invoice creation error:", err);
-    // If backend is down, save locally with temporary ID
-    const tempId = Date.now();
-    const fallbackRecord = {
-      ...payload,
-      invoice_id: tempId,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  if (isQuotationConversion) {
+    payload = {
+      quotation_id: Number(invoiceData.quotation_id),
+      invoice_date: invoiceData.invoice_date,
     };
-    const existing = readStorageInvoices();
-    const next = [fallbackRecord, ...existing];
-    writeStorageInvoices(next);
-    return fallbackRecord;
+  } else {
+    const subtotal = Number(invoiceData.subtotal) || 0;
+    const discountAmount = Number(invoiceData.discount_amount) || 0;
+    const taxAmount = Number(invoiceData.tax_amount) || 0;
+    const totalAmount = Number(invoiceData.total_amount) || (subtotal - discountAmount + taxAmount);
+    const amountPaid = Number(invoiceData.amount_paid) || 0;
+    const balanceDue = Number(invoiceData.balance_due ?? (totalAmount - amountPaid));
+
+    let finalStatus = invoiceData.status || "Draft";
+    if (
+      finalStatus !== "Draft" &&
+      finalStatus !== "Pending Approval" &&
+      finalStatus !== "Rejected" &&
+      finalStatus !== "Cancelled"
+    ) {
+      if (balanceDue <= 0 && totalAmount > 0) finalStatus = "Paid";
+      else if (amountPaid > 0) finalStatus = "Partial";
+      else finalStatus = "Unpaid";
+    }
+
+    payload = {
+      ...invoiceData,
+      created_by: currentUser?.user_id || invoiceData.created_by || null,
+      subtotal,
+      discount_amount: discountAmount,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      amount_paid: amountPaid,
+      balance_due: balanceDue,
+      status: finalStatus,
+      items: Array.isArray(invoiceData.items) ? invoiceData.items : [],
+    };
   }
+
+  const res = await fetch(`${API_BASE_URL}/api/invoices`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const fallbackMessage =
+      data?.code === "VERIFIED_PAYMENT_REQUIRED"
+        ? "At least one verified payment is required for this quotation before creating an invoice."
+        : `Failed to create invoice (Status ${res.status})`;
+    const err = new Error(data?.message || fallbackMessage);
+    if (data?.code) err.code = data.code;
+    throw err;
+  }
+
+  let created = data?.invoice || data?.data || null;
+  if (!created && data?.invoice_id) {
+    created = await getInvoiceById(data.invoice_id);
+  }
+  if (!created) {
+    created = {
+      ...payload,
+      invoice_id: data?.invoice_id,
+      invoice_number: data?.invoice_number,
+    };
+  }
+  if (created) {
+    const existing = readStorageInvoices();
+    const next = [created, ...existing.filter((i) => i.invoice_id !== created.invoice_id)];
+    writeStorageInvoices(next);
+    return created;
+  }
+  return payload;
 }
 
 // Update existing invoice
@@ -181,7 +200,12 @@ export async function updateInvoice(id, invoiceData) {
   const balanceDue = Number(invoiceData.balance_due ?? (totalAmount - amountPaid));
 
   let finalStatus = invoiceData.status || "Draft";
-  if (finalStatus !== "Draft" && finalStatus !== "Cancelled") {
+  if (
+    finalStatus !== "Draft" &&
+    finalStatus !== "Pending Approval" &&
+    finalStatus !== "Rejected" &&
+    finalStatus !== "Cancelled"
+  ) {
     if (balanceDue <= 0 && totalAmount > 0) finalStatus = "Paid";
     else if (amountPaid > 0) finalStatus = "Partial";
     else finalStatus = "Unpaid";
@@ -206,17 +230,26 @@ export async function updateInvoice(id, invoiceData) {
       body: JSON.stringify(payload),
     });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      const updated = data?.invoice || data?.data;
-      if (updated) {
-        const existing = readStorageInvoices();
-        const next = existing.map((i) => (String(i.invoice_id) === String(id) ? updated : i));
-        writeStorageInvoices(next);
-        return updated;
-      }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(
+        data?.message || `Failed to update invoice (Status ${res.status})`
+      );
+    }
+
+    const updated = data?.invoice || data?.data;
+    if (updated) {
+      const existing = readStorageInvoices();
+      const next = existing.map((i) =>
+        String(i.invoice_id) === String(id) ? updated : i
+      );
+      writeStorageInvoices(next);
+      return updated;
     }
   } catch (err) {
+    if (err instanceof Error && !err.message.includes("Failed to fetch")) {
+      throw err;
+    }
     console.warn("Backend updateInvoice error:", err);
   }
 
@@ -251,64 +284,33 @@ export async function deleteInvoice(id) {
   return { success: true };
 }
 
-// Record a payment against an invoice
+// Record a payment against an invoice via the backend API
 export async function recordInvoicePayment(id, paymentData) {
   const paymentAmount = Number(paymentData.amount) || 0;
   if (paymentAmount <= 0) throw new Error("Payment amount must be greater than zero.");
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/payments`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify(paymentData),
-    });
+  const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/payments`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify({
+      ...paymentData,
+      reference_number: paymentData.reference_number ?? paymentData.reference ?? "",
+      description: paymentData.description ?? paymentData.notes ?? "",
+    }),
+  });
 
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      const updated = data?.invoice || data?.data;
-      if (updated) {
-        const existing = readStorageInvoices();
-        const next = existing.map((i) => (String(i.invoice_id) === String(id) ? updated : i));
-        writeStorageInvoices(next);
-        return updated;
-      }
-    }
-  } catch (err) {
-    console.warn("Backend recordPayment error:", err);
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.message || `Failed to record payment (Status ${res.status})`);
   }
 
-  // Local fallback if offline
-  const invoice = await getInvoiceById(id);
-  if (!invoice) throw new Error("Invoice not found.");
-
-  const currentPaid = Number(invoice.amount_paid) || 0;
-  const newAmountPaid = Number((currentPaid + paymentAmount).toFixed(2));
-  const totalAmount = Number(invoice.total_amount) || 0;
-  const newBalanceDue = Math.max(0, Number((totalAmount - newAmountPaid).toFixed(2)));
-
-  let newStatus = "Partial";
-  if (newBalanceDue <= 0) newStatus = "Paid";
-  else if (newAmountPaid === 0) newStatus = "Unpaid";
-
-  const newPayment = {
-    payment_id: `PAY-${Date.now()}`,
-    amount: paymentAmount,
-    payment_date: paymentData.payment_date || new Date().toISOString().slice(0, 10),
-    payment_method: paymentData.payment_method || "Bank Transfer",
-    reference: paymentData.reference?.trim() || "",
-    notes: paymentData.notes?.trim() || "",
-    recorded_at: new Date().toISOString(),
-  };
-
-  const updatedPayments = [...(Array.isArray(invoice.payments) ? invoice.payments : []), newPayment];
-
-  return await updateInvoice(id, {
-    ...invoice,
-    amount_paid: newAmountPaid,
-    balance_due: newBalanceDue,
-    status: newStatus,
-    payments: updatedPayments,
-  });
+  const updated = data?.invoice || data?.data;
+  if (updated) {
+    const existing = readStorageInvoices();
+    const next = existing.map((i) => (String(i.invoice_id) === String(id) ? updated : i));
+    writeStorageInvoices(next);
+  }
+  return data;
 }
 
 // Alias for recordInvoicePayment
@@ -320,16 +322,18 @@ export async function duplicateInvoice(id) {
   if (!invoice) throw new Error("Invoice not found.");
 
   const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
   const dueDate = new Date(now.getTime() + 14 * 86400000).toISOString().slice(0, 10);
+  const existingInvoices = await getInvoices().catch(() => readStorageInvoices());
 
   const duplicatedData = {
     ...invoice,
     invoice_id: undefined,
-    invoice_number: `INV-${now.getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    invoice_number: getNextInvoiceNumber(existingInvoices, todayStr),
     status: "Draft",
     amount_paid: 0,
     balance_due: Number(invoice.total_amount) || 0,
-    invoice_date: now.toISOString().slice(0, 10),
+    invoice_date: todayStr,
     due_date: dueDate,
     payments: [],
     created_at: now.toISOString(),
@@ -340,4 +344,135 @@ export async function duplicateInvoice(id) {
 }
 
 // Re-export customer and quotation helpers for invoice workflows
-export { getCustomers, getQuotations } from "./quotationService";
+export { getCustomers, getQuotations, getAllRegisteredCustomers } from "./quotationService";
+
+// Submit an invoice for Super Admin approval
+export async function submitInvoiceForApproval(id) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/submit-approval`, {
+      method: "POST",
+      headers: getHeaders(),
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const existing = readStorageInvoices();
+      const next = existing.map((i) =>
+        String(i.invoice_id) === String(id)
+          ? { ...i, status: "Pending Approval", approval_status: "Pending" }
+          : i
+      );
+      writeStorageInvoices(next);
+      return data || { success: true };
+    }
+  } catch (err) {
+    console.warn("Backend submitInvoiceForApproval error:", err);
+  }
+
+  // Fallback to local storage update
+  const existing = readStorageInvoices();
+  const next = existing.map((i) =>
+    String(i.invoice_id) === String(id)
+      ? { ...i, status: "Pending Approval", approval_status: "Pending" }
+      : i
+  );
+  writeStorageInvoices(next);
+  return { success: true };
+}
+
+// Approve a pending invoice (Super Admin only)
+export async function approveInvoice(id) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/approve`, {
+      method: "POST",
+      headers: getHeaders(),
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const existing = readStorageInvoices();
+      const next = existing.map((i) =>
+        String(i.invoice_id) === String(id)
+          ? { ...i, status: "Unpaid", approval_status: "Approved" }
+          : i
+      );
+      writeStorageInvoices(next);
+      return data || { success: true };
+    }
+  } catch (err) {
+    console.warn("Backend approveInvoice error:", err);
+  }
+
+  const existing = readStorageInvoices();
+  const next = existing.map((i) =>
+    String(i.invoice_id) === String(id)
+      ? { ...i, status: "Unpaid", approval_status: "Approved" }
+      : i
+  );
+  writeStorageInvoices(next);
+  return { success: true };
+}
+
+// Reject a pending invoice (Super Admin only)
+export async function rejectInvoice(id, rejection_reason = "") {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/reject`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ rejection_reason }),
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const existing = readStorageInvoices();
+      const next = existing.map((i) =>
+        String(i.invoice_id) === String(id)
+          ? { ...i, status: "Rejected", approval_status: "Rejected", rejection_reason }
+          : i
+      );
+      writeStorageInvoices(next);
+      return data || { success: true };
+    }
+  } catch (err) {
+    console.warn("Backend rejectInvoice error:", err);
+  }
+
+  const existing = readStorageInvoices();
+  const next = existing.map((i) =>
+    String(i.invoice_id) === String(id)
+      ? { ...i, status: "Rejected", approval_status: "Rejected", rejection_reason }
+      : i
+  );
+  writeStorageInvoices(next);
+  return { success: true };
+}
+
+// Update invoice status directly
+export async function updateInvoiceStatus(id, status) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/invoices/${id}/status`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify({ status }),
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      const existing = readStorageInvoices();
+      const next = existing.map((i) =>
+        String(i.invoice_id) === String(id) ? { ...i, status } : i
+      );
+      writeStorageInvoices(next);
+      return data || { success: true };
+    }
+  } catch (err) {
+    console.warn("Backend updateInvoiceStatus error:", err);
+  }
+
+  const existing = readStorageInvoices();
+  const next = existing.map((i) =>
+    String(i.invoice_id) === String(id) ? { ...i, status } : i
+  );
+  writeStorageInvoices(next);
+  return { success: true };
+}

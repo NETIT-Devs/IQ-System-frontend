@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowDownToLine,
   BarChart3,
+  Calendar,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -22,6 +23,7 @@ import {
 import API_BASE_URL from "../services/api";
 import ThemeToggle from "../components/ThemeToggle";
 import { getAuthenticatedUser } from "../utils/authStorage";
+import { filterByOverviewPeriod } from "../utils/formatters";
 import "./Report.css";
 
 // Backend report endpoints (seamlessly utilized when backend developer adds them)
@@ -38,6 +40,7 @@ const EMPTY_SUMMARY = {
   totalInvoices: 0,
   totalQuotations: 0,
   paidInvoices: 0,
+  partialInvoices: 0,
   unpaidInvoices: 0,
   overdueInvoices: 0,
   outstandingAmount: 0,
@@ -340,28 +343,33 @@ function StatusBreakdownChart({ summary, reportType }) {
 
   // Invoice Breakdown
   const paid = Number(summary.paidInvoices) || 0;
+  const partial = Number(summary.partialInvoices) || 0;
   const unpaid = Number(summary.unpaidInvoices) || 0;
   const overdue = Number(summary.overdueInvoices) || 0;
-  const total = paid + unpaid + overdue || Number(summary.totalInvoices) || 0;
+  const total = paid + partial + unpaid + overdue || Number(summary.totalInvoices) || 0;
 
   const paidPercent = total ? (paid / total) * 100 : 0;
+  const partialPercent = total ? (partial / total) * 100 : 0;
   const unpaidPercent = total ? (unpaid / total) * 100 : 0;
 
   const segments = [
     { label: "Paid", value: paid, color: "#16a34a" },
+    { label: "Partial Paid", value: partial, color: "#f97316" },
     { label: "Unpaid", value: unpaid, color: "#2563eb" },
     { label: "Overdue", value: overdue, color: "#dc2626" },
   ];
 
   const paidEnd = paidPercent;
-  const unpaidEnd = paidPercent + unpaidPercent;
+  const partialEnd = paidPercent + partialPercent;
+  const unpaidEnd = partialEnd + unpaidPercent;
 
   const chartStyle = {
     background:
       total > 0
         ? `conic-gradient(
             #16a34a 0% ${paidEnd}%,
-            #2563eb ${paidEnd}% ${unpaidEnd}%,
+            #f97316 ${paidEnd}% ${partialEnd}%,
+            #2563eb ${partialEnd}% ${unpaidEnd}%,
             #dc2626 ${unpaidEnd}% 100%
           )`
         : "#e8edf5",
@@ -373,7 +381,7 @@ function StatusBreakdownChart({ summary, reportType }) {
         className="payment-donut"
         style={chartStyle}
         role="img"
-        aria-label={`Paid ${paid}, unpaid ${unpaid}, overdue ${overdue}`}
+        aria-label={`Paid ${paid}, partial paid ${partial}, unpaid ${unpaid}, overdue ${overdue}`}
       >
         <div className="payment-donut-inner">
           <strong>{formatNumber(total)}</strong>
@@ -450,7 +458,9 @@ function StatusBadge({ status }) {
 
   let className = "report-status-badge";
 
-  if (normalized.includes("paid") && !normalized.includes("unpaid")) {
+  if (normalized.includes("partial")) {
+    className += " status-partial";
+  } else if (normalized.includes("paid") && !normalized.includes("unpaid")) {
     className += " status-paid";
   } else if (normalized.includes("overdue")) {
     className += " status-overdue";
@@ -459,12 +469,10 @@ function StatusBadge({ status }) {
     normalized.includes("pending")
   ) {
     className += " status-pending";
-  } else if (normalized.includes("partial")) {
-    className += " status-partial";
   } else if (normalized.includes("approved") || normalized.includes("accept")) {
     className += " status-approved";
   } else if (normalized.includes("draft")) {
-    className += " status-default";
+    className += " status-draft status-default";
   } else if (normalized.includes("reject") || normalized.includes("declin")) {
     className += " status-overdue";
   } else {
@@ -484,15 +492,25 @@ export default function Reports() {
   const userInitials = isSuperAdmin ? "SA" : "A";
   const userRoleTitle = isSuperAdmin ? "Super Admin" : "Admin";
 
-  const [summary, setSummary] = useState(EMPTY_SUMMARY);
+  const [rawSummary, setRawSummary] = useState(EMPTY_SUMMARY);
   const [invoices, setInvoices] = useState([]);
   const [quotations, setQuotations] = useState([]);
-  const [monthlyIncome, setMonthlyIncome] = useState([]);
+  const [rawMonthlyIncome, setRawMonthlyIncome] = useState([]);
+  const [hasBackendSummary, setHasBackendSummary] = useState(false);
+  const [hasBackendIncome, setHasBackendIncome] = useState(false);
 
   // Default to quotations report so real live data immediately populates
   const [reportType, setReportType] = useState("quotations");
   const [reportDropdownOpen, setReportDropdownOpen] = useState(false);
   const reportDropdownRef = useRef(null);
+  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState("all");
+  const [customRange, setCustomRange] = useState({ startDate: "", endDate: "" });
+  const [customExpanded, setCustomExpanded] = useState(false);
+  const [draftStart, setDraftStart] = useState("");
+  const [draftEnd, setDraftEnd] = useState("");
+  const [customRangeError, setCustomRangeError] = useState("");
+  const periodDropdownRef = useRef(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -503,10 +521,17 @@ export default function Reports() {
       ) {
         setReportDropdownOpen(false);
       }
+      if (
+        periodDropdownRef.current &&
+        !periodDropdownRef.current.contains(event.target)
+      ) {
+        setPeriodDropdownOpen(false);
+      }
     }
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setReportDropdownOpen(false);
+        setPeriodDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -545,6 +570,8 @@ export default function Reports() {
       let finalInvoices = [];
       let finalIncome = [];
       let finalSummary = { ...EMPTY_SUMMARY };
+      let backendIncomeUsed = false;
+      let backendSummaryUsed = false;
       let liveFallbackUsed = false;
 
       // 2. Resolve Quotations: Use backend report endpoint if available, or fall back to /api/quotations
@@ -576,12 +603,9 @@ export default function Reports() {
         }
       }
 
-      // 4. Resolve Monthly Income: Aggregate from Customer Accepted quotations (or invoices)
-      const acceptedQuotationsForTrend = finalQuotations.filter((q) =>
-        isCustomerAccepted(q)
-      );
-
-      if (reportIncomeRes.ok && acceptedQuotationsForTrend.length === 0 && finalQuotations.length === 0) {
+      // 4. Preserve backend monthly income fallback if no live records exist
+      if (reportIncomeRes.ok && finalQuotations.length === 0 && finalInvoices.length === 0) {
+        backendIncomeUsed = true;
         finalIncome = extractArray(reportIncomeRes.data).map((item) => ({
           label: String(
             readValue(item, "month_label", "monthLabel", "month", "period")
@@ -590,99 +614,17 @@ export default function Reports() {
             readValue(item, "total_income", "totalIncome", "amount", "income")
           ),
         }));
-      } else {
-        // Dynamically aggregate accepted revenue by month from Customer Accepted quotations
-        const monthlyMap = {};
-        const recordsForTrend =
-          finalQuotations.length > 0 ? acceptedQuotationsForTrend : finalInvoices;
-
-        recordsForTrend.forEach((record) => {
-          const isQ = finalQuotations.length > 0;
-          const dateStr = String(
-            resolveRecordDate(record, isQ)
-          ).slice(0, 7); // e.g. "2026-10"
-
-          if (dateStr && dateStr.length === 7) {
-            const amount = Number(
-              readValue(record, "total_amount", "totalAmount", "grand_total", "grandTotal")
-            ) || 0;
-            monthlyMap[dateStr] = (monthlyMap[dateStr] || 0) + amount;
-          }
-        });
-
-        const sortedMonths = Object.keys(monthlyMap).sort();
-        if (sortedMonths.length > 0) {
-          finalIncome = sortedMonths.map((key) => {
-            const [y, m] = key.split("-");
-            const d = new Date(Number(y), Number(m) - 1, 1);
-            const label = !Number.isNaN(d.getTime())
-              ? d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
-              : key;
-            return { label, amount: monthlyMap[key] };
-          });
-        } else {
-          finalIncome = [];
-        }
       }
 
-      // 5. Resolve Summary: Compute quotation metrics using live Customer Accepted status
-      const totalQuotations = finalQuotations.length;
-      const totalInvoices = finalInvoices.length;
-
-      let customerAcceptedQuotations = 0;
-      let approvedOnlyQuotations = 0;
-      let pendingQuotations = 0;
-      let draftQuotations = 0;
-      let rejectedQuotations = 0;
-
-      finalQuotations.forEach((q) => {
-        const resolvedStatus = resolveQuotationReportStatus(q);
-        if (resolvedStatus === "Accepted by Customer") {
-          customerAcceptedQuotations += 1;
-        } else if (resolvedStatus === "Approved") {
-          approvedOnlyQuotations += 1;
-        } else if (resolvedStatus === "Pending Approval") {
-          pendingQuotations += 1;
-        } else if (
-          resolvedStatus === "Rejected" ||
-          resolvedStatus === "Rejected by Customer"
-        ) {
-          rejectedQuotations += 1;
-        } else {
-          draftQuotations += 1;
-        }
-      });
-
-      const approvedQuotations =
-        customerAcceptedQuotations + approvedOnlyQuotations;
-
-      const totalQuotationValue = finalQuotations.reduce(
-        (sum, q) =>
-          sum +
-          (Number(
-            readValue(q, "total_amount", "totalAmount", "grand_total", "grandTotal")
-          ) || 0),
-        0
-      );
-
-      // Approved / Customer Accepted Value: strictly sum of Customer Accepted quotations
-      const approvedQuotationValue = finalQuotations
-        .filter((q) => isCustomerAccepted(q))
-        .reduce(
-          (sum, q) =>
-            sum +
-            (Number(
-              readValue(q, "total_amount", "totalAmount", "grand_total", "grandTotal")
-            ) || 0),
-          0
-        );
-
-      if (reportSummaryRes.ok && finalQuotations.length === 0) {
+      // 5. Preserve backend summary fallback if no live records exist
+      if (reportSummaryRes.ok && finalQuotations.length === 0 && finalInvoices.length === 0) {
+        backendSummaryUsed = true;
         const summaryData = extractObject(reportSummaryRes.data);
         finalSummary = {
           totalInvoices: Number(readValue(summaryData, "totalInvoices", "total_invoices")),
           totalQuotations: Number(readValue(summaryData, "totalQuotations", "total_quotations")),
           paidInvoices: Number(readValue(summaryData, "paidInvoices", "paid_invoices")),
+          partialInvoices: Number(readValue(summaryData, "partialInvoices", "partial_invoices", "partiallyPaidInvoices")),
           unpaidInvoices: Number(readValue(summaryData, "unpaidInvoices", "unpaid_invoices")),
           overdueInvoices: Number(readValue(summaryData, "overdueInvoices", "overdue_invoices")),
           outstandingAmount: Number(readValue(summaryData, "outstandingAmount", "outstanding_amount")),
@@ -695,52 +637,14 @@ export default function Reports() {
           totalQuotationValue: Number(readValue(summaryData, "totalQuotationValue", "total_quotation_value")),
           approvedQuotationValue: Number(readValue(summaryData, "approvedQuotationValue", "approved_quotation_value")),
         };
-      } else {
-        const paidInvoices = finalInvoices.filter((i) =>
-          String(i.payment_status || i.status || "").toLowerCase().includes("paid")
-        ).length;
-
-        const unpaidInvoices = finalInvoices.filter((i) =>
-          String(i.payment_status || i.status || "").toLowerCase().includes("unpaid")
-        ).length;
-
-        const overdueInvoices = finalInvoices.filter((i) =>
-          String(i.payment_status || i.status || "").toLowerCase().includes("overdue")
-        ).length;
-
-        const outstandingAmount = finalInvoices.reduce(
-          (sum, i) => sum + (Number(i.balance_due || i.total_amount) || 0),
-          0
-        );
-
-        const totalInvoiceValue = finalInvoices.reduce(
-          (sum, i) => sum + (Number(i.total_amount) || 0),
-          0
-        );
-
-        finalSummary = {
-          totalInvoices,
-          totalQuotations,
-          paidInvoices,
-          unpaidInvoices,
-          overdueInvoices,
-          outstandingAmount,
-          totalInvoiceValue,
-          approvedQuotations,
-          customerAcceptedQuotations,
-          approvedOnlyQuotations,
-          pendingQuotations,
-          draftQuotations,
-          rejectedQuotations,
-          totalQuotationValue,
-          approvedQuotationValue,
-        };
       }
 
       setQuotations(finalQuotations);
       setInvoices(finalInvoices);
-      setMonthlyIncome(finalIncome);
-      setSummary(finalSummary);
+      setRawMonthlyIncome(finalIncome);
+      setRawSummary(finalSummary);
+      setHasBackendIncome(backendIncomeUsed);
+      setHasBackendSummary(backendSummaryUsed);
       setIsUsingLiveCalculated(liveFallbackUsed);
     } catch (err) {
       console.error("Reports loading error:", err);
@@ -757,7 +661,217 @@ export default function Reports() {
     Promise.resolve().then(fetchReports);
   }, [fetchReports]);
 
-  const allRecords = reportType === "quotations" ? quotations : invoices;
+  const periodFilter = useMemo(
+    () => ({
+      period: selectedPeriod,
+      startDate: customRange.startDate,
+      endDate: customRange.endDate,
+    }),
+    [selectedPeriod, customRange.startDate, customRange.endDate]
+  );
+
+  const periodQuotations = useMemo(
+    () =>
+      filterByOverviewPeriod(quotations, periodFilter, (q) =>
+        resolveRecordDate(q, true)
+      ),
+    [quotations, periodFilter]
+  );
+
+  const periodInvoices = useMemo(
+    () =>
+      filterByOverviewPeriod(invoices, periodFilter, (inv) =>
+        resolveRecordDate(inv, false)
+      ),
+    [invoices, periodFilter]
+  );
+
+  const monthlyIncome = useMemo(() => {
+    if (
+      selectedPeriod === "all" &&
+      hasBackendIncome &&
+      quotations.length === 0 &&
+      invoices.length === 0
+    ) {
+      return rawMonthlyIncome;
+    }
+
+    const useQuotationsForTrend = quotations.length > 0;
+    const acceptedQuotationsForTrend = periodQuotations.filter((q) =>
+      isCustomerAccepted(q)
+    );
+    const recordsForTrend = useQuotationsForTrend
+      ? acceptedQuotationsForTrend
+      : periodInvoices;
+
+    const monthlyMap = {};
+    recordsForTrend.forEach((record) => {
+      const dateStr = String(
+        resolveRecordDate(record, useQuotationsForTrend)
+      ).slice(0, 7);
+
+      if (dateStr && dateStr.length === 7) {
+        const amount =
+          Number(
+            readValue(
+              record,
+              "total_amount",
+              "totalAmount",
+              "grand_total",
+              "grandTotal"
+            )
+          ) || 0;
+        monthlyMap[dateStr] = (monthlyMap[dateStr] || 0) + amount;
+      }
+    });
+
+    const sortedMonths = Object.keys(monthlyMap).sort();
+    return sortedMonths.map((key) => {
+      const [y, m] = key.split("-");
+      const d = new Date(Number(y), Number(m) - 1, 1);
+      const label = !Number.isNaN(d.getTime())
+        ? d.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+        : key;
+      return { label, amount: monthlyMap[key] };
+    });
+  }, [
+    selectedPeriod,
+    hasBackendIncome,
+    quotations.length,
+    invoices.length,
+    rawMonthlyIncome,
+    periodQuotations,
+    periodInvoices,
+  ]);
+
+  const summary = useMemo(() => {
+    if (
+      selectedPeriod === "all" &&
+      hasBackendSummary &&
+      quotations.length === 0 &&
+      invoices.length === 0
+    ) {
+      return rawSummary;
+    }
+
+    const totalQuotations = periodQuotations.length;
+    const totalInvoices = periodInvoices.length;
+
+    let customerAcceptedQuotations = 0;
+    let approvedOnlyQuotations = 0;
+    let pendingQuotations = 0;
+    let draftQuotations = 0;
+    let rejectedQuotations = 0;
+
+    periodQuotations.forEach((q) => {
+      const resolvedStatus = resolveQuotationReportStatus(q);
+      if (resolvedStatus === "Accepted by Customer") {
+        customerAcceptedQuotations += 1;
+      } else if (resolvedStatus === "Approved") {
+        approvedOnlyQuotations += 1;
+      } else if (resolvedStatus === "Pending Approval") {
+        pendingQuotations += 1;
+      } else if (
+        resolvedStatus === "Rejected" ||
+        resolvedStatus === "Rejected by Customer"
+      ) {
+        rejectedQuotations += 1;
+      } else {
+        draftQuotations += 1;
+      }
+    });
+
+    const approvedQuotations =
+      customerAcceptedQuotations + approvedOnlyQuotations;
+
+    const totalQuotationValue = periodQuotations.reduce(
+      (sum, q) =>
+        sum +
+        (Number(
+          readValue(
+            q,
+            "total_amount",
+            "totalAmount",
+            "grand_total",
+            "grandTotal"
+          )
+        ) || 0),
+      0
+    );
+
+    const approvedQuotationValue = periodQuotations
+      .filter((q) => isCustomerAccepted(q))
+      .reduce(
+        (sum, q) =>
+          sum +
+          (Number(
+            readValue(
+              q,
+              "total_amount",
+              "totalAmount",
+              "grand_total",
+              "grandTotal"
+            )
+          ) || 0),
+        0
+      );
+
+    const partialInvoices = periodInvoices.filter((i) =>
+      String(i.payment_status || i.status || "").toLowerCase().includes("partial")
+    ).length;
+
+    const paidInvoices = periodInvoices.filter((i) => {
+      const st = String(i.payment_status || i.status || "").toLowerCase();
+      return st.includes("paid") && !st.includes("unpaid") && !st.includes("partial");
+    }).length;
+
+    const unpaidInvoices = periodInvoices.filter((i) =>
+      String(i.payment_status || i.status || "").toLowerCase().includes("unpaid")
+    ).length;
+
+    const overdueInvoices = periodInvoices.filter((i) =>
+      String(i.payment_status || i.status || "").toLowerCase().includes("overdue")
+    ).length;
+
+    const outstandingAmount = periodInvoices.reduce(
+      (sum, i) => sum + (Number(i.balance_due || i.total_amount) || 0),
+      0
+    );
+
+    const totalInvoiceValue = periodInvoices.reduce(
+      (sum, i) => sum + (Number(i.total_amount) || 0),
+      0
+    );
+
+    return {
+      totalInvoices,
+      totalQuotations,
+      paidInvoices,
+      partialInvoices,
+      unpaidInvoices,
+      overdueInvoices,
+      outstandingAmount,
+      totalInvoiceValue,
+      approvedQuotations,
+      customerAcceptedQuotations,
+      approvedOnlyQuotations,
+      pendingQuotations,
+      draftQuotations,
+      rejectedQuotations,
+      totalQuotationValue,
+      approvedQuotationValue,
+    };
+  }, [
+    selectedPeriod,
+    hasBackendSummary,
+    quotations.length,
+    invoices.length,
+    rawSummary,
+    periodQuotations,
+    periodInvoices,
+  ]);
+
+  const allRecords = reportType === "quotations" ? periodQuotations : periodInvoices;
 
   // Search filtered records matching reference or customer name
   const currentRecords = useMemo(() => {
@@ -951,32 +1065,16 @@ export default function Reports() {
             </p>
           </div>
 
-          <button
-            type="button"
-            className="reports-refresh-button"
-            onClick={fetchReports}
-            disabled={loading}
-            aria-label="Refresh reports"
-          >
-            {loading ? (
-              <LoaderCircle size={17} className="reports-spin" />
-            ) : (
-              <RefreshCw size={17} />
-            )}
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        {/* Filter panel */}
-        <section className="reports-filter-panel" aria-label="Report filters">
-          <div className="report-filter-field report-type-field">
-            <label htmlFor="report-type">Report type</label>
+          <div className="reports-welcome-controls">
             <div className="report-dropdown-wrap" ref={reportDropdownRef}>
               <button
                 type="button"
                 id="report-type"
                 className={`report-dropdown-btn ${reportDropdownOpen ? "active" : ""}`}
-                onClick={() => setReportDropdownOpen((prev) => !prev)}
+                onClick={() => {
+                  setPeriodDropdownOpen(false);
+                  setReportDropdownOpen((prev) => !prev);
+                }}
                 aria-expanded={reportDropdownOpen}
                 aria-label="Select report type"
               >
@@ -984,7 +1082,7 @@ export default function Reports() {
                   {reportType === "invoices" ? "Invoice Report" : "Quotation Report"}
                 </span>
                 <ChevronDown
-                  size={14}
+                  size={15}
                   className={`report-dropdown-chevron ${reportDropdownOpen ? "open" : ""}`}
                 />
               </button>
@@ -992,7 +1090,7 @@ export default function Reports() {
               {reportDropdownOpen && (
                 <div className="report-dropdown-menu" role="listbox">
                   <div className="report-dropdown-header">
-                    <span>Select Report Type</span>
+                    <span>Report Type</span>
                   </div>
                   <div className="report-dropdown-list">
                     {[
@@ -1025,8 +1123,238 @@ export default function Reports() {
                 </div>
               )}
             </div>
+
+            <div className="report-period-wrap" ref={periodDropdownRef}>
+              <button
+                type="button"
+                id="report-period"
+                className={`report-period-btn ${periodDropdownOpen ? "active" : ""}`}
+                onClick={() => {
+                  setReportDropdownOpen(false);
+                  if (!periodDropdownOpen) {
+                    setDraftStart(customRange.startDate);
+                    setDraftEnd(customRange.endDate);
+                    setCustomExpanded(selectedPeriod === "custom");
+                    setCustomRangeError("");
+                  }
+                  setPeriodDropdownOpen((prev) => !prev);
+                }}
+                aria-haspopup="listbox"
+                aria-expanded={periodDropdownOpen}
+                aria-label="Select time period"
+              >
+                <span className="report-period-btn-left">
+                  <Calendar size={14} className="report-period-btn-icon" />
+                  <span className="report-period-label">
+                    {(() => {
+                      const fmt = (dateStr) => {
+                        if (!dateStr) return "";
+                        const d = new Date(`${dateStr}T00:00:00`);
+                        if (Number.isNaN(d.getTime())) return dateStr;
+                        return d.toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                        });
+                      };
+                      if (selectedPeriod === "custom") {
+                        if (customRange.startDate && customRange.endDate) {
+                          return `${fmt(customRange.startDate)} – ${fmt(customRange.endDate)}`;
+                        }
+                        if (customRange.startDate) return `From ${fmt(customRange.startDate)}`;
+                        if (customRange.endDate) return `Until ${fmt(customRange.endDate)}`;
+                        return "Custom Range";
+                      }
+                      const presetLabels = {
+                        all: "All Time",
+                        "1w": "1 Week",
+                        "1m": "1 Month",
+                        "1y": "1 Year",
+                      };
+                      return presetLabels[selectedPeriod] || "All Time";
+                    })()}
+                  </span>
+                </span>
+                <ChevronDown
+                  size={15}
+                  className={`report-dropdown-chevron ${periodDropdownOpen ? "open" : ""}`}
+                />
+              </button>
+
+              {periodDropdownOpen && (
+                <div className="report-period-menu" role="listbox" aria-label="Time period options">
+                  <div className="report-dropdown-header">
+                    <span>Time Period</span>
+                  </div>
+                  <div className="report-dropdown-list">
+                    {[
+                      { value: "all", label: "All Time", color: "#64748b" },
+                      { value: "1w", label: "1 Week", color: "#0ea5e9" },
+                      { value: "1m", label: "1 Month", color: "#2563eb" },
+                      { value: "1y", label: "1 Year", color: "#7c3aed" },
+                    ].map((opt) => {
+                      const isSelected = selectedPeriod === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`report-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setSelectedPeriod(opt.value);
+                            setCustomExpanded(false);
+                            setCustomRangeError("");
+                            setPeriodDropdownOpen(false);
+                          }}
+                        >
+                          <div className="report-dropdown-item-left">
+                            <span
+                              className="report-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="report-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="report-dropdown-check" />}
+                        </button>
+                      );
+                    })}
+
+                    <div className="report-period-divider" />
+
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selectedPeriod === "custom"}
+                      className={`report-dropdown-item ${
+                        selectedPeriod === "custom" || customExpanded ? "selected" : ""
+                      }`}
+                      onClick={() => {
+                        setDraftStart(customRange.startDate);
+                        setDraftEnd(customRange.endDate);
+                        setCustomRangeError("");
+                        setCustomExpanded((prev) => !prev);
+                      }}
+                    >
+                      <div className="report-dropdown-item-left">
+                        <Calendar size={13} className="report-period-custom-icon" />
+                        <span className="report-dropdown-item-text">Custom Range</span>
+                      </div>
+                      {selectedPeriod === "custom" ? (
+                        <Check size={14} className="report-dropdown-check" />
+                      ) : (
+                        <ChevronDown
+                          size={13}
+                          className={`report-period-sub-chevron ${customExpanded ? "open" : ""}`}
+                        />
+                      )}
+                    </button>
+                  </div>
+
+                  {customExpanded && (
+                    <form
+                      className="report-period-custom-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!draftStart && !draftEnd) {
+                          setCustomRangeError("Select at least a From or To date.");
+                          return;
+                        }
+                        if (draftStart && draftEnd && draftStart > draftEnd) {
+                          setCustomRangeError("From date cannot be after To date.");
+                          return;
+                        }
+                        setCustomRangeError("");
+                        setCustomRange({ startDate: draftStart, endDate: draftEnd });
+                        setSelectedPeriod("custom");
+                        setPeriodDropdownOpen(false);
+                      }}
+                      aria-label="Custom date range"
+                    >
+                      <div className="report-period-custom-fields">
+                        <label className="report-period-date-field">
+                          <span>From</span>
+                          <input
+                            type="date"
+                            value={draftStart}
+                            onChange={(e) => {
+                              setDraftStart(e.target.value);
+                              setCustomRangeError("");
+                            }}
+                          />
+                        </label>
+                        <label className="report-period-date-field">
+                          <span>To</span>
+                          <input
+                            type="date"
+                            value={draftEnd}
+                            min={draftStart || undefined}
+                            onChange={(e) => {
+                              setDraftEnd(e.target.value);
+                              setCustomRangeError("");
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      {customRangeError && (
+                        <p className="report-period-custom-error" role="alert">
+                          {customRangeError}
+                        </p>
+                      )}
+
+                      <div className="report-period-custom-actions">
+                        {selectedPeriod === "custom" && (
+                          <button
+                            type="button"
+                            className="report-period-reset-link"
+                            onClick={() => {
+                              setDraftStart("");
+                              setDraftEnd("");
+                              setCustomRange({ startDate: "", endDate: "" });
+                              setCustomRangeError("");
+                              setCustomExpanded(false);
+                              setSelectedPeriod("all");
+                              setPeriodDropdownOpen(false);
+                            }}
+                          >
+                            Reset
+                          </button>
+                        )}
+                        <div className="report-period-action-group">
+                          <button
+                            type="button"
+                            className="report-period-cancel-btn"
+                            onClick={() => setPeriodDropdownOpen(false)}
+                          >
+                            Cancel
+                          </button>
+                          <button type="submit" className="report-period-apply-btn">
+                            Apply
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="reports-refresh-button"
+              onClick={fetchReports}
+              disabled={loading}
+              title="Refresh reports"
+              aria-label="Refresh reports"
+            >
+              {loading ? (
+                <LoaderCircle size={17} className="reports-spin" />
+              ) : (
+                <RefreshCw size={17} />
+              )}
+            </button>
           </div>
-        </section>
+        </div>
 
         {/* Fatal connection error notice */}
         {error && (
@@ -1199,19 +1527,19 @@ export default function Reports() {
             {/* Table section */}
             <section className="reports-panel reports-table-panel">
               <div className="reports-table-heading">
-                <div className="reports-table-heading-left">
-                  <div className="reports-table-heading-info">
-                    <h2>
-                      {reportType === "quotations"
-                        ? "Quotation Records"
-                        : "Invoice Records"}
-                    </h2>
-                    <p>
-                      {formatNumber(currentRecords.length)} records · Total value:{" "}
-                      {formatCurrency(totalFilteredValue)}
-                    </p>
-                  </div>
+                <div className="reports-table-heading-info">
+                  <h2>
+                    {reportType === "quotations"
+                      ? "Quotation Records"
+                      : "Invoice Records"}
+                  </h2>
+                  <p>
+                    {formatNumber(currentRecords.length)} records · Total value:{" "}
+                    {formatCurrency(totalFilteredValue)}
+                  </p>
+                </div>
 
+                <div className="reports-table-actions">
                   <div className="reports-search-wrap">
                     <Search size={16} className="reports-search-icon" />
                     <input
@@ -1234,17 +1562,17 @@ export default function Reports() {
                       </button>
                     )}
                   </div>
-                </div>
 
-                <button
-                  className="reports-export-button"
-                  type="button"
-                  onClick={downloadCSV}
-                  disabled={currentRecords.length === 0}
-                >
-                  <ArrowDownToLine size={17} />
-                  <span>Export CSV</span>
-                </button>
+                  <button
+                    className="reports-export-button"
+                    type="button"
+                    onClick={downloadCSV}
+                    disabled={currentRecords.length === 0}
+                  >
+                    <ArrowDownToLine size={17} />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
               </div>
 
               {currentRecords.length === 0 ? (
@@ -1254,9 +1582,11 @@ export default function Reports() {
                   <p>
                     {searchTerm
                       ? `No ${reportType === "quotations" ? "quotation" : "invoice"} records found matching "${searchTerm}".`
-                      : reportType === "invoices"
-                        ? "No invoice records found. The Invoicing module is currently under development on the backend."
-                        : "No quotation records were found."}
+                      : selectedPeriod !== "all"
+                        ? `No ${reportType === "quotations" ? "quotation" : "invoice"} records found for the selected period.`
+                        : reportType === "invoices"
+                          ? "No invoice records found. The Invoicing module is currently under development on the backend."
+                          : "No quotation records were found."}
                   </p>
                 </div>
               ) : (

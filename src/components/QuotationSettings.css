@@ -694,3 +694,10 @@
   border: 1px solid #e2e8f0;
   border-top: none;
 }
+
+/* Dark Theme - Template Preview Badge */
+[data-theme="dark"] .qs-preview-badge {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+  color: #93c5fd !important;
+}

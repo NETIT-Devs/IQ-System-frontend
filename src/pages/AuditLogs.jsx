@@ -243,8 +243,7 @@ export default function AuditLogs() {
             aria-label="Refresh logs"
             title="Refresh logs"
           >
-            <RefreshCw size={14} className={loading ? "spin" : ""} />
-            <span>Refresh Logs</span>
+            <RefreshCw size={17} className={loading ? "spin" : ""} />
           </button>
         </div>
       </header>
@@ -265,57 +264,8 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* Overview Statistics Cards */}
-      <section className="audit-stats-grid">
-        <div className="audit-stat-card">
-          <div className="audit-stat-icon blue">
-            <ClipboardList size={18} strokeWidth={1.9} />
-          </div>
-          <div className="audit-stat-info">
-            <p>Total Events</p>
-            <h3>{stats.total}</h3>
-            <span className="audit-stat-note">All recorded system actions</span>
-          </div>
-        </div>
-
-        <div className="audit-stat-card">
-          <div className="audit-stat-icon purple">
-            <FileText size={18} strokeWidth={1.9} />
-          </div>
-          <div className="audit-stat-info">
-            <p>Quotation Activities</p>
-            <h3>{stats.quotations}</h3>
-            <span className="audit-stat-note">Workflow &amp; proposals</span>
-          </div>
-        </div>
-
-        <div className="audit-stat-card">
-          <div className="audit-stat-icon emerald">
-            <Users size={18} strokeWidth={1.9} />
-          </div>
-          <div className="audit-stat-info">
-            <p>Admin / User Events</p>
-            <h3>{stats.userEvents}</h3>
-            <span className="audit-stat-note">Account &amp; security logs</span>
-          </div>
-        </div>
-
-        <div className="audit-stat-card">
-          <div className="audit-stat-icon amber">
-            <LogIn size={18} strokeWidth={1.9} />
-          </div>
-          <div className="audit-stat-info">
-            <p>User Sign-ins</p>
-            <h3>{stats.logins}</h3>
-            <span className="audit-stat-note">Authenticated sessions</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Panel */}
-      <section className="audit-panel">
-        {/* Toolbar */}
-        <div className="audit-toolbar">
+      {/* Separated Search & Filter Toolbar */}
+      <div className="audit-toolbar">
           <div className="audit-toolbar-left">
             <label className="audit-search">
               <Search size={15} color="#64748b" />
@@ -501,6 +451,8 @@ export default function AuditLogs() {
           </span>
         </div>
 
+      {/* Main Panel (Audit Logs Table) */}
+      <section className="audit-panel">
         {/* Table */}
         <div className="audit-table-wrap">
           <table className="audit-table">

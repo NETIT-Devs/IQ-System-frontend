@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
-  Users,
   Search,
   UserPlus,
   Star,
@@ -15,8 +14,6 @@ import {
   X,
   Pencil,
   Trash2,
-  UserCheck,
-  UserX,
   FileText,
   Receipt,
   Calendar,
@@ -32,6 +29,8 @@ import {
   createCustomer,
   getQuotations,
   updateQuotationCustomerStatus,
+  getSuperAdminCustomers,
+  checkDuplicateCustomer,
 } from "../services/quotationService";
 import QuotationDetails from "./QuotationDetails";
 import { getAuthenticatedUser } from "../utils/authStorage";
@@ -136,31 +135,26 @@ function formatDisplayDate(dateStr) {
 // Normalize Quotation status into Accepted, Sent, or Rejected
 function classifyQuotationStatus(q) {
   const custStatus = String(q?.customer_status || "").trim().toLowerCase();
-  const sysStatus = String(q?.status || "").trim().toLowerCase();
 
   if (
     custStatus === "customer accepted" ||
-    custStatus === "accepted" ||
-    sysStatus === "accepted"
+    custStatus === "accepted"
   ) {
     return "accepted";
   }
   if (
     custStatus === "customer rejected" ||
-    custStatus === "rejected" ||
-    sysStatus === "rejected"
+    custStatus === "rejected"
   ) {
     return "rejected";
   }
   if (
     custStatus === "sent to customer" ||
-    custStatus === "sent" ||
-    sysStatus === "approved" ||
-    sysStatus === "pending approval"
+    custStatus === "sent"
   ) {
     return "sent";
   }
-  return "sent";
+  return "not_sent";
 }
 
 // Normalize Invoice status into Paid, Partial, or Unpaid
@@ -175,6 +169,21 @@ function classifyInvoiceStatus(inv) {
     return "partial";
   }
   return "unpaid";
+}
+
+function getInvoiceApprovalStatus(inv) {
+  const s = String(inv?.raw_status ?? inv?.status ?? "").trim().toLowerCase();
+  const a = String(inv?.approval_status ?? "").trim().toLowerCase();
+  if (s === "pending approval" || a === "pending") {
+    return "Pending Approval";
+  }
+  if (s === "rejected" || a === "rejected") {
+    return "Rejected";
+  }
+  if (s === "draft" || a === "draft") {
+    return "Draft";
+  }
+  return "Approved";
 }
 
 export default function Customers() {
@@ -200,6 +209,23 @@ export default function Customers() {
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState("all"); // all | paid | partial | unpaid
   const [openFilterMenu, setOpenFilterMenu] = useState(null); // null | "type" | "status" | "quote" | "invoice"
   const filtersContainerRef = useRef(null);
+  const [openBreakdown, setOpenBreakdown] = useState(null); // null | { customerId, type: "quotations" | "invoices", pinned, placement, top, bottom, left }
+  const breakdownPopoverRef = useRef(null);
+  const breakdownCloseTimerRef = useRef(null);
+
+  function clearBreakdownCloseTimer() {
+    if (breakdownCloseTimerRef.current) {
+      clearTimeout(breakdownCloseTimerRef.current);
+      breakdownCloseTimerRef.current = null;
+    }
+  }
+
+  function scheduleBreakdownClose() {
+    clearBreakdownCloseTimer();
+    breakdownCloseTimerRef.current = setTimeout(() => {
+      setOpenBreakdown((prev) => (prev && !prev.pinned ? null : prev));
+    }, 120);
+  }
 
   useEffect(() => {
     function handleOutsideClick(e) {
@@ -209,10 +235,86 @@ export default function Customers() {
       ) {
         setOpenFilterMenu(null);
       }
+      if (
+        breakdownPopoverRef.current &&
+        !breakdownPopoverRef.current.contains(e.target) &&
+        !e.target.closest('[data-breakdown-trigger="true"]')
+      ) {
+        clearBreakdownCloseTimer();
+        setOpenBreakdown(null);
+      }
     }
+    function handleEscape(e) {
+      if (e.key === "Escape") {
+        clearBreakdownCloseTimer();
+        setOpenBreakdown(null);
+      }
+    }
+    function handleViewportChange() {
+      clearBreakdownCloseTimer();
+      setOpenBreakdown(null);
+    }
+
     document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    window.addEventListener("scroll", handleViewportChange, true);
+    window.addEventListener("resize", handleViewportChange);
+    return () => {
+      clearBreakdownCloseTimer();
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener("scroll", handleViewportChange, true);
+      window.removeEventListener("resize", handleViewportChange);
+    };
   }, []);
+
+  function showBreakdown(targetEl, customerId, type, pinned) {
+    clearBreakdownCloseTimer();
+    const rect = targetEl.getBoundingClientRect();
+    const popoverWidth = 220;
+    const estimatedHeight = 165;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const placement =
+      spaceBelow < estimatedHeight + 16 && rect.top > estimatedHeight + 16
+        ? "top"
+        : "bottom";
+    const left = Math.min(
+      Math.max(12, rect.left),
+      Math.max(12, window.innerWidth - popoverWidth - 12)
+    );
+
+    setOpenBreakdown({
+      customerId,
+      type,
+      pinned,
+      placement,
+      top: placement === "bottom" ? rect.bottom + 6 : undefined,
+      bottom: placement === "top" ? window.innerHeight - rect.top + 6 : undefined,
+      left,
+    });
+  }
+
+  function handleHoverBreakdown(e, customerId, type) {
+    const keepPinned =
+      Boolean(openBreakdown?.pinned) &&
+      openBreakdown.customerId === customerId &&
+      openBreakdown.type === type;
+    showBreakdown(e.currentTarget, customerId, type, keepPinned);
+  }
+
+  function handleToggleBreakdown(e, customerId, type) {
+    if (
+      openBreakdown &&
+      openBreakdown.customerId === customerId &&
+      openBreakdown.type === type &&
+      openBreakdown.pinned
+    ) {
+      clearBreakdownCloseTimer();
+      setOpenBreakdown(null);
+      return;
+    }
+    showBreakdown(e.currentTarget, customerId, type, true);
+  }
 
   // Pinned / Starred Regular Customers & Local Persisted Overrides
   const [pinnedIds, setPinnedIds] = useState(getPinnedCustomerIds);
@@ -288,7 +390,7 @@ export default function Customers() {
           data?.invoices ||
           data?.data ||
           (Array.isArray(data) ? data : []);
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           return list;
         }
       }
@@ -309,9 +411,25 @@ export default function Customers() {
         getQuotations(),
         fetchInvoicesSafe(),
       ]);
+      const safeQuotes = Array.isArray(quoteList) ? quoteList : [];
+      const safeInvoices = Array.isArray(invList) ? invList : [];
+      const uid = authUser?.user_id;
       setCustomers(Array.isArray(custList) ? custList : []);
-      setQuotations(Array.isArray(quoteList) ? quoteList : []);
-      setInvoices(Array.isArray(invList) ? invList : []);
+      setQuotations(
+        isSuperAdmin || uid == null
+          ? safeQuotes
+          : safeQuotes.filter(
+              (q) => q.created_by == null || Number(q.created_by) === Number(uid)
+            )
+      );
+      setInvoices(
+        isSuperAdmin || uid == null
+          ? safeInvoices
+          : safeInvoices.filter(
+              (inv) =>
+                inv.created_by == null || Number(inv.created_by) === Number(uid)
+            )
+      );
     } catch (err) {
       console.error("Failed to load customer records:", err);
     } finally {
@@ -410,6 +528,13 @@ export default function Customers() {
 
     const inputEmail = String(newCustomer.email || "").trim().toLowerCase();
     const inputPhone = String(newCustomer.phone || "").trim();
+
+    // Prevent re-adding a customer already added by Super Admin or another Admin
+    const duplicateError = checkDuplicateCustomer(nameTrimmed, inputEmail, inputPhone);
+    if (duplicateError) {
+      setFormError(duplicateError);
+      return;
+    }
 
     // Check if an active (non-deleted) customer already exists with this email or phone number
     if (inputEmail || inputPhone) {
@@ -622,9 +747,11 @@ export default function Customers() {
         const cName = String(c.customer_name || "").trim().toLowerCase();
         const cEmail = String(c.email || "").trim().toLowerCase();
 
-        // Match customer quotations by ID, name, or email
+        // Match customer quotations strictly by customer_id when available, otherwise by name or email
         const clientQuotes = quotations.filter((q) => {
-          if (q.customer_id && Number(q.customer_id) === Number(cId)) return true;
+          if (q.customer_id != null && q.customer_id !== "") {
+            return Number(q.customer_id) === Number(cId);
+          }
           const qName = String(q.customer_name || q.clientName || "")
             .trim()
             .toLowerCase();
@@ -636,30 +763,29 @@ export default function Customers() {
           return false;
         });
 
-        const approvedQuotes = clientQuotes.filter(
-          (q) =>
-            q.customer_status === "Customer Accepted" ||
-            q.customer_status === "Accepted"
-        );
-        const rejectedQuotes = clientQuotes.filter(
-          (q) =>
-            q.customer_status === "Customer Rejected" ||
-            q.customer_status === "Rejected"
-        );
-        const sentQuotes = clientQuotes.filter(
-          (q) =>
-            !approvedQuotes.includes(q) && !rejectedQuotes.includes(q)
-        );
+        const approvedQuotes = clientQuotes.filter((q) => {
+          const s = String(q?.customer_status || "").trim().toLowerCase();
+          return s === "customer accepted" || s === "accepted";
+        });
+        const rejectedQuotes = clientQuotes.filter((q) => {
+          const s = String(q?.customer_status || "").trim().toLowerCase();
+          return s === "customer rejected" || s === "rejected";
+        });
+        const sentQuotes = clientQuotes.filter((q) => {
+          const s = String(q?.customer_status || "").trim().toLowerCase();
+          return s === "sent to customer" || s === "sent";
+        });
 
         const approvedTotal = approvedQuotes.reduce(
           (sum, q) => sum + (Number(q.total_amount) || Number(q.total) || 0),
           0
         );
 
-        // Match customer invoices from backend/localStorage
+        // Match customer invoices strictly by customer_id when available, otherwise by name or email
         const directInvoices = invoices.filter((inv) => {
-          if (inv.customer_id && Number(inv.customer_id) === Number(cId))
-            return true;
+          if (inv.customer_id != null && inv.customer_id !== "") {
+            return Number(inv.customer_id) === Number(cId);
+          }
           const invName = String(inv.customer_name || inv.clientName || "")
             .trim()
             .toLowerCase();
@@ -680,6 +806,7 @@ export default function Customers() {
           return {
             ...inv,
             invoice_key: key,
+            raw_status: inv.status,
             status: finalStatus,
             payment_status: finalStatus,
           };
@@ -763,6 +890,15 @@ export default function Customers() {
       null
     );
   }, [enrichedCustomers, selectedCustomerId]);
+
+  const activeBreakdownCustomer = useMemo(() => {
+    if (!openBreakdown?.customerId) return null;
+    return (
+      enrichedCustomers.find(
+        (c) => c.customer_id === openBreakdown.customerId
+      ) || null
+    );
+  }, [enrichedCustomers, openBreakdown]);
 
   // 4 Summary Cards Statistics: Total, Active, Inactive, Regular Customers
   const stats = useMemo(() => {
@@ -880,7 +1016,7 @@ export default function Customers() {
         {/* Welcome / Title Row right below topbar (Unchanged) */}
         <div className="cust-welcome-bar">
           <div className="cust-welcome-text">
-            <h1>Customers &amp; Quotation Responses</h1>
+            <h1>Customers &amp; Responses</h1>
             <p className="cust-subtitle">
               Monitor customer responses (Sent, Approved, Rejected) and daily
               website clients.
@@ -901,67 +1037,18 @@ export default function Customers() {
           </button>
         </div>
 
-        {/* 4 Summary Stat Cards: Total, Active, Inactive, Regular Customers */}
-        <section className="cust-stats-grid" aria-label="Customer statistics">
-          <div className="cust-stat-card">
-            <div className="cust-stat-icon blue">
-              <Users size={18} strokeWidth={1.9} />
-            </div>
-            <div className="cust-stat-info">
-              <p>Total Customers</p>
-              <h3>{stats.totalClients}</h3>
-              <span>Registered client accounts</span>
-            </div>
-          </div>
-
-          <div className="cust-stat-card">
-            <div className="cust-stat-icon green">
-              <UserCheck size={18} strokeWidth={1.9} />
-            </div>
-            <div className="cust-stat-info">
-              <p>Active Customers</p>
-              <h3>{stats.activeClients}</h3>
-              <span>Currently active accounts</span>
-            </div>
-          </div>
-
-          <div className="cust-stat-card">
-            <div className="cust-stat-icon red">
-              <UserX size={18} strokeWidth={1.9} />
-            </div>
-            <div className="cust-stat-info">
-              <p>Inactive Customers</p>
-              <h3>{stats.inactiveClients}</h3>
-              <span>Inactive client accounts</span>
-            </div>
-          </div>
-
-          <div className="cust-stat-card">
-            <div className="cust-stat-icon navy">
-              <Star size={18} strokeWidth={1.9} />
-            </div>
-            <div className="cust-stat-info">
-              <p>Regular Customers</p>
-              <h3>{stats.regularClients}</h3>
-              <span>Multi-service &amp; starred clients</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Main Customers Table Panel */}
-        <section className="cust-panel" aria-label="Customer list">
-          {/* Search Bar & 4 Filter Dropdowns */}
-          <div className="cust-toolbar">
-            <label className="cust-search-box">
-              <Search size={16} color="#64748b" />
-              <input
-                type="search"
-                placeholder="Search by customer #, name, company, email, or phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                aria-label="Search customers"
-              />
-            </label>
+        {/* Separated Modern Search Bar & 4 Filter Dropdowns */}
+        <section className="cust-toolbar" aria-label="Search and filter customers">
+          <label className="cust-search-box">
+            <Search size={16} color="#64748b" />
+            <input
+              type="search"
+              placeholder="Search by name, company, email, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search customers"
+            />
+          </label>
 
             <div className="cust-filters" ref={filtersContainerRef}>
               {/* 1. Customer Type Dropdown */}
@@ -994,9 +1081,24 @@ export default function Customers() {
                     </div>
                     <div className="cust-dropdown-list">
                       {[
-                        { value: "all", label: "All Types", color: "#64748b" },
-                        { value: "regular", label: "Regular Customers", color: "#f59e0b" },
-                        { value: "new", label: "New Customers", color: "#2563eb" },
+                        {
+                          value: "all",
+                          label: "All Types",
+                          color: "#64748b",
+                          count: stats.totalClients,
+                        },
+                        {
+                          value: "regular",
+                          label: "Regular Customers",
+                          color: "#f59e0b",
+                          count: stats.regularClients,
+                        },
+                        {
+                          value: "new",
+                          label: "New Customers",
+                          color: "#2563eb",
+                          count: Math.max(0, stats.totalClients - stats.regularClients),
+                        },
                       ].map((opt) => {
                         const isSelected = typeFilter === opt.value;
                         return (
@@ -1016,7 +1118,10 @@ export default function Customers() {
                               />
                               <span className="cust-dropdown-item-text">{opt.label}</span>
                             </div>
-                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                            <div className="cust-dropdown-item-right">
+                              <span className="cust-dropdown-count">{opt.count}</span>
+                              {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                            </div>
                           </button>
                         );
                       })}
@@ -1055,9 +1160,24 @@ export default function Customers() {
                     </div>
                     <div className="cust-dropdown-list">
                       {[
-                        { value: "all", label: "All Status", color: "#64748b" },
-                        { value: "active", label: "Active", color: "#16a34a" },
-                        { value: "inactive", label: "Inactive", color: "#dc2626" },
+                        {
+                          value: "all",
+                          label: "All Status",
+                          color: "#64748b",
+                          count: stats.totalClients,
+                        },
+                        {
+                          value: "active",
+                          label: "Active",
+                          color: "#16a34a",
+                          count: stats.activeClients,
+                        },
+                        {
+                          value: "inactive",
+                          label: "Inactive",
+                          color: "#dc2626",
+                          count: stats.inactiveClients,
+                        },
                       ].map((opt) => {
                         const isSelected = statusFilter === opt.value;
                         return (
@@ -1077,7 +1197,10 @@ export default function Customers() {
                               />
                               <span className="cust-dropdown-item-text">{opt.label}</span>
                             </div>
-                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                            <div className="cust-dropdown-item-right">
+                              <span className="cust-dropdown-count">{opt.count}</span>
+                              {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                            </div>
                           </button>
                         );
                       })}
@@ -1214,19 +1337,21 @@ export default function Customers() {
                 )}
               </div>
             </div>
-          </div>
+          </section>
 
+        {/* Main Customers Table Panel */}
+        <section className="cust-panel" aria-label="Customer list">
           <div className="cust-table-wrap">
             <table className="cust-table">
               <thead>
                 <tr>
                   <th>CUSTOMER / COMPANY</th>
                   <th>CONTACT DETAILS</th>
-                  <th>CUSTOMER TYPE</th>
-                  <th>STATUS</th>
-                  <th>QUOTATIONS</th>
-                  <th>INVOICES</th>
-                  <th>ACTIONS</th>
+                  <th className="cust-col-center">CUSTOMER TYPE</th>
+                  <th className="cust-col-center">STATUS</th>
+                  <th className="cust-col-count">QUOTATIONS</th>
+                  <th className="cust-col-count">INVOICES</th>
+                  <th className="cust-col-center">ACTIONS</th>
                 </tr>
               </thead>
 
@@ -1261,22 +1386,7 @@ export default function Customers() {
                   filteredCustomers.map((client) => {
                     const isRegular = client.isRegularCustomer;
                     const qTotal = client.total_quotations;
-                    const qAccPct =
-                      qTotal > 0 ? (client.approved_quotations / qTotal) * 100 : 0;
-                    const qSentPct =
-                      qTotal > 0 ? (client.sent_quotations / qTotal) * 100 : 0;
-                    const qRejPct =
-                      qTotal > 0 ? (client.rejected_quotations / qTotal) * 100 : 0;
-
                     const invTotal = client.total_invoices;
-                    const invPaidPct =
-                      invTotal > 0 ? (client.paid_invoices / invTotal) * 100 : 0;
-                    const invPartPct =
-                      invTotal > 0
-                        ? (client.partial_invoices / invTotal) * 100
-                        : 0;
-                    const invUnpaidPct =
-                      invTotal > 0 ? (client.unpaid_invoices / invTotal) * 100 : 0;
 
                     return (
                       <tr key={client.customer_id}>
@@ -1309,8 +1419,10 @@ export default function Customers() {
                             </div>
 
                             <div className="cust-client-meta">
-                              <strong>{client.customer_name}</strong>
-                              <span>
+                              <strong title={client.customer_name}>
+                                {client.customer_name}
+                              </strong>
+                              <span title={client.company_name || client.city || ""}>
                                 {client.company_name || client.city || "—"}
                               </span>
                             </div>
@@ -1321,7 +1433,7 @@ export default function Customers() {
                         <td>
                           <div className="cust-contact-cell">
                             {client.email ? (
-                              <div className="cust-contact-line">
+                              <div className="cust-contact-line" title={client.email}>
                                 <Mail size={12} color="#2563eb" />
                                 <span>{client.email}</span>
                               </div>
@@ -1329,7 +1441,7 @@ export default function Customers() {
                               <div className="cust-contact-empty">No email</div>
                             )}
                             {client.phone ? (
-                              <div className="cust-contact-line">
+                              <div className="cust-contact-line" title={client.phone}>
                                 <Phone size={12} color="#64748b" />
                                 <span>{client.phone}</span>
                               </div>
@@ -1338,7 +1450,7 @@ export default function Customers() {
                         </td>
 
                         {/* 4. Customer Type (Regular / New) */}
-                        <td>
+                        <td className="cust-col-center">
                           {isRegular ? (
                             <span className="cust-type-badge regular">
                               <Star size={11} fill="currentColor" /> Regular
@@ -1349,7 +1461,7 @@ export default function Customers() {
                         </td>
 
                         {/* 5. Customer Status (Active / Inactive) */}
-                        <td>
+                        <td className="cust-col-center">
                           <button
                             type="button"
                             className={`cust-status-badge ${client.status === "Active" ? "active" : "inactive"
@@ -1367,116 +1479,82 @@ export default function Customers() {
                           </button>
                         </td>
 
-                        {/* 6. Quotations Count & Colored Progress Bar */}
-                        <td>
-                          <div className="cust-metric-bar-box">
-                            <div className="cust-metric-bar-head">
-                              <span className="cust-metric-count">
-                                {qTotal}{" "}
-                                {qTotal === 1 ? "Quotation" : "Quotations"}
-                              </span>
-                            </div>
-
-                            <div
-                              className="cust-progress-track"
-                              title={`Accepted: ${client.approved_quotations} | Sent: ${client.sent_quotations} | Rejected: ${client.rejected_quotations}`}
-                            >
-                              {qTotal > 0 ? (
-                                <>
-                                  {qAccPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-green"
-                                      style={{ width: `${qAccPct}%` }}
-                                    />
-                                  )}
-                                  {qSentPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-blue"
-                                      style={{ width: `${qSentPct}%` }}
-                                    />
-                                  )}
-                                  {qRejPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-red"
-                                      style={{ width: `${qRejPct}%` }}
-                                    />
-                                  )}
-                                </>
-                              ) : (
-                                <div className="cust-progress-seg seg-empty" />
-                              )}
-                            </div>
-
-                            <div className="cust-metric-legend">
-                              <span className="legend-tag green">
-                                Acc: {client.approved_quotations}
-                              </span>
-                              <span className="legend-tag blue">
-                                Sent: {client.sent_quotations}
-                              </span>
-                              <span className="legend-tag red">
-                                Rej: {client.rejected_quotations}
-                              </span>
-                            </div>
-                          </div>
+                        {/* 6. Quotations Count (Hover or click to view breakdown) */}
+                        <td className="cust-col-count">
+                          <button
+                            type="button"
+                            data-breakdown-trigger="true"
+                            className={`cust-count-trigger ${
+                              openBreakdown?.customerId === client.customer_id &&
+                              openBreakdown?.type === "quotations"
+                                ? "active"
+                                : ""
+                            }`}
+                            onMouseEnter={(e) =>
+                              handleHoverBreakdown(
+                                e,
+                                client.customer_id,
+                                "quotations"
+                              )
+                            }
+                            onMouseLeave={scheduleBreakdownClose}
+                            onClick={(e) =>
+                              handleToggleBreakdown(
+                                e,
+                                client.customer_id,
+                                "quotations"
+                              )
+                            }
+                            aria-expanded={
+                              openBreakdown?.customerId === client.customer_id &&
+                              openBreakdown?.type === "quotations"
+                            }
+                            aria-label="View quotation breakdown"
+                          >
+                            <strong className="cust-count-num">{qTotal}</strong>
+                          </button>
                         </td>
 
-                        {/* 7. Invoices Count & Colored Progress Bar */}
-                        <td>
-                          <div className="cust-metric-bar-box">
-                            <div className="cust-metric-bar-head">
-                              <span className="cust-metric-count">
-                                {invTotal}{" "}
-                                {invTotal === 1 ? "Invoice" : "Invoices"}
-                              </span>
-                            </div>
-
-                            <div
-                              className="cust-progress-track"
-                              title={`Paid: ${client.paid_invoices} | Partial: ${client.partial_invoices} | Unpaid: ${client.unpaid_invoices}`}
-                            >
-                              {invTotal > 0 ? (
-                                <>
-                                  {invPaidPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-green"
-                                      style={{ width: `${invPaidPct}%` }}
-                                    />
-                                  )}
-                                  {invPartPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-amber"
-                                      style={{ width: `${invPartPct}%` }}
-                                    />
-                                  )}
-                                  {invUnpaidPct > 0 && (
-                                    <div
-                                      className="cust-progress-seg seg-red"
-                                      style={{ width: `${invUnpaidPct}%` }}
-                                    />
-                                  )}
-                                </>
-                              ) : (
-                                <div className="cust-progress-seg seg-empty" />
-                              )}
-                            </div>
-
-                            <div className="cust-metric-legend">
-                              <span className="legend-tag green">
-                                Paid: {client.paid_invoices}
-                              </span>
-                              <span className="legend-tag amber">
-                                Part: {client.partial_invoices}
-                              </span>
-                              <span className="legend-tag red">
-                                Unpaid: {client.unpaid_invoices}
-                              </span>
-                            </div>
-                          </div>
+                        {/* 7. Invoices Count (Hover or click to view breakdown) */}
+                        <td className="cust-col-count">
+                          <button
+                            type="button"
+                            data-breakdown-trigger="true"
+                            className={`cust-count-trigger ${
+                              openBreakdown?.customerId === client.customer_id &&
+                              openBreakdown?.type === "invoices"
+                                ? "active"
+                                : ""
+                            }`}
+                            onMouseEnter={(e) =>
+                              handleHoverBreakdown(
+                                e,
+                                client.customer_id,
+                                "invoices"
+                              )
+                            }
+                            onMouseLeave={scheduleBreakdownClose}
+                            onClick={(e) =>
+                              handleToggleBreakdown(
+                                e,
+                                client.customer_id,
+                                "invoices"
+                              )
+                            }
+                            aria-expanded={
+                              openBreakdown?.customerId === client.customer_id &&
+                              openBreakdown?.type === "invoices"
+                            }
+                            aria-label="View invoice breakdown"
+                          >
+                            <strong className="cust-count-num">
+                              {invTotal}
+                            </strong>
+                          </button>
                         </td>
 
                         {/* 8. Actions: View (Professional Blue), Edit, Delete */}
-                        <td>
+                        <td className="cust-col-center">
                           <div className="cust-action-group">
                             <button
                               type="button"
@@ -1532,6 +1610,104 @@ export default function Customers() {
             </table>
           </div>
         </section>
+
+        {/* Quotations / Invoices Breakdown Popover Box */}
+        {openBreakdown && activeBreakdownCustomer && (() => {
+          const isQuotes = openBreakdown.type === "quotations";
+          const totalCount = isQuotes
+            ? activeBreakdownCustomer.total_quotations
+            : activeBreakdownCustomer.total_invoices;
+          const items = isQuotes
+            ? [
+                {
+                  key: "accepted",
+                  label: "Accepted",
+                  count: activeBreakdownCustomer.approved_quotations,
+                  tone: "green",
+                },
+                {
+                  key: "sent",
+                  label: "Sent",
+                  count: activeBreakdownCustomer.sent_quotations,
+                  tone: "blue",
+                },
+                {
+                  key: "rejected",
+                  label: "Rejected",
+                  count: activeBreakdownCustomer.rejected_quotations,
+                  tone: "red",
+                },
+              ]
+            : [
+                {
+                  key: "paid",
+                  label: "Paid",
+                  count: activeBreakdownCustomer.paid_invoices,
+                  tone: "green",
+                },
+                {
+                  key: "partial",
+                  label: "Partial",
+                  count: activeBreakdownCustomer.partial_invoices,
+                  tone: "amber",
+                },
+                {
+                  key: "unpaid",
+                  label: "Unpaid",
+                  count: activeBreakdownCustomer.unpaid_invoices,
+                  tone: "red",
+                },
+              ];
+
+          return (
+            <div
+              ref={breakdownPopoverRef}
+              className={`cust-breakdown-popover ${
+                openBreakdown.placement === "top" ? "place-top" : "place-bottom"
+              }`}
+              role="dialog"
+              aria-label={`${
+                isQuotes ? "Quotations" : "Invoices"
+              } breakdown for ${activeBreakdownCustomer.customer_name}`}
+              onMouseEnter={clearBreakdownCloseTimer}
+              onMouseLeave={scheduleBreakdownClose}
+              style={{
+                top: openBreakdown.top,
+                bottom: openBreakdown.bottom,
+                left: openBreakdown.left,
+              }}
+            >
+              <div className="cust-breakdown-header">
+                <div className="cust-breakdown-title-wrap">
+                  <span className="cust-breakdown-title">
+                    {isQuotes ? "Quotations" : "Invoices"}
+                  </span>
+                  <span className="cust-breakdown-customer">
+                    {activeBreakdownCustomer.customer_name}
+                  </span>
+                </div>
+                <span className="cust-breakdown-total">{totalCount}</span>
+              </div>
+
+              <div className="cust-breakdown-list">
+                {items.map((item) => (
+                  <div key={item.key} className="cust-breakdown-row">
+                    <div className="cust-breakdown-label-group">
+                      <span
+                        className={`cust-breakdown-dot ${item.tone}`}
+                        aria-hidden="true"
+                      />
+                      <span className="cust-breakdown-label">{item.label}</span>
+                    </div>
+                    <span className={`cust-breakdown-badge ${item.tone}`}>
+                      {item.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Customer Details, Quotations & Invoices History Modal */}
@@ -1568,8 +1744,8 @@ export default function Customers() {
                     </span>
                     <span
                       className={`cust-status-badge ${selectedCustomer.status === "Active"
-                          ? "active"
-                          : "inactive"
+                        ? "active"
+                        : "inactive"
                         }`}
                     >
                       <span className="cust-status-dot" />
@@ -1646,6 +1822,7 @@ export default function Customers() {
                           <th>QUOTATION ID</th>
                           <th>DATE</th>
                           <th>AMOUNT</th>
+                          {isSuperAdmin && <th>CREATED BY</th>}
                           <th>STATUS</th>
                           <th>CUSTOMER RESPONSE</th>
                           <th>VIEW</th>
@@ -1684,15 +1861,43 @@ export default function Customers() {
                                   {formatCurrency(q.total_amount || q.total)}
                                 </strong>
                               </td>
+                              {isSuperAdmin && (
+                                <td>
+                                  {(() => {
+                                    const role = String(q.created_by_role || "").toLowerCase();
+                                    const isSuper = role.includes("super") || q.created_by === 2;
+                                    const displayRole = isSuper ? "Super Admin" : "Admin";
+                                    return (
+                                      <span
+                                        style={{
+                                          display: "inline-block",
+                                          padding: "2px 6px",
+                                          fontSize: "10px",
+                                          fontWeight: "600",
+                                          lineHeight: "1.2",
+                                          whiteSpace: "nowrap",
+                                          borderRadius: "4px",
+                                          background: isSuper ? "#f5f3ff" : "#eff6ff",
+                                          color: isSuper ? "#6d28d9" : "#1d4ed8",
+                                          border: isSuper ? "1px solid #ddd6fe" : "1px solid #bfdbfe",
+                                        }}
+                                        title={q.created_by_name ? `${displayRole} (${q.created_by_name})` : displayRole}
+                                      >
+                                        {isSuper ? "Super Admin" : (q.created_by_name ? `Admin: ${q.created_by_name}` : "Admin")}
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                              )}
                               <td>
                                 <span
                                   className={`quote-pill ${isCustAccepted
-                                      ? "approved"
-                                      : isCustRejected
-                                        ? "rejected"
-                                        : isCustSent
-                                          ? "sent"
-                                          : "total"
+                                    ? "approved"
+                                    : isCustRejected
+                                      ? "rejected"
+                                      : isCustSent
+                                        ? "sent"
+                                        : "total"
                                     }`}
                                 >
                                   {isCustAccepted
@@ -1706,59 +1911,23 @@ export default function Customers() {
                               </td>
                               <td>
                                 <div className="cust-response-btns">
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      updatingStatusId === qId || isCustSent
-                                    }
-                                    onClick={() =>
-                                      handleStatusChange(
-                                        qId,
-                                        "Sent to Customer"
-                                      )
-                                    }
-                                    className={`cust-resp-btn sent ${isCustSent ? "active" : ""
-                                      }`}
-                                    title="Mark as Sent to Customer"
-                                  >
-                                    Sent
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      updatingStatusId === qId || isCustAccepted
-                                    }
-                                    onClick={() =>
-                                      handleStatusChange(
-                                        qId,
-                                        "Customer Accepted"
-                                      )
-                                    }
-                                    className={`cust-resp-btn accepted ${isCustAccepted ? "active" : ""
-                                      }`}
-                                    title="Mark as Customer Accepted"
-                                  >
-                                    Accept
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      updatingStatusId === qId || isCustRejected
-                                    }
-                                    onClick={() =>
-                                      handleStatusChange(
-                                        qId,
-                                        "Customer Rejected"
-                                      )
-                                    }
-                                    className={`cust-resp-btn rejected ${isCustRejected ? "active" : ""
-                                      }`}
-                                    title="Mark as Customer Rejected"
-                                  >
-                                    Reject
-                                  </button>
+                                  {isCustAccepted ? (
+                                    <span className="cust-resp-btn accepted active">
+                                      Accepted
+                                    </span>
+                                  ) : isCustRejected ? (
+                                    <span className="cust-resp-btn rejected active">
+                                      Rejected
+                                    </span>
+                                  ) : isCustSent ? (
+                                    <span className="cust-resp-btn sent active">
+                                      Sent
+                                    </span>
+                                  ) : (
+                                    <span className="cust-resp-btn not-sent">
+                                      Not Sent
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td>
@@ -1803,6 +1972,7 @@ export default function Customers() {
                           <th>INVOICE ID</th>
                           <th>DATE</th>
                           <th>AMOUNT</th>
+                          {isSuperAdmin && <th>CREATED BY</th>}
                           <th>STATUS</th>
                           <th>PAYMENT STATUS</th>
                           <th>VIEW</th>
@@ -1814,7 +1984,15 @@ export default function Customers() {
                           const invClass = classifyInvoiceStatus(inv);
                           const isPaid = invClass === "paid";
                           const isPartial = invClass === "partial";
-                          const isUnpaid = invClass === "unpaid";
+                          const approvalStatus = getInvoiceApprovalStatus(inv);
+                          const approvalPillClass =
+                            approvalStatus === "Approved"
+                              ? "approved"
+                              : approvalStatus === "Rejected"
+                                ? "rejected"
+                                : approvalStatus === "Pending Approval"
+                                  ? "partial"
+                                  : "total";
 
                           return (
                             <tr key={invKey}>
@@ -1837,63 +2015,65 @@ export default function Customers() {
                                   )}
                                 </strong>
                               </td>
+                              {isSuperAdmin && (
+                                <td>
+                                  {(() => {
+                                    const role = String(inv.created_by_role || "").toLowerCase();
+                                    const isSuper = role.includes("super") || inv.created_by === 2;
+                                    const displayRole = isSuper ? "Super Admin" : "Admin";
+                                    return (
+                                      <span
+                                        style={{
+                                          display: "inline-block",
+                                          padding: "2px 6px",
+                                          fontSize: "10px",
+                                          fontWeight: "600",
+                                          lineHeight: "1.2",
+                                          whiteSpace: "nowrap",
+                                          borderRadius: "4px",
+                                          background: isSuper ? "#f5f3ff" : "#eff6ff",
+                                          color: isSuper ? "#6d28d9" : "#1d4ed8",
+                                          border: isSuper ? "1px solid #ddd6fe" : "1px solid #bfdbfe",
+                                        }}
+                                        title={
+                                          inv.created_by_name
+                                            ? `${displayRole} (${inv.created_by_name})`
+                                            : displayRole
+                                        }
+                                      >
+                                        {isSuper
+                                          ? "Super Admin"
+                                          : inv.created_by_name
+                                            ? `Admin: ${inv.created_by_name}`
+                                            : "Admin"}
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                              )}
                               <td>
                                 <span
-                                  className={`quote-pill ${isPaid
-                                      ? "approved"
-                                      : isPartial
-                                        ? "partial"
-                                        : "rejected"
-                                    }`}
+                                  className={`quote-pill ${approvalPillClass}`}
+                                  style={{ whiteSpace: "nowrap" }}
                                 >
-                                  {isPaid
-                                    ? "Paid"
-                                    : isPartial
-                                      ? "Partial"
-                                      : "Unpaid"}
+                                  {approvalStatus}
                                 </span>
                               </td>
                               <td>
                                 <div className="cust-response-btns">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleInvoiceStatusChange(invKey, "Paid")
-                                    }
-                                    className={`cust-resp-btn accepted ${isPaid ? "active" : ""
-                                      }`}
-                                    title="Mark Invoice as Paid"
-                                  >
-                                    Paid
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleInvoiceStatusChange(
-                                        invKey,
-                                        "Partial"
-                                      )
-                                    }
-                                    className={`cust-resp-btn partial ${isPartial ? "active" : ""
-                                      }`}
-                                    title="Mark Invoice as Partial"
-                                  >
-                                    Partial
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleInvoiceStatusChange(
-                                        invKey,
-                                        "Unpaid"
-                                      )
-                                    }
-                                    className={`cust-resp-btn rejected ${isUnpaid ? "active" : ""
-                                      }`}
-                                    title="Mark Invoice as Unpaid"
-                                  >
-                                    Unpaid
-                                  </button>
+                                  {isPaid ? (
+                                    <span className="cust-resp-btn accepted active">
+                                      Paid
+                                    </span>
+                                  ) : isPartial ? (
+                                    <span className="cust-resp-btn partial active">
+                                      Partial
+                                    </span>
+                                  ) : (
+                                    <span className="cust-resp-btn rejected active">
+                                      Unpaid
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td>

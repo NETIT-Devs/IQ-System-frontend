@@ -420,6 +420,48 @@ function EmptyState({ icon: Icon, title, description }) {
   );
 }
 
+function getInvoicePaymentStatus(inv) {
+  const s = String(inv?.status || "").trim().toLowerCase();
+  if (s === "draft") return "Draft";
+  if (s === "pending approval" || inv?.approval_status === "Pending") return "Pending Approval";
+  if (s === "rejected" || inv?.approval_status === "Rejected") return "Rejected";
+  if (s === "cancelled") return "Cancelled";
+  if (s === "paid") return "Paid";
+
+  const total = Number(inv?.total_amount) || 0;
+  const paid = Number(inv?.amount_paid) || 0;
+  const bal = Number(inv?.balance_due ?? (total - paid));
+
+  if (bal <= 0 && total > 0) return "Paid";
+  if (inv?.due_date && new Date(inv.due_date) < new Date() && bal > 0) return "Overdue";
+  if (s === "partially paid" || s === "partial" || (paid > 0 && bal > 0)) return "Partially Paid";
+  return "Unpaid";
+}
+
+function getInvoiceStatusBadge(inv) {
+  const s = String(inv?.status || "").trim().toLowerCase();
+  const a = String(inv?.approval_status || "").trim().toLowerCase();
+
+  if (a === "pending" || s === "pending approval") {
+    return { label: "Pending Approval", className: "pending" };
+  }
+  if (a === "rejected" || s === "rejected") {
+    return { label: "Rejected", className: "unpaid" };
+  }
+  if (s === "draft") {
+    return { label: "Draft", className: "draft" };
+  }
+  if (s === "cancelled") {
+    return { label: "Cancelled", className: "draft" };
+  }
+
+  const payStatus = getInvoicePaymentStatus(inv);
+  if (payStatus === "Paid") return { label: "Paid", className: "paid" };
+  if (payStatus === "Overdue") return { label: "Overdue", className: "overdue" };
+  if (payStatus === "Partially Paid") return { label: "Partially Paid", className: "partial" };
+  return { label: "Unpaid", className: "unpaid" };
+}
+
 
 // Main Super Admin Dashboard component.
 export default function SuperAdminDashboard() {
@@ -561,6 +603,33 @@ export default function SuperAdminDashboard() {
       ),
     [invoices, dateRange]
   );
+
+  const recentInvoices = useMemo(() => {
+    const list = Array.isArray(filteredInvoices) ? filteredInvoices : [];
+    return [...list]
+      .sort((a, b) => {
+        const dateA = new Date(a.invoice_date || a.created_at || 0).getTime();
+        const dateB = new Date(b.invoice_date || b.created_at || 0).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (Number(b.invoice_id || b.id) || 0) - (Number(a.invoice_id || a.id) || 0);
+      })
+      .slice(0, 5);
+  }, [filteredInvoices]);
+
+  const invoicePaymentSummary = useMemo(() => {
+    const summary = { paid: 0, unpaid: 0, partiallyPaid: 0, overdue: 0 };
+    const list = Array.isArray(filteredInvoices) ? filteredInvoices : [];
+
+    list.forEach((inv) => {
+      const status = getInvoicePaymentStatus(inv);
+      if (status === "Paid") summary.paid += 1;
+      else if (status === "Unpaid") summary.unpaid += 1;
+      else if (status === "Partially Paid") summary.partiallyPaid += 1;
+      else if (status === "Overdue") summary.overdue += 1;
+    });
+
+    return summary;
+  }, [filteredInvoices]);
 
   const pendingQuotationsCount = useMemo(() => {
     return quotations.filter((q) => {
@@ -1022,8 +1091,7 @@ export default function SuperAdminDashboard() {
                 type="button"
                 className="sa-text-button"
                 onClick={() => navigateTo("/super-admin/invoices")}
-                style={{ cursor: "default", opacity: 0.7 }}
-                title="Not available yet"
+                title="View all invoices"
               >
                 View All <ChevronRight size={15} />
               </button>
@@ -1040,15 +1108,59 @@ export default function SuperAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td colSpan={4} className="sa-empty-table-cell">
-                      <EmptyState
-                        icon={FileCheck}
-                        title="No invoices available"
-                        description="Invoice records will appear here when available."
-                      />
-                    </td>
-                  </tr>
+                  {recentInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="sa-empty-table-cell">
+                        <EmptyState
+                          icon={FileCheck}
+                          title="No invoices available"
+                          description="Invoice records will appear here when available."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    recentInvoices.map((inv) => {
+                      const invId = inv.invoice_id || inv.id;
+                      const invNumber =
+                        inv.invoice_number ||
+                        `INV-${String(invId || "").padStart(4, "0")}`;
+                      const customerName =
+                        inv.customer_name ||
+                        inv.company_name ||
+                        inv.customer_company ||
+                        "—";
+                      const amount = Number(inv.total_amount) || 0;
+                      const statusInfo = getInvoiceStatusBadge(inv);
+
+                      return (
+                        <tr
+                          key={invId || invNumber}
+                          onClick={() => navigateTo("/super-admin/invoices")}
+                          className="sa-clickable-row"
+                        >
+                          <td className="sa-table-cell-bold">
+                            {invNumber}
+                          </td>
+                          <td>{customerName}</td>
+                          <td className="sa-table-cell-amount">
+                            Rs.{" "}
+                            {amount.toLocaleString("en-LK", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td>
+                            <span
+                              className={`sa-invoice-badge ${statusInfo.className}`}
+                            >
+                              <span className="sa-badge-dot" />
+                              {statusInfo.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1192,36 +1304,56 @@ export default function SuperAdminDashboard() {
             </div>
 
             <div className="sa-status-rows">
-              <div className="sa-status-row">
+              <div
+                className="sa-status-row"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                style={{ cursor: "pointer" }}
+                title="View Paid Invoices"
+              >
                 <div className="sa-status-row-left">
                   <span className="sa-status-dot paid" />
                   <p>Paid</p>
                 </div>
-                <h3>0</h3>
+                <h3>{invoicePaymentSummary.paid}</h3>
               </div>
 
-              <div className="sa-status-row">
+              <div
+                className="sa-status-row"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                style={{ cursor: "pointer" }}
+                title="View Unpaid Invoices"
+              >
                 <div className="sa-status-row-left">
                   <span className="sa-status-dot unpaid" />
                   <p>Unpaid</p>
                 </div>
-                <h3>0</h3>
+                <h3>{invoicePaymentSummary.unpaid}</h3>
               </div>
 
-              <div className="sa-status-row">
+              <div
+                className="sa-status-row"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                style={{ cursor: "pointer" }}
+                title="View Partially Paid Invoices"
+              >
                 <div className="sa-status-row-left">
                   <span className="sa-status-dot partial" />
                   <p>Partially Paid</p>
                 </div>
-                <h3>0</h3>
+                <h3>{invoicePaymentSummary.partiallyPaid}</h3>
               </div>
 
-              <div className="sa-status-row">
+              <div
+                className="sa-status-row"
+                onClick={() => navigateTo("/super-admin/invoices")}
+                style={{ cursor: "pointer" }}
+                title="View Overdue Invoices"
+              >
                 <div className="sa-status-row-left">
                   <span className="sa-status-dot overdue" />
                   <p>Overdue</p>
                 </div>
-                <h3>0</h3>
+                <h3>{invoicePaymentSummary.overdue}</h3>
               </div>
             </div>
           </div>

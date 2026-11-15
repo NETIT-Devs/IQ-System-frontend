@@ -42,6 +42,7 @@ import {
   checkDuplicateCustomerByNameAndEmail,
   addNotification,
 } from "../services/quotationService";
+import { getInvoices } from "../services/invoiceService";
 import { downloadQuotationPdf } from "../utils/pdfGenerator";
 import {
   formatServicePresetDescription,
@@ -151,6 +152,7 @@ export default function QuotationForm({
   onSave,
   onClose,
   isPage = false,
+  openSidebar,
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const customerListId = useId();
@@ -185,6 +187,10 @@ export default function QuotationForm({
       getNextQuotationNumber([], today),
     client_name: initialData?.customer_name || initialData?.clientName || "",
     customer_id: initialData?.customer_id ? String(initialData.customer_id) : "",
+    company_name: initialData?.company_name || "",
+    email: initialData?.email || initialData?.customer_email || "",
+    phone: initialData?.phone || initialData?.customer_phone || "",
+    address: initialData?.address || initialData?.customer_address || "",
     quotation_date: initialData?.quotation_date ? String(initialData.quotation_date).slice(0, 10) : today,
     estimated_duration: initialData?.estimated_duration ? String(initialData.estimated_duration) : "",
     duration_unit: initialData?.duration_unit || "Weeks",
@@ -241,14 +247,10 @@ export default function QuotationForm({
   const [formSuccess, setFormSuccess] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Client mode: "registered" | "new"
-  const [clientMode, setClientMode] = useState("registered");
-  const [newClientData, setNewClientData] = useState({
-    customer_name: "",
-    email: "",
-    company_name: "",
-    phone: "",
-  });
+  // Customer search & dropdown
+  const [customerSearchQuery, setCustomerSearchQuery] = useState(
+    initialData?.customer_name || initialData?.clientName || ""
+  );
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const clientDropdownRef = useRef(null);
 
@@ -263,20 +265,24 @@ export default function QuotationForm({
         companyResult,
         quotationsResult,
         nextNumberResult,
+        invoicesResult,
       ] = await Promise.allSettled([
         getAllRegisteredCustomers(),
         getQuotationItemOptions(),
         getCompanyDetails(),
-        !initialData?.quotation_id ? getQuotations() : Promise.resolve([]),
+        getQuotations({ all: true }),
         !initialData?.quotation_id
           ? getNextQuotationNumberApi(formData.quotation_date)
           : Promise.resolve(""),
+        getInvoices({ all: true }).catch(() => []),
       ]);
 
       if (!isMounted) return;
 
       const customerList =
-        customerResult.status === "fulfilled" ? customerResult.value : [];
+        customerResult.status === "fulfilled" && Array.isArray(customerResult.value)
+          ? customerResult.value
+          : [];
       const services =
         servicesResult.status === "fulfilled" ? servicesResult.value : [];
       const company =
@@ -284,6 +290,10 @@ export default function QuotationForm({
       const quotationList =
         quotationsResult.status === "fulfilled" && Array.isArray(quotationsResult.value)
           ? quotationsResult.value
+          : [];
+      const invoiceList =
+        invoicesResult.status === "fulfilled" && Array.isArray(invoicesResult.value)
+          ? invoicesResult.value
           : [];
       const serverNextNumber =
         nextNumberResult.status === "fulfilled" ? nextNumberResult.value : "";
@@ -298,7 +308,37 @@ export default function QuotationForm({
         }));
       }
 
-      setCustomers(customerList);
+      // Build unified customer list across registered customers, quotations, and invoices
+      const customerMap = new Map();
+      customerList.forEach((c) => {
+        if (c && c.customer_id) customerMap.set(String(c.customer_id), c);
+      });
+      quotationList.forEach((q) => {
+        if (q && q.customer_id && !customerMap.has(String(q.customer_id))) {
+          customerMap.set(String(q.customer_id), {
+            customer_id: q.customer_id,
+            customer_name: q.customer_name || q.client_name || q.clientName || "",
+            company_name: q.company_name || "",
+            email: q.email || q.customer_email || "",
+            phone: q.phone || q.customer_phone || "",
+            address: q.address || q.customer_address || "",
+          });
+        }
+      });
+      invoiceList.forEach((inv) => {
+        if (inv && inv.customer_id && !customerMap.has(String(inv.customer_id))) {
+          customerMap.set(String(inv.customer_id), {
+            customer_id: inv.customer_id,
+            customer_name: inv.customer_name || inv.client_name || "",
+            company_name: inv.company_name || inv.customer_company || "",
+            email: inv.email || inv.customer_email || "",
+            phone: inv.phone || inv.customer_phone || "",
+            address: inv.address || inv.customer_address || "",
+          });
+        }
+      });
+
+      setCustomers(Array.from(customerMap.values()));
       setServiceCatalog(services);
       setCompanyDetails(company);
       setCustomerLoadError(
@@ -406,50 +446,75 @@ export default function QuotationForm({
     }
   };
 
-  // Update new client form field
-  const updateNewClientField = (field, value) => {
-    setNewClientData((prev) => ({
+  // Sync customer details when customer_id is set
+  useEffect(() => {
+    if (formData.customer_id && customers.length > 0) {
+      const found = customers.find(
+        (c) => String(c.customer_id) === String(formData.customer_id)
+      );
+      if (found) {
+        if (!customerSearchQuery) {
+          setCustomerSearchQuery(found.customer_name || "");
+        }
+        setFormData((prev) => ({
+          ...prev,
+          company_name: prev.company_name || found.company_name || "",
+          email: prev.email || found.email || "",
+          phone: prev.phone || found.phone || "",
+          address: prev.address || found.address || "",
+        }));
+      }
+    }
+  }, [formData.customer_id, customers]);
+
+  // Handle selecting a customer from dropdown
+  const handleSelectCustomer = (customer) => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: value,
+      client_name: customer.customer_name || "",
+      customer_id: String(customer.customer_id),
+      company_name: customer.company_name || "",
+      email: customer.email || "",
+      phone: customer.phone || "",
+      address: customer.address || "",
     }));
-    if (field === "customer_name") {
-      setFormData((prev) => ({
-        ...prev,
-        client_name: value,
-        customer_id: "",
-      }));
-    }
-    const errKey = field === "customer_name" ? "client_name" : `client_${field}`;
-    if (fieldErrors[errKey] || (field === "email" && fieldErrors.client_name)) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next[errKey];
-        if (field === "email") delete next.client_name;
-        return next;
-      });
-    }
+    setCustomerSearchQuery(customer.customer_name || "");
+    setClientDropdownOpen(false);
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.client_name;
+      delete next.client_email;
+      delete next.client_phone;
+      return next;
+    });
   };
 
   // Selected customer / client object
   const selectedCustomer = useMemo(() => {
-    if (clientMode === "new") {
-      return {
-        customer_name: newClientData.customer_name.trim(),
-        email: newClientData.email.trim(),
-        phone: newClientData.phone.trim(),
-        company_name: newClientData.company_name?.trim() || "",
-      };
-    }
     if (!formData.client_name) return null;
     return (
       customers.find(
         (c) =>
-          c.customer_name?.toLowerCase() ===
-          formData.client_name.trim().toLowerCase() ||
-          String(c.customer_id) === String(formData.customer_id)
-      ) || null
+          String(c.customer_id) === String(formData.customer_id) ||
+          c.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase() ||
+          (formData.email && c.email?.toLowerCase() === formData.email.trim().toLowerCase())
+      ) || {
+        customer_name: formData.client_name.trim(),
+        company_name: formData.company_name?.trim() || "",
+        email: formData.email?.trim() || "",
+        phone: formData.phone?.trim() || "",
+        address: formData.address?.trim() || "",
+      }
     );
-  }, [clientMode, newClientData, customers, formData.client_name, formData.customer_id]);
+  }, [
+    customers,
+    formData.client_name,
+    formData.customer_id,
+    formData.company_name,
+    formData.email,
+    formData.phone,
+    formData.address,
+  ]);
 
   // Close in-form client dropdown when clicked outside
   useEffect(() => {
@@ -462,18 +527,19 @@ export default function QuotationForm({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Lock outer page scrolling while Quotation Form is open
+  // Lock outer page scrolling while Quotation Form is open as a modal dialog
   useEffect(() => {
+    if (isPage) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, []);
+  }, [isPage]);
 
   // Filtered registered customers list for in-form search dropdown
   const filteredCustomers = useMemo(() => {
-    const term = (formData.client_name || "").trim().toLowerCase();
+    const term = (customerSearchQuery || "").trim().toLowerCase();
     if (!term) return customers;
     return customers.filter((c) => {
       const name = (c.customer_name || "").toLowerCase();
@@ -481,7 +547,7 @@ export default function QuotationForm({
       const company = (c.company_name || "").toLowerCase();
       return name.includes(term) || email.includes(term) || company.includes(term);
     });
-  }, [customers, formData.client_name]);
+  }, [customers, customerSearchQuery]);
 
   // Update item field
   const updateItem = (index, field, value) => {
@@ -669,6 +735,10 @@ export default function QuotationForm({
       customer_id: assignedCustomerId,
       customer_name: resolvedClientName,
       client_name: resolvedClientName,
+      company_name: formData.company_name?.trim() || null,
+      email: formData.email?.trim() || null,
+      phone: formData.phone?.trim() || null,
+      address: formData.address?.trim() || null,
       quotation_date: formData.quotation_date,
       project_start_date: initialData?.project_start_date ? String(initialData.project_start_date).slice(0, 10) : null,
       estimated_duration: formData.estimated_duration ? Number(formData.estimated_duration) : null,
@@ -702,47 +772,14 @@ export default function QuotationForm({
       if (!firstError) firstError = errors.quotation_number;
     }
 
-    if (clientMode === "registered") {
-      if (!formData.client_name.trim()) {
-        errors.client_name = "Client name is required.";
-        if (!firstError) firstError = errors.client_name;
-      }
-    } else {
-      // clientMode === "new"
-      const name = newClientData.customer_name.trim();
-      const email = newClientData.email.trim();
-      const phone = newClientData.phone.trim();
+    if (!formData.client_name.trim()) {
+      errors.client_name = "Client name is required.";
+      if (!firstError) firstError = errors.client_name;
+    }
 
-      if (!name) {
-        errors.client_name = "Client name is required.";
-        if (!firstError) firstError = errors.client_name;
-      }
-
-      if (!email) {
-        errors.client_email = "Client email address is required.";
-        if (!firstError) firstError = errors.client_email;
-      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        errors.client_email = "Please enter a valid email address.";
-        if (!firstError) firstError = errors.client_email;
-      }
-
-      // Only identify an existing customer after BOTH name and valid email are entered
-      if (name && email && !errors.client_name && !errors.client_email) {
-        const duplicateError = checkDuplicateCustomerByNameAndEmail(
-          name,
-          email,
-          customers
-        );
-        if (duplicateError) {
-          errors.client_name = duplicateError;
-          if (!firstError) firstError = errors.client_name;
-        }
-      }
-
-      if (!phone) {
-        errors.client_phone = "Contact number is required.";
-        if (!firstError) firstError = errors.client_phone;
-      }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      errors.client_email = "Please enter a valid email address.";
+      if (!firstError) firstError = errors.client_email;
     }
 
     if (!formData.quotation_date) {
@@ -831,79 +868,48 @@ export default function QuotationForm({
       setSaving(true);
 
       // Resolve customer_id from client_name
-      let targetCustomerId = Number(formData.customer_id);
+      let targetCustomerId = formData.customer_id ? Number(formData.customer_id) : null;
 
-      if (clientMode === "new") {
-        if (customerLoadError) {
-          throw new Error(
-            "Customer records are unavailable. Retry loading customers before saving this quotation."
-          );
-        }
-
-        const duplicateError = checkDuplicateCustomerByNameAndEmail(
-          newClientData.customer_name.trim(),
-          newClientData.email.trim(),
-          customers
-        );
-        if (duplicateError) {
-          throw new Error(duplicateError);
-        }
-
-        const created = await createCustomer({
-          customer_name: newClientData.customer_name.trim(),
-          company_name: newClientData.company_name?.trim() || null,
-          email: newClientData.email.trim(),
-          phone: newClientData.phone.trim(),
-          identify_by_name_and_email: true,
+      if (!targetCustomerId || Number.isNaN(targetCustomerId)) {
+        const valTrim = (formData.client_name || "").trim().toLowerCase();
+        const emailTrim = (formData.email || "").trim().toLowerCase();
+        const existing = customers.find((c) => {
+          const cName = (c.customer_name || "").trim().toLowerCase();
+          const cEmail = (c.email || "").trim().toLowerCase();
+          if (valTrim && emailTrim) {
+            return cName === valTrim && cEmail === emailTrim;
+          }
+          if (valTrim && !emailTrim) {
+            return cName === valTrim && !cEmail;
+          }
+          return false;
         });
-        targetCustomerId = Number(created?.customer_id);
 
-        try {
-          const freshCustomers = await getAllRegisteredCustomers();
-          setCustomers(freshCustomers);
-        } catch {
-          // ignore
-        }
-      } else if (!targetCustomerId || Number.isNaN(targetCustomerId)) {
-        if (customerLoadError) {
-          throw new Error(
-            "Customer records are unavailable. Retry loading customers before saving this quotation."
-          );
-        }
-
-        const existing = customers.find(
-          (c) =>
-            c.customer_name?.toLowerCase() ===
-            formData.client_name.trim().toLowerCase()
-        );
-
-        if (existing) {
-          targetCustomerId = existing.customer_id;
+        if (existing && existing.customer_id) {
+          targetCustomerId = Number(existing.customer_id);
         } else {
-          const duplicateError = checkDuplicateCustomer(
-            formData.client_name.trim(),
-            "",
-            ""
-          );
-          if (duplicateError) {
-            throw new Error(duplicateError);
-          }
-
-          const created = await createCustomer({
-            customer_name: formData.client_name.trim(),
-          });
-          targetCustomerId = Number(created?.customer_id);
           try {
-            const freshCustomers = await getAllRegisteredCustomers();
-            setCustomers(freshCustomers);
-          } catch {
-            // ignore
+            const created = await createCustomer({
+              customer_name: formData.client_name.trim(),
+              company_name: formData.company_name?.trim() || null,
+              email: formData.email?.trim() || null,
+              phone: formData.phone?.trim() || null,
+              address: formData.address?.trim() || null,
+              identify_by_name_and_email: true,
+            });
+            if (created?.customer_id) {
+              targetCustomerId = Number(created.customer_id);
+              try {
+                const freshCustomers = await getAllRegisteredCustomers();
+                setCustomers(freshCustomers);
+              } catch {
+                // ignore
+              }
+            }
+          } catch (createErr) {
+            console.warn("Could not pre-create customer in frontend:", createErr);
           }
         }
-      }
-
-      if (!Number.isInteger(Number(targetCustomerId)) || Number(targetCustomerId) <= 0) {
-        throw new Error("A valid customer record could not be selected or created.");
       }
 
       const payload = buildPayload(targetCustomerId, statusToSave);
@@ -936,9 +942,7 @@ export default function QuotationForm({
           initialData?.quotation_number ||
           "New Quotation";
         const clientName =
-          formData.client_name?.trim() ||
-          newClientData.customer_name?.trim() ||
-          "Client";
+          formData.client_name?.trim() || "Client";
         const authUser = getAuthenticatedUser();
         const creatorName =
           authUser?.name || authUser?.username || "Admin";
@@ -985,10 +989,7 @@ export default function QuotationForm({
     if (!canDownloadFormPdf) return;
     setFormError("");
 
-    const activeClientName =
-      clientMode === "new"
-        ? newClientData.customer_name.trim()
-        : formData.client_name.trim();
+    const activeClientName = formData.client_name.trim();
 
     const errs = {};
     if (!formData.quotation_number.trim()) {
@@ -997,12 +998,9 @@ export default function QuotationForm({
     } else if (!activeClientName) {
       errs.client_name = "Client name is required.";
       setFormError("Please enter a client name before generating PDF.");
-    } else if (clientMode === "new" && !newClientData.email.trim()) {
-      errs.client_email = "Client email address is required.";
-      setFormError("Please enter a client email address before generating PDF.");
     } else if (
-      clientMode === "new" &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newClientData.email.trim())
+      formData.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())
     ) {
       errs.client_email = "Please enter a valid email address.";
       setFormError("Please enter a valid client email address before generating PDF.");
@@ -1198,221 +1196,229 @@ export default function QuotationForm({
                 <span>Client Information</span>
               </div>
 
-              {/* Client Selection Mode Selector */}
-              <div className="qf-client-mode-toggle" role="tablist" aria-label="Customer Selection Mode">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={clientMode === "registered"}
-                  className={`qf-mode-btn ${clientMode === "registered" ? "active" : ""}`}
-                  onClick={() => {
-                    setClientMode("registered");
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.client_name;
-                      delete next.client_email;
-                      delete next.client_phone;
-                      delete next.client_company;
-                      return next;
-                    });
-                  }}
-                >
-                  <UserCheck size={14} />
-                  <span>Select Registered Customer</span>
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={clientMode === "new"}
-                  className={`qf-mode-btn ${clientMode === "new" ? "active" : ""}`}
-                  onClick={() => {
-                    setClientMode("new");
-                    setFieldErrors((prev) => {
-                      const next = { ...prev };
-                      delete next.client_name;
-                      delete next.client_email;
-                      delete next.client_phone;
-                      delete next.client_company;
-                      return next;
-                    });
-                  }}
-                >
-                  <UserPlus size={14} />
-                  <span>Enter New Client Details</span>
-                </button>
-              </div>
+              <div className="qf-grid-2">
+                <div className="qf-field col-span-2 qf-client-search-field">
+                  <label className="qf-label">
+                    Select Customer
+                  </label>
+                  <div className="qf-search-input-wrap" ref={clientDropdownRef}>
+                    <Search size={15} className="qf-search-input-icon" />
+                    <input
+                      type="text"
+                      className="qf-input qf-input-search"
+                      placeholder="Search customer by name or email..."
+                      value={customerSearchQuery}
+                      onFocus={() => setClientDropdownOpen(true)}
+                      onClick={() => setClientDropdownOpen(true)}
+                      onChange={(e) => {
+                        setCustomerSearchQuery(e.target.value);
+                        setClientDropdownOpen(true);
+                      }}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="button"
+                      className="qf-search-toggle-btn"
+                      onClick={() => setClientDropdownOpen((prev) => !prev)}
+                      title="Toggle customer list"
+                    >
+                      <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
+                    </button>
 
-              {clientMode === "registered" ? (
-                <div className="qf-grid-2">
-                  <div className="qf-field col-span-2 qf-client-search-field">
-                    <label className="qf-label">
-                      Client Name <span className="qf-required">*</span>
-                    </label>
-                    <div className="qf-search-input-wrap" ref={clientDropdownRef}>
-                      <Search size={15} className="qf-search-input-icon" />
-                      <input
-                        type="text"
-                        className={`qf-input qf-input-search ${fieldErrors.client_name ? "qf-input-error" : ""}`}
-                        placeholder="Search client by name or email..."
-                        value={formData.client_name}
-                        onFocus={() => setClientDropdownOpen(true)}
-                        onClick={() => setClientDropdownOpen(true)}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setClientDropdownOpen(true);
-                          const match = customers.find(
-                            (c) =>
-                              c.customer_name?.toLowerCase() ===
-                              val.trim().toLowerCase() ||
-                              (c.email &&
-                                c.email.toLowerCase() === val.trim().toLowerCase())
-                          );
-                          if (match) {
-                            updateField("client_name", match.customer_name);
-                            updateField("customer_id", String(match.customer_id));
-                          } else {
-                            updateField("client_name", val);
-                            const idMatch = customers.find(
-                              (c) => c.customer_name?.toLowerCase() === val.trim().toLowerCase()
-                            );
-                            updateField("customer_id", idMatch ? String(idMatch.customer_id) : "");
-                          }
-                        }}
-                        autoComplete="off"
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="qf-search-toggle-btn"
-                        onClick={() => setClientDropdownOpen((prev) => !prev)}
-                        title="Toggle registered customer list"
-                      >
-                        <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
-                      </button>
-
-                      {/* In-form Dropdown Menu */}
-                      {clientDropdownOpen && (
-                        <div className="qf-client-dropdown">
-                          {filteredCustomers.length > 0 ? (
-                            filteredCustomers.map((customer) => {
-                              const isSelected =
-                                String(formData.customer_id) === String(customer.customer_id) ||
-                                (formData.client_name &&
-                                  customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
-                              return (
-                                <div
-                                  key={customer.customer_id}
-                                  className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
-                                  onClick={() => {
-                                    updateField("client_name", customer.customer_name);
-                                    updateField("customer_id", String(customer.customer_id));
-                                    setClientDropdownOpen(false);
-                                  }}
-                                >
-                                  <div className="qf-cd-left">
-                                    <div className="qf-cd-name">
-                                      <span>{customer.customer_name}</span>
-                                      {customer.company_name && (
-                                        <span className="qf-cd-company">{customer.company_name}</span>
-                                      )}
-                                    </div>
-                                    {customer.email && (
-                                      <div className="qf-cd-email">
-                                        <Mail size={11} />
-                                        <span>{customer.email}</span>
-                                      </div>
+                    {/* In-form Dropdown Menu */}
+                    {clientDropdownOpen && (
+                      <div className="qf-client-dropdown">
+                        {filteredCustomers.length > 0 ? (
+                          filteredCustomers.map((customer) => {
+                            const isSelected =
+                              String(formData.customer_id) === String(customer.customer_id) ||
+                              (formData.client_name &&
+                                customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
+                            return (
+                              <div
+                                key={customer.customer_id}
+                                className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
+                                onClick={() => handleSelectCustomer(customer)}
+                              >
+                                <div className="qf-cd-left">
+                                  <div className="qf-cd-name">
+                                    <span>{customer.customer_name}</span>
+                                    {customer.company_name && (
+                                      <span className="qf-cd-company">{customer.company_name}</span>
                                     )}
                                   </div>
-                                  {isSelected && <Check size={14} className="qf-cd-check" />}
+                                  {customer.email && (
+                                    <div className="qf-cd-email">
+                                      <Mail size={11} />
+                                      <span>{customer.email}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              );
-                            })
-                          ) : (
-                            <div className="qf-client-dropdown-empty">
-                              No registered customers match your search
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {fieldErrors.client_name && (
-                      <span className="qf-error-text">{fieldErrors.client_name}</span>
+                                {isSelected && <Check size={14} className="qf-cd-check" />}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="qf-client-dropdown-empty">
+                            No customers match your search
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-              ) : (
-                <div className="qf-grid-2">
-                  <div className="qf-field">
-                    <label className="qf-label">
-                      <User size={13} />
-                      Client Name <span className="qf-required">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className={`qf-input ${fieldErrors.client_name ? "qf-input-error" : ""}`}
-                      placeholder="Enter client full name"
-                      value={newClientData.customer_name}
-                      onChange={(e) => updateNewClientField("customer_name", e.target.value)}
-                      aria-required="true"
-                      required
-                    />
-                    {fieldErrors.client_name && (
-                      <span className="qf-error-text">{fieldErrors.client_name}</span>
-                    )}
-                  </div>
 
-                  <div className="qf-field">
-                    <label className="qf-label">
-                      <Mail size={13} />
-                      Email Address <span className="qf-required">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      className={`qf-input ${fieldErrors.client_email ? "qf-input-error" : ""}`}
-                      placeholder="e.g. client@example.com"
-                      value={newClientData.email}
-                      onChange={(e) => updateNewClientField("email", e.target.value)}
-                      aria-required="true"
-                      required
-                    />
-                    {fieldErrors.client_email && (
-                      <span className="qf-error-text">{fieldErrors.client_email}</span>
-                    )}
-                  </div>
-
-                  <div className="qf-field">
-                    <label className="qf-label">
-                      <Phone size={13} />
-                      Contact Number <span className="qf-required">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      className={`qf-input ${fieldErrors.client_phone ? "qf-input-error" : ""}`}
-                      placeholder="e.g. +94 77 123 4567"
-                      value={newClientData.phone}
-                      onChange={(e) => updateNewClientField("phone", e.target.value)}
-                      required
-                    />
-                    {fieldErrors.client_phone && (
-                      <span className="qf-error-text">{fieldErrors.client_phone}</span>
-                    )}
-                  </div>
-
-                  <div className="qf-field">
-                    <label className="qf-label">
-                      <Building2 size={13} />
-                      Company Name (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      className="qf-input"
-                      placeholder="e.g. Acme Corporation"
-                      value={newClientData.company_name}
-                      onChange={(e) => updateNewClientField("company_name", e.target.value)}
-                    />
-                  </div>
+                <div className="qf-field">
+                  <label className="qf-label">
+                    <User size={13} />
+                    Client Name <span className="qf-required">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className={`qf-input ${fieldErrors.client_name ? "qf-input-error" : ""}`}
+                    placeholder="Enter client full name"
+                    value={formData.client_name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      updateField("client_name", val);
+                      if (fieldErrors.client_name) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.client_name;
+                          return next;
+                        });
+                      }
+                      const valTrim = val.trim().toLowerCase();
+                      const emailTrim = (formData.email || "").trim().toLowerCase();
+                      const match = customers.find((c) => {
+                        const cName = (c.customer_name || "").trim().toLowerCase();
+                        const cEmail = (c.email || "").trim().toLowerCase();
+                        if (valTrim && emailTrim) {
+                          return cName === valTrim && cEmail === emailTrim;
+                        }
+                        if (valTrim && !emailTrim) {
+                          return cName === valTrim && !cEmail;
+                        }
+                        return false;
+                      });
+                      if (match) {
+                        updateField("customer_id", String(match.customer_id));
+                        if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                      } else if (formData.customer_id) {
+                        const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
+                        if (cur && cur.customer_name?.trim().toLowerCase() !== val.trim().toLowerCase()) {
+                          updateField("customer_id", "");
+                        }
+                      }
+                    }}
+                    aria-required="true"
+                    required
+                  />
+                  {fieldErrors.client_name && (
+                    <span className="qf-error-text">{fieldErrors.client_name}</span>
+                  )}
                 </div>
-              )}
+
+                <div className="qf-field">
+                  <label className="qf-label">
+                    <Building2 size={13} />
+                    Company Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="qf-input"
+                    placeholder="e.g. Acme Corporation"
+                    value={formData.company_name}
+                    onChange={(e) => updateField("company_name", e.target.value)}
+                  />
+                </div>
+
+                <div className="qf-field">
+                  <label className="qf-label">
+                    <Mail size={13} />
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    className={`qf-input ${fieldErrors.client_email ? "qf-input-error" : ""}`}
+                    placeholder="e.g. client@example.com"
+                    value={formData.email}
+                    onChange={(e) => {
+                      const newEmail = e.target.value;
+                      updateField("email", newEmail);
+                      if (fieldErrors.client_email) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.client_email;
+                          return next;
+                        });
+                      }
+                      const valTrim = (formData.client_name || "").trim().toLowerCase();
+                      const emailTrim = newEmail.trim().toLowerCase();
+                      const match = customers.find((c) => {
+                        const cName = (c.customer_name || "").trim().toLowerCase();
+                        const cEmail = (c.email || "").trim().toLowerCase();
+                        if (valTrim && emailTrim) {
+                          return cName === valTrim && cEmail === emailTrim;
+                        }
+                        if (!valTrim && emailTrim) {
+                          return cEmail === emailTrim;
+                        }
+                        return false;
+                      });
+                      if (match) {
+                        updateField("customer_id", String(match.customer_id));
+                        if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                      } else if (formData.customer_id) {
+                        const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
+                        if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
+                          updateField("customer_id", "");
+                        }
+                      }
+                    }}
+                  />
+                  {fieldErrors.client_email && (
+                    <span className="qf-error-text">{fieldErrors.client_email}</span>
+                  )}
+                </div>
+
+                <div className="qf-field">
+                  <label className="qf-label">
+                    <Phone size={13} />
+                    Contact Number
+                  </label>
+                  <input
+                    type="text"
+                    className={`qf-input ${fieldErrors.client_phone ? "qf-input-error" : ""}`}
+                    placeholder="e.g. +94 77 123 4567"
+                    value={formData.phone}
+                    onChange={(e) => {
+                      updateField("phone", e.target.value);
+                      if (fieldErrors.client_phone) {
+                        setFieldErrors((prev) => {
+                          const next = { ...prev };
+                          delete next.client_phone;
+                          return next;
+                        });
+                      }
+                    }}
+                  />
+                  {fieldErrors.client_phone && (
+                    <span className="qf-error-text">{fieldErrors.client_phone}</span>
+                  )}
+                </div>
+
+                <div className="qf-field col-span-2">
+                  <label className="qf-label">Billing Address</label>
+                  <input
+                    type="text"
+                    className="qf-input"
+                    placeholder="e.g. No. 45, Galle Road, Colombo 03"
+                    value={formData.address}
+                    onChange={(e) => updateField("address", e.target.value)}
+                  />
+                </div>
+              </div>
             </section>
             </div>
 

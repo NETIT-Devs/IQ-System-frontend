@@ -26,7 +26,7 @@
 .qs-modal-box {
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  border-radius: 0;
+  border-radius: 16px;
   width: 100%;
   max-width: 680px;
   max-height: 90vh;
@@ -34,6 +34,7 @@
   flex-direction: column;
   box-shadow: 0 20px 30px -10px rgba(15, 23, 42, 0.25);
   animation: qsSlideUp 0.2s ease-out;
+  overflow: hidden;
 }
 
 .qs-modal-box.qs-modal-large {
@@ -172,10 +173,10 @@
   background: #2563eb;
   color: #ffffff;
   border: 1px solid #1d4ed8;
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-size: 12.5px;
   font-weight: 600;
-  border-radius: 0;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -196,10 +197,10 @@
   background: #ffffff;
   color: #334155;
   border: 1px solid #cbd5e1;
-  padding: 7px 14px;
+  padding: 8px 16px;
   font-size: 12.5px;
   font-weight: 600;
-  border-radius: 0;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -392,34 +393,37 @@
 .qs-preview-card {
   background: #ffffff;
   border: 1px solid #cbd5e1;
-  padding: 14px;
+  border-radius: 14px;
+  padding: 18px;
   margin-bottom: 20px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
 }
 
 .qs-preview-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .qs-preview-badge {
   background: #eff6ff;
   color: #1d4ed8;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 2px;
+  padding: 3px 8px;
+  border-radius: 20px;
   border: 1px solid #bfdbfe;
 }
 
 .qs-pdf-preview-sheet {
   background: #fbfcfd;
   border: 1px dashed #94a3b8;
-  padding: 14px;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  border-radius: 10px;
+  padding: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 .qs-pdf-header-row {
@@ -561,9 +565,10 @@
   background: #102a43;
   color: #ffffff;
   border: none;
+  border-radius: 9px;
   font-size: 11.5px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 8px 14px;
   cursor: pointer;
   transition: all 0.15s;
   flex-shrink: 0;
@@ -582,7 +587,8 @@
 .qs-section-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  padding: 12px 14px;
+  border-radius: 10px;
+  padding: 14px 16px;
   transition: border-color 0.15s;
 }
 
@@ -615,6 +621,7 @@
   background: none;
   border: 1px solid #fecaca;
   color: #dc2626;
+  border-radius: 6px;
   font-size: 11px;
   padding: 3px 8px;
   cursor: pointer;

@@ -79,15 +79,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  width: 40px;
   height: 40px;
-  padding: 0 16px;
+  min-width: 40px;
+  padding: 0;
   background: #ffffff;
   border: 1.5px solid #cbd5e1;
   border-radius: 10px;
   color: #334155;
-  font-size: 12.5px;
-  font-weight: 600;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: all 0.18s ease;
@@ -98,7 +97,7 @@
 .cs-refresh-btn:hover:not(:disabled) {
   background: #f8fafc;
   border-color: #94a3b8;
-  color: #0f172a;
+  color: #1e3a8a;
   transform: translateY(-1px);
 }
 
@@ -109,25 +108,25 @@
   gap: 8px;
   height: 40px;
   padding: 0 18px;
-  background: #0f2d59;
-  border: 1px solid #0f2d59;
+  background: #1e3a8a;
+  border: 1px solid #1e3a8a;
   border-radius: 10px;
   color: #ffffff;
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(15, 45, 89, 0.2);
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
   transition: all 0.18s ease;
   outline: none !important;
   outline-offset: 0 !important;
 }
 
 .cs-primary-save-btn:hover:not(:disabled) {
-  background: #0b2447;
-  border-color: #0b2447;
+  background: #172554;
+  border-color: #172554;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(11, 36, 71, 0.3);
+  box-shadow: 0 4px 12px rgba(23, 37, 84, 0.3);
 }
 
 .cs-primary-save-btn:disabled,
@@ -439,18 +438,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #102a43;
+  background: #1e3a8a;
   color: #ffffff;
-  border: none;
+  border: 1px solid #1e3a8a;
+  border-radius: 9px;
   font-size: 12px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 7px 15px;
   cursor: pointer;
-  transition: background 0.15s;
+  box-shadow: 0 1px 3px rgba(30, 58, 138, 0.2);
+  transition: all 0.18s ease;
 }
 
 .cs-btn-upload:hover:not(:disabled) {
-  background: #2563eb;
+  background: #172554;
+  border-color: #172554;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(23, 37, 84, 0.3);
 }
 
 .cs-btn-remove {
@@ -657,19 +661,23 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: #102a43;
+  background: #1e3a8a;
   color: #ffffff;
-  border: 1px solid #102a43;
-  padding: 8px 20px;
+  border: 1px solid #1e3a8a;
+  border-radius: 10px;
+  padding: 9px 20px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
+  transition: all 0.18s ease;
 }
 
 .cs-btn-save:hover:not(:disabled) {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #172554;
+  border-color: #172554;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 37, 84, 0.3);
 }
 
 /* Right Sidebar: Live Preview */
@@ -1052,294 +1060,258 @@
 }
 
 .cs-subtabs-bar {
-  display: flex;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 4px;
-  gap: 6px;
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 6px;
+  gap: 8px;
   flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
 }
 
 .cs-subtab-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 8px;
+  padding: 9px 18px;
   background: transparent;
-  border: none;
-  font-size: 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: #475569;
+  color: #1e3a8a;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cs-subtab-btn:hover {
-  color: #102a43;
-  background: #f1f5f9;
+  color: #172554;
+  background: #ffffff;
+  border-color: #cbd5e1;
 }
 
 .cs-subtab-btn.active {
-  background: #102a43;
+  background: #1e3a8a;
   color: #ffffff;
+  border-color: #1e3a8a;
   font-weight: 700;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.25);
 }
 
-/* PDF Preview Sheet within Template Settings */
-.cs-preview-card-box {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  padding: 14px;
-  margin-bottom: 2px;
+/* ========================================================
+   MODERN CURVED QUOTATION TEMPLATE SETTINGS (PDF LAYOUT)
+======================================================== */
+.cs-template-form-wrap {
+  width: 100%;
 }
 
-.cs-preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.cs-preview-badge {
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 2px;
-  border: 1px solid #bfdbfe;
-}
-
-.cs-pdf-preview-sheet {
-  background: #fbfcfd;
-  border: 1px dashed #94a3b8;
-  padding: 14px;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-
-.cs-pdf-header-row {
-  display: flex;
+.cs-template-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.95fr);
+  gap: 24px;
   align-items: flex-start;
-  justify-content: space-between;
 }
 
-.cs-pdf-company-name {
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #102a43;
+@media (max-width: 1100px) {
+  .cs-template-layout-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.cs-pdf-meta {
-  font-size: 9.5px;
-  color: #62748a;
-  margin-top: 2px;
+.cs-template-cards-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.cs-pdf-title {
-  font-size: 16px;
-  font-weight: 900;
-  color: #102a43;
-  letter-spacing: 0.5px;
-}
-
-.cs-pdf-subtitle {
-  font-size: 8px;
-  font-weight: 700;
-  color: #2563eb;
-  margin-top: 1px;
-}
-
-.cs-pdf-divider {
-  height: 2px;
-  background: linear-gradient(to right, #102a43 70%, #2563eb 100%);
-  margin: 10px 0 6px;
-}
-
-.cs-pdf-custom-line {
-  font-size: 9px;
-  color: #475569;
-  font-style: italic;
-  margin-bottom: 10px;
-  padding: 4px 6px;
-  background: #f1f5f9;
-  border-left: 2px solid #2563eb;
-}
-
-.cs-pdf-mock-table {
+.cs-template-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  font-size: 9.5px;
-  margin: 10px 0;
+  border-radius: 16px;
+  padding: 24px 26px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(15, 23, 42, 0.02);
+  transition: all 0.2s ease;
 }
 
-.cs-mock-th {
-  display: grid;
-  grid-template-columns: 24px 1fr 100px 100px;
-  background: #102a43;
-  color: #ffffff;
-  font-weight: 700;
-  padding: 5px 8px;
-  font-size: 8.5px;
+.cs-template-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
-.cs-mock-tr {
-  display: grid;
-  grid-template-columns: 24px 1fr 100px 100px;
-  padding: 6px 8px;
-  border-top: 1px solid #f1f5f9;
-  color: #334155;
-}
-
-.cs-pdf-preview-section {
-  margin: 10px 0;
-}
-
-.cs-pdf-section-banner {
-  background: #102a43;
-  color: #ffffff;
-  font-weight: 700;
-  padding: 5px 8px;
-  font-size: 8.5px;
-  letter-spacing: 0.5px;
-  border-bottom: 2px solid #2563eb;
-  text-transform: uppercase;
-}
-
-.cs-pdf-section-body {
-  padding: 6px 8px;
-  font-size: 8.5px;
-  color: #243447;
-  white-space: pre-line;
-  line-height: 1.45;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-top: none;
-}
-
-.cs-pdf-footer-box {
-  margin-top: 10px;
-  padding: 6px 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  font-size: 9.5px;
-  color: #1e3a8a;
-}
-
-.cs-pdf-footer-box strong {
-  display: block;
-  font-size: 9px;
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-
-.cs-pdf-footer-box p {
-  margin: 0;
-  line-height: 1.35;
-}
-
-/* Custom Sections Manager Box */
-.cs-sections-box {
-  grid-column: 1 / -1;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  padding: 16px;
-  margin-top: 14px;
-}
-
-.cs-sections-top {
+.cs-template-card .cs-section-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 12px;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.cs-sections-top-info h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+.cs-template-card .cs-section-header-text {
+  flex: 1;
 }
 
-.cs-sections-top-info p {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: #64748b;
+.cs-section-icon.secondary {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.cs-section-icon.accent {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.cs-template-card input[type="text"],
+.cs-template-card textarea {
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.cs-template-card input[type="text"]:focus,
+.cs-template-card textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Custom Sections Inner List */
+.cs-sections-box-inner {
+  width: 100%;
 }
 
 .cs-add-section-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #102a43;
+  background: #1e3a8a;
   color: #ffffff;
-  border: none;
-  font-size: 11.5px;
+  border: 1px solid #1e3a8a;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 7px 14px;
+  padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.18s ease;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
 }
 
 .cs-add-section-btn:hover {
-  background: #2563eb;
+  background: #172554;
+  border-color: #172554;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(23, 37, 84, 0.3);
+}
+
+.cs-empty-sections-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 14px;
+  color: #64748b;
+}
+
+.cs-empty-sections-note p {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.cs-empty-sections-note small {
+  font-size: 11px;
+  color: #94a3b8;
 }
 
 .cs-sections-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .cs-section-card-item {
-  background: #ffffff;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 16px 18px;
+  transition: all 0.2s ease;
+}
+
+.cs-section-card-item:hover {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
 .cs-section-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.cs-section-card-head span {
-  font-size: 11px;
-  font-weight: 700;
-  color: #102a43;
+.cs-section-card-head-left {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.cs-section-idx-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cs-section-title-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.3px;
 }
 
 .cs-section-delete-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: none;
+  background: #ffffff;
   border: 1px solid #fecaca;
   color: #dc2626;
-  font-size: 11px;
-  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 10px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
 }
 
 .cs-section-delete-btn:hover {
   background: #fee2e2;
-  border-color: #f87171;
+  border-color: #ef4444;
+  color: #b91c1c;
 }
 
 .cs-section-fields {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 12px;
 }
 
 .cs-section-field label {
@@ -1347,15 +1319,316 @@
   font-size: 11.5px;
   font-weight: 600;
   color: #334155;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
+}
+
+/* Template Settings Action Bar */
+.cs-action-bar.cs-template-action-bar {
+  margin-top: 6px;
+  padding: 16px 22px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.cs-template-action-bar .cs-btn-secondary {
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-weight: 600;
+}
+
+.cs-template-action-bar .cs-btn-save {
+  border-radius: 10px;
+  padding: 9px 20px;
+  font-weight: 600;
+  background: #1e3a8a;
+  border: 1px solid #1e3a8a;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.25);
+}
+
+.cs-template-action-bar .cs-btn-save:hover:not(:disabled) {
+  background: #172554;
+  border-color: #172554;
+  box-shadow: 0 4px 12px rgba(23, 37, 84, 0.3);
+}
+
+/* ========================================================
+   STICKY LIVE PDF LAYOUT PREVIEW PANEL
+======================================================== */
+.cs-template-preview-col {
+  position: relative;
+}
+
+.cs-template-preview-sticky {
+  position: sticky;
+  top: 20px;
+}
+
+.cs-preview-card-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.cs-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cs-preview-title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cs-preview-title-left strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cs-live-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+  animation: cs-pulse 2s infinite;
+}
+
+@keyframes cs-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.15);
+  }
+}
+
+.cs-preview-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #bfdbfe;
+  letter-spacing: 0.3px;
+}
+
+.cs-pdf-preview-sheet {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.cs-pdf-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cs-pdf-header-left {
+  flex: 1;
+}
+
+.cs-pdf-header-right {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.cs-pdf-company-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.cs-pdf-meta {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.cs-pdf-title {
+  font-size: 17px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: 0.8px;
+}
+
+.cs-pdf-subtitle {
+  font-size: 9px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-top: 2px;
+  letter-spacing: 0.4px;
+}
+
+.cs-pdf-divider {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #0f172a 65%, #2563eb 100%);
+  margin: 12px 0 10px;
+}
+
+.cs-pdf-custom-line {
+  font-size: 9.5px;
+  color: #334155;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: #f8fafc;
+  border-radius: 7px;
+  border-left: 3px solid #2563eb;
+  font-weight: 500;
+}
+
+.cs-pdf-mock-table {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  overflow: hidden;
+  font-size: 9.5px;
+  margin: 12px 0;
+}
+
+.cs-mock-th {
+  display: grid;
+  grid-template-columns: 24px 1fr 90px 90px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 7px 10px;
+  font-size: 8.5px;
+  letter-spacing: 0.5px;
+}
+
+.cs-mock-tr {
+  display: grid;
+  grid-template-columns: 24px 1fr 90px 90px;
+  padding: 7px 10px;
+  border-top: 1px solid #f1f5f9;
+  color: #334155;
+  font-weight: 500;
+}
+
+.cs-pdf-preview-sections-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.cs-pdf-preview-section {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.cs-pdf-section-banner {
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 6px 10px;
+  font-size: 8.5px;
+  letter-spacing: 0.6px;
+  border-bottom: 2px solid #2563eb;
+  text-transform: uppercase;
+}
+
+.cs-pdf-section-body {
+  padding: 8px 10px;
+  font-size: 8.5px;
+  color: #334155;
+  white-space: pre-line;
+  line-height: 1.5;
+  background: #ffffff;
+}
+
+.cs-pdf-footer-box {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 9.5px;
+  color: #1e3a8a;
+}
+
+.cs-pdf-footer-box strong {
+  display: block;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 3px;
+  color: #1d4ed8;
+}
+
+.cs-pdf-footer-box p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cs-pdf-terms-preview-box {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 9px;
+  color: #475569;
+}
+
+.cs-pdf-terms-preview-box strong {
+  display: block;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 3px;
+  color: #334155;
+}
+
+.cs-pdf-terms-preview-box p {
+  margin: 0;
+  white-space: pre-line;
+  line-height: 1.4;
+}
+
+.cs-preview-footnote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .cs-section-field input,
 .cs-section-field textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
-  border-radius: 0;
-  padding: 7px 10px;
+  border-radius: 8px;
+  padding: 8px 12px;
   font-size: 12px;
   font-family: inherit;
   box-sizing: border-box;
@@ -1366,16 +1639,6 @@
 .cs-section-field textarea:focus {
   outline: none;
   border-color: #2563eb;
-}
-
-.cs-empty-sections-note {
-  text-align: center;
-  padding: 16px;
-  color: #94a3b8;
-  font-size: 11.5px;
-  font-style: italic;
-  background: #ffffff;
-  border: 1px dashed #cbd5e1;
 }
 
 /* Service Options Table (Form Settings) */
@@ -1527,9 +1790,514 @@
   }
 }
 
-/* Dark Theme - Template Preview Badge */
+/* Dark Theme - Template Preview & Settings */
+[data-theme="dark"] .cs-subtabs-bar {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-subtab-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-subtab-btn:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-subtab-btn.active {
+  background: #1e3a8a;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.4);
+}
+
+[data-theme="dark"] .cs-template-card {
+  background: #111c30;
+  border-color: #1e2e48;
+}
+
+[data-theme="dark"] .cs-template-card .cs-section-header {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-template-card input[type="text"],
+[data-theme="dark"] .cs-template-card textarea {
+  background: #0b1220;
+  border-color: #1e2e48;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-empty-sections-note {
+  background: #0b1220;
+  border-color: #1e2e48;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-empty-sections-note p {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .cs-section-card-item {
+  background: #0b1322;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-section-card-item:hover {
+  background: #0e172a;
+  border-color: #2b3e5b;
+}
+
+[data-theme="dark"] .cs-section-card-head {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-section-title-text {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-section-delete-btn {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="dark"] .cs-section-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.2);
+}
+
+[data-theme="dark"] .cs-action-bar.cs-template-action-bar {
+  background: #111c30;
+  border-color: #1e2e48;
+}
+
+[data-theme="dark"] .cs-preview-card-box {
+  background: #111c30;
+  border-color: #1e2e48;
+}
+
+[data-theme="dark"] .cs-preview-header {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-preview-title-left strong {
+  color: #f8fafc;
+}
+
 [data-theme="dark"] .cs-preview-badge {
   background: rgba(37, 99, 235, 0.18) !important;
   border: 1px solid rgba(59, 130, 246, 0.35) !important;
   color: #93c5fd !important;
+}
+
+[data-theme="dark"] .cs-pdf-preview-sheet {
+  background: #0b1220;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-pdf-company-name,
+[data-theme="dark"] .cs-pdf-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-pdf-custom-line {
+  background: #131f37;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-pdf-mock-table {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-mock-tr {
+  color: #cbd5e1;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-pdf-preview-section {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-pdf-section-body {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-pdf-footer-box {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #bfdbfe;
+}
+
+[data-theme="dark"] .cs-pdf-footer-box strong {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .cs-pdf-terms-preview-box {
+  background: #0f172a;
+  border-color: #1e293b;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-pdf-terms-preview-box strong {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-preview-footnote {
+  border-color: #1e293b;
+  color: #94a3b8;
+}
+
+/* ========================================================
+   MODERN CURVED INVOICE SETTINGS & LIVE PREVIEW
+======================================================== */
+
+.cs-badge-active {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.2px;
+}
+
+.cs-template-card select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.cs-template-card select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* Invoice Preview Elements */
+.cs-inv-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.cs-inv-meta-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.cs-inv-meta-col label {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.cs-inv-meta-col strong {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cs-inv-badge-unpaid {
+  display: inline-block;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-align: center;
+  width: fit-content;
+}
+
+.cs-inv-billto-box {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+}
+
+.cs-inv-billto-title {
+  font-size: 8.5px;
+  font-weight: 800;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.cs-inv-billto-name {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cs-inv-billto-sub {
+  font-size: 9.5px;
+  color: #64748b;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+.cs-inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.cs-inv-table th {
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.cs-inv-table th:last-child,
+.cs-inv-table td:last-child,
+.cs-inv-table th.text-right,
+.cs-inv-table td.text-right {
+  text-align: right;
+}
+
+.cs-inv-table td {
+  padding: 7px 8px;
+  font-size: 10px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cs-inv-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cs-inv-totals-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.cs-inv-total-row {
+  display: flex;
+  justify-content: space-between;
+  width: 220px;
+  font-size: 10px;
+  color: #475569;
+}
+
+.cs-inv-total-row.grand {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1.5px solid #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.cs-inv-notes-preview-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.cs-inv-notes-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #166534;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.cs-inv-notes-preview-text {
+  font-size: 9.5px;
+  color: #15803d;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+.cs-inv-terms-preview-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+}
+
+.cs-inv-terms-preview-head {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.cs-inv-terms-preview-text {
+  font-size: 9px;
+  color: #64748b;
+  line-height: 1.35;
+  white-space: pre-line;
+}
+
+.cs-inv-footer-line {
+  text-align: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #2563eb;
+  padding: 6px;
+  background: #eff6ff;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+/* Dark Mode Additions */
+[data-theme="dark"] .cs-badge-active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .cs-template-card select {
+  background: #0b1220;
+  border-color: #1e2e48;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-inv-meta-grid {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-meta-col strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-inv-billto-box {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-billto-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-inv-table {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-table td {
+  color: #cbd5e1;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-totals-box {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-total-row {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-inv-total-row.grand {
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .cs-inv-notes-preview-box {
+  background: rgba(22, 101, 52, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+[data-theme="dark"] .cs-inv-notes-preview-head {
+  color: #86efac;
+}
+
+[data-theme="dark"] .cs-inv-notes-preview-text {
+  color: #bbf7d0;
+}
+
+[data-theme="dark"] .cs-inv-terms-preview-box {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-inv-terms-preview-head {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-inv-terms-preview-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-inv-footer-line {
+  background: rgba(37, 99, 235, 0.15);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .cs-refresh-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-refresh-btn:hover:not(:disabled) {
+  background: #1e293b;
+  border-color: #64748b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-primary-save-btn,
+[data-theme="dark"] .cs-btn-save,
+[data-theme="dark"] .cs-btn-upload,
+[data-theme="dark"] .cs-add-section-btn {
+  background: #1e3a8a;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.4);
+}
+
+[data-theme="dark"] .cs-primary-save-btn:hover:not(:disabled),
+[data-theme="dark"] .cs-btn-save:hover:not(:disabled),
+[data-theme="dark"] .cs-btn-upload:hover:not(:disabled),
+[data-theme="dark"] .cs-add-section-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
 }

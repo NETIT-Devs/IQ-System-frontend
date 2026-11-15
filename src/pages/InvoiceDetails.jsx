@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   Download,
@@ -9,6 +9,7 @@ import { useCompanyBranding } from "../hooks/useCompanyBranding";
 import { getInvoiceById } from "../services/invoiceService";
 import { getCompanyDetails } from "../services/quotationService";
 import { downloadInvoicePdf } from "../utils/pdfGenerator";
+import { getAuthenticatedUser } from "../utils/authStorage";
 import InvoiceTemplate from "../components/InvoiceTemplate";
 import "./InvoiceDetails.css";
 
@@ -44,13 +45,27 @@ export default function InvoiceDetails({
   const { logoUrl, companyName, signatureUrl, email, phone, address } =
     useCompanyBranding();
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [detailedInvoice, setDetailedInvoice] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && invoice?.invoice_id && (!Array.isArray(invoice.items) || invoice.items.length === 0)) {
+      getInvoiceById(invoice.invoice_id)
+        .then((fresh) => {
+          if (fresh) setDetailedInvoice(fresh);
+        })
+        .catch(() => {});
+    } else {
+      setDetailedInvoice(null);
+    }
+  }, [isOpen, invoice]);
 
   if (!isOpen || !invoice) return null;
 
-  const invNum = invoice.invoice_number || `INV-${invoice.invoice_id}`;
-  const status = invoice.status || "Draft";
-  const currency = invoice.currency || "LKR";
-  const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+  const currentInvoice = detailedInvoice || invoice;
+  const invNum = currentInvoice.invoice_number || `INV-${currentInvoice.invoice_id}`;
+  const status = currentInvoice.status || "Draft";
+  const currency = currentInvoice.currency || "LKR";
+  const payments = Array.isArray(currentInvoice.payments) ? currentInvoice.payments : [];
 
   const companyInfo = {
     company_name: companyName,
@@ -61,16 +76,29 @@ export default function InvoiceDetails({
     company_address: address,
   };
 
+  const authUser = getAuthenticatedUser();
+  const isSuperAdmin =
+    String(authUser?.role || "").trim().toLowerCase() === "super admin" ||
+    authUser?.role === "super_admin";
+  const invStatus = String(currentInvoice?.status || "").trim().toLowerCase();
+  const invApproval = String(currentInvoice?.approval_status || "").trim().toLowerCase();
+  const isApproved =
+    invApproval === "approved" ||
+    (!["draft", "pending approval", "pending", "rejected", "cancelled"].includes(invStatus) &&
+     !["draft", "pending", "rejected"].includes(invApproval));
+  const canDownloadPdf = isSuperAdmin || isApproved;
+
   async function handleDownloadPdf() {
+    if (!canDownloadPdf) return;
     try {
       setDownloadingPdf(true);
       const [freshInv, freshCompany] = await Promise.all([
-        invoice.invoice_id
-          ? getInvoiceById(invoice.invoice_id).catch(() => null)
+        currentInvoice.invoice_id
+          ? getInvoiceById(currentInvoice.invoice_id).catch(() => null)
           : Promise.resolve(null),
         getCompanyDetails().catch(() => null),
       ]);
-      const targetInvoice = freshInv || invoice;
+      const targetInvoice = freshInv || currentInvoice;
       const activeCompany = freshCompany || companyInfo;
       const fileNum =
         targetInvoice.invoice_number || `INV-${targetInvoice.invoice_id}`;
@@ -103,19 +131,28 @@ export default function InvoiceDetails({
               type="button"
               className="inv-tb-btn"
               onClick={handleDownloadPdf}
-              disabled={downloadingPdf}
-              title="Download Invoice PDF"
+              disabled={downloadingPdf || !canDownloadPdf}
+              title={
+                !canDownloadPdf
+                  ? "Available after Super Admin approval"
+                  : "Download Invoice PDF"
+              }
+              style={
+                !canDownloadPdf
+                  ? { opacity: 0.5, cursor: "not-allowed" }
+                  : undefined
+              }
             >
               <Download size={15} />
               <span>{downloadingPdf ? "Downloading..." : "Download PDF"}</span>
             </button>
 
-            {status !== "Paid" && status !== "Cancelled" && (
+            {Boolean(onRecordPayment) && status !== "Paid" && status !== "Cancelled" && (
               <button
                 type="button"
                 className="inv-tb-btn primary"
                 onClick={() => {
-                  onRecordPayment?.(invoice);
+                  onRecordPayment?.(currentInvoice);
                 }}
                 title="Record payment"
               >
@@ -124,17 +161,19 @@ export default function InvoiceDetails({
               </button>
             )}
 
-            <button
-              type="button"
-              className="inv-tb-btn"
-              onClick={() => {
-                onEdit?.(invoice);
-              }}
-              title="Edit Invoice"
-            >
-              <Pencil size={15} />
-              <span>Edit</span>
-            </button>
+            {Boolean(onEdit) && (
+              <button
+                type="button"
+                className="inv-tb-btn"
+                onClick={() => {
+                  onEdit?.(currentInvoice);
+                }}
+                title="Edit Invoice"
+              >
+                <Pencil size={15} />
+                <span>Edit</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -150,7 +189,7 @@ export default function InvoiceDetails({
         {/* Printable Invoice Sheet */}
         <div className="inv-sheet-body">
           <InvoiceTemplate
-            invoice={invoice}
+            invoice={currentInvoice}
             company={companyInfo}
             signature={signatureUrl}
           />

@@ -140,10 +140,15 @@
     transition: all 0.15s ease;
 }
 
-.inv-tb-btn:hover {
+.inv-tb-btn:hover:not(:disabled) {
     background: #f1f5f9;
     border-color: #94a3b8;
     color: #0f172a;
+}
+
+.inv-tb-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .inv-tb-btn.primary {

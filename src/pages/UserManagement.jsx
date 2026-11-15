@@ -114,16 +114,13 @@ export default function UserManagement() {
     setLoading(true);
     setError("");
     try {
-      const records = await fetchUsers();
-      let deletedIds = [];
       try {
-        deletedIds = JSON.parse(localStorage.getItem("iq_deleted_user_ids") || "[]");
+        localStorage.removeItem("iq_deleted_user_ids");
       } catch {
-        deletedIds = [];
+        // Ignore storage errors
       }
-      const list = Array.isArray(records)
-        ? records.filter((u) => !deletedIds.includes(u.user_id))
-        : [];
+      const records = await fetchUsers();
+      const list = Array.isArray(records) ? records : [];
       setUsers(list);
     } catch (err) {
       console.error("Failed to load users:", err);
@@ -152,10 +149,11 @@ export default function UserManagement() {
         roleFilter === "all" ||
         String(u.role || "").toLowerCase() === roleFilter.toLowerCase();
 
+      const isActive = Number(u.is_active) === 1 || u.is_active === true;
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "active" && u.is_active) ||
-        (statusFilter === "inactive" && !u.is_active);
+        (statusFilter === "active" && isActive) ||
+        (statusFilter === "inactive" && !isActive);
 
       return matchesSearch && matchesRole && matchesStatus;
     });
@@ -166,11 +164,15 @@ export default function UserManagement() {
     const total = users.length;
     const admins = users.filter((u) => u.role === "Admin").length;
     const activeAdmins = users.filter(
-      (u) => u.role === "Admin" && u.is_active
+      (u) => u.role === "Admin" && (Number(u.is_active) === 1 || u.is_active === true)
     ).length;
     const superAdmins = users.filter((u) => u.role === "Super Admin").length;
-    const active = users.filter((u) => u.is_active).length;
-    const inactive = users.filter((u) => !u.is_active).length;
+    const active = users.filter(
+      (u) => Number(u.is_active) === 1 || u.is_active === true
+    ).length;
+    const inactive = users.filter(
+      (u) => Number(u.is_active) !== 1 && u.is_active !== true
+    ).length;
 
     return { total, admins, activeAdmins, superAdmins, active, inactive };
   }, [users]);
@@ -195,7 +197,7 @@ export default function UserManagement() {
 
     try {
       setSubmitting(true);
-      await createAdminUser({
+      const res = await createAdminUser({
         username: formData.username,
         email: formData.email,
         password: formData.password,
@@ -206,6 +208,22 @@ export default function UserManagement() {
         `Admin account for "${formData.username}" (${formData.email}) created successfully! They can now log in with their credentials.`
       );
       setShowAddModal(false);
+
+      if (res?.user) {
+        const createdUser = {
+          user_id: res.user.user_id,
+          full_name: res.user.full_name || formData.username.trim(),
+          email: res.user.email || formData.email.trim().toLowerCase(),
+          role: res.user.role || formData.role || "Admin",
+          is_active: 1,
+          created_at: new Date().toISOString(),
+        };
+        setUsers((prev) => [
+          createdUser,
+          ...prev.filter((u) => u.user_id !== createdUser.user_id),
+        ]);
+      }
+
       setFormData({ username: "", email: "", password: "", role: "Admin" });
       setShowPassword(false);
       await loadData();
@@ -301,15 +319,7 @@ export default function UserManagement() {
       setDeleting(true);
       await deleteUserAccount(userToDelete.user_id);
       try {
-        const deletedIds = JSON.parse(
-          localStorage.getItem("iq_deleted_user_ids") || "[]"
-        );
-        if (!deletedIds.includes(userToDelete.user_id)) {
-          localStorage.setItem(
-            "iq_deleted_user_ids",
-            JSON.stringify([...deletedIds, userToDelete.user_id])
-          );
-        }
+        localStorage.removeItem("iq_deleted_user_ids");
       } catch {
         // Ignore storage errors
       }
@@ -644,11 +654,11 @@ export default function UserManagement() {
 
                       <td>
                         <span
-                          className={`um-badge ${user.is_active ? "status-active" : "status-inactive"
+                          className={`um-badge ${Number(user.is_active) === 1 || user.is_active === true ? "status-active" : "status-inactive"
                             }`}
                         >
                           <span className="um-status-dot" />
-                          {user.is_active ? "Active" : "Inactive"}
+                          {Number(user.is_active) === 1 || user.is_active === true ? "Active" : "Inactive"}
                         </span>
                       </td>
 
@@ -666,19 +676,19 @@ export default function UserManagement() {
                           {/* Toggle Active/Inactive */}
                           <button
                             type="button"
-                            className={`um-action-btn toggle ${user.is_active ? "active-state" : ""
+                            className={`um-action-btn toggle ${Number(user.is_active) === 1 || user.is_active === true ? "active-state" : ""
                               }`}
                             disabled={isCurrent || togglingId === user.user_id}
                             onClick={() => handleToggleStatus(user)}
                             title={
                               isCurrent
                                 ? "Cannot toggle own status"
-                                : user.is_active
+                                : (Number(user.is_active) === 1 || user.is_active === true)
                                   ? "Deactivate account"
                                   : "Activate account"
                             }
                           >
-                            {user.is_active ? (
+                            {(Number(user.is_active) === 1 || user.is_active === true) ? (
                               <UserX size={15} />
                             ) : (
                               <UserCheck size={15} />

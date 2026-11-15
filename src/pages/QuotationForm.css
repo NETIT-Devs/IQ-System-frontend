@@ -1239,14 +1239,12 @@
    Full-Screen / Dedicated Page Mode (Create & Edit Quotation Page)
    ========================================================================== */
 .qf-page-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 950;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  box-sizing: border-box;
   background: #f1f5f9;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  overflow-x: hidden;
 }
 
 .qf-page-layout {
@@ -1542,7 +1540,6 @@
 /* Dark Mode for Full-Screen Page Mode */
 [data-theme="dark"] .qf-page-screen {
   background: #090e1a;
-  scrollbar-color: #334155 transparent;
 }
 
 [data-theme="dark"] .qf-page-sheet {

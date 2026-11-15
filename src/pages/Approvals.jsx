@@ -46,6 +46,7 @@ import {
 import { getAuthenticatedUser } from "../utils/authStorage";
 import { openQuotationPdf } from "../utils/pdfGenerator";
 import QuotationDetails from "./QuotationDetails";
+import InvoiceDetails from "./InvoiceDetails";
 import "./Approvals.css";
 
 function formatCurrency(amount, currency = "LKR") {
@@ -2028,82 +2029,11 @@ export default function Approvals() {
 
       {/* Invoice Details Modal */}
       {viewingInvoice && (
-        <div
-          className="approval-confirm-overlay"
-          onClick={() => setViewingInvoice(null)}
-        >
-          <div
-            className="approval-confirm-card"
-            style={{ maxWidth: "560px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="approval-confirm-header">
-              <div className="approval-confirm-header-title">
-                <Receipt size={18} color="#3b82f6" />
-                <h3>
-                  Invoice Details:{" "}
-                  {viewingInvoice.invoice_number ||
-                    `INV-${viewingInvoice.invoice_id || viewingInvoice.id}`}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="approval-modal-close-btn"
-                onClick={() => setViewingInvoice(null)}
-                aria-label="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="approval-confirm-body">
-              <div className="approval-confirm-details">
-                <div className="approval-confirm-row">
-                  <span>Invoice Number:</span>
-                  <strong>
-                    {viewingInvoice.invoice_number ||
-                      `INV-${viewingInvoice.invoice_id || viewingInvoice.id}`}
-                  </strong>
-                </div>
-                <div className="approval-confirm-row">
-                  <span>Client Name:</span>
-                  <strong>
-                    {viewingInvoice.customer_name ||
-                      viewingInvoice.client_name ||
-                      "—"}
-                  </strong>
-                </div>
-                <div className="approval-confirm-row">
-                  <span>Issue Date:</span>
-                  <strong>
-                    {formatDate(
-                      viewingInvoice.invoice_date || viewingInvoice.created_at
-                    )}
-                  </strong>
-                </div>
-                <div className="approval-confirm-row">
-                  <span>Total Amount:</span>
-                  <strong>
-                    {formatCurrency(
-                      viewingInvoice.total_amount ?? viewingInvoice.grand_total ?? 0,
-                      viewingInvoice.currency
-                    )}
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="approval-confirm-footer">
-              <button
-                type="button"
-                className="approval-btn-action approval-btn-view"
-                onClick={() => setViewingInvoice(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <InvoiceDetails
+          isOpen={Boolean(viewingInvoice)}
+          onClose={() => setViewingInvoice(null)}
+          invoice={viewingInvoice}
+        />
       )}
 
       {/* Approve Invoice Confirmation Modal */}

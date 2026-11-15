@@ -38,11 +38,11 @@ export function getNextQuotationNumber(quotations = [], dateStr) {
   return getNextSequenceNumber("QUO", numbers, dateStr);
 }
 
-export function getNextInvoiceNumber(invoices = [], dateStr) {
+export function getNextInvoiceNumber(invoices = [], dateStr, prefix = "INV") {
   const numbers = Array.isArray(invoices)
     ? invoices.map((inv) => inv?.invoice_number).filter(Boolean)
     : [];
-  return getNextSequenceNumber("INV", numbers, dateStr);
+  return getNextSequenceNumber(prefix, numbers, dateStr);
 }
 
 export function toInvoiceNumberFromQuotation(quotationNumber) {

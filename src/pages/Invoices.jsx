@@ -387,6 +387,10 @@ export default function Invoices() {
 
   async function handleDownloadRowPdf(inv) {
     if (!inv?.invoice_id) return;
+    if (!isSuperAdmin && getInvoiceApprovalStatus(inv) !== "Approved") {
+      alert("Invoices can only be downloaded after Super Admin approval.");
+      return;
+    }
     try {
       const [freshInv, company] = await Promise.all([
         getInvoiceById(inv.invoice_id).catch(() => null),
@@ -567,6 +571,20 @@ export default function Invoices() {
 
   const isCreateScreen = isFormOpen && !editingInvoice;
 
+  if (isCreateScreen) {
+    return (
+      <InvoiceForm
+        asPage
+        isOpen
+        onClose={() => setIsFormOpen(false)}
+        onSuccess={() => {
+          setIsFormOpen(false);
+          loadData();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="invoices-page">
       {/* Top bar header matching Quotations styling */}
@@ -585,9 +603,7 @@ export default function Invoices() {
 
           <div className="quotation-breadcrumb-wrap">
             <span className="quotation-breadcrumb">
-              {isCreateScreen
-                ? "Dashboard / Invoices / Create Invoice"
-                : "Dashboard / Invoices"}
+              Dashboard / Invoices
             </span>
           </div>
         </div>
@@ -618,20 +634,8 @@ export default function Invoices() {
 
       {/* Main Content */}
       <main className="inv-content">
-        {isCreateScreen ? (
-          <InvoiceForm
-            asPage
-            isOpen
-            onClose={() => setIsFormOpen(false)}
-            onSuccess={() => {
-              setIsFormOpen(false);
-              loadData();
-            }}
-          />
-        ) : (
-          <>
-            {/* Welcome / Title Row matching Quotations styling */}
-            <div className="quotation-welcome-bar">
+        {/* Welcome / Title Row matching Quotations styling */}
+        <div className="quotation-welcome-bar">
           <div className="quotation-welcome-text">
             <h1>Invoices</h1>
             <p className="quotation-subtitle">
@@ -653,267 +657,266 @@ export default function Invoices() {
         {/* Separated Search & Filter Bar */}
         <section className="inv-toolbar-panel" aria-label="Search and filter invoices">
           <div className="inv-filters-bar">
-          <div className="inv-search-wrap">
-            <Search size={16} className="inv-search-icon" />
-            <input
-              type="text"
-              placeholder="Search by Invoice #, Customer, Quotation Ref..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="inv-search-input"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                className="inv-search-clear"
-                onClick={() => setSearchTerm("")}
-                title="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          <div className="inv-filters-right">
-            {/* Status Dropdown */}
-            <div className="inv-dropdown-wrap" ref={statusDropdownRef}>
-              <button
-                type="button"
-                className={`inv-filter-btn ${statusDropdownOpen ? "active" : ""}`}
-                onClick={() => {
-                  setStatusDropdownOpen((prev) => !prev);
-                  setDateDropdownOpen(false);
-                }}
-                aria-expanded={statusDropdownOpen}
-                aria-haspopup="listbox"
-                title="Filter by status"
-              >
-                <SlidersHorizontal size={16} className="inv-filter-icon" />
-                <span className="inv-filter-label">
-                  {statusFilter === "All" ? "All Status" : statusFilter}
-                </span>
-                <ChevronDown
-                  size={14}
-                  className={`inv-filter-chevron ${statusDropdownOpen ? "open" : ""}`}
-                />
-              </button>
-              {statusDropdownOpen && (
-                <div className="inv-dropdown-menu status-menu" role="listbox">
-                  <div className="inv-dropdown-header">
-                    <span>Filter by Status</span>
-                  </div>
-                  <div className="inv-dropdown-list">
-                    {statusFilterOptions.map((opt) => {
-                      const isSelected = statusFilter === opt.value;
-                      const count = statusCounts[opt.value] ?? 0;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`inv-dropdown-item ${isSelected ? "active" : ""}`}
-                          role="option"
-                          aria-selected={isSelected}
-                          onClick={() => {
-                            setStatusFilter(opt.value);
-                            setStatusDropdownOpen(false);
-                          }}
-                        >
-                          <div className="inv-dropdown-item-left">
-                            <span
-                              className="inv-status-dot"
-                              style={{ backgroundColor: opt.color }}
-                            />
-                            <span className="inv-item-title">{opt.label}</span>
-                          </div>
-                          <div className="inv-dropdown-item-right">
-                            <span className="inv-item-badge">{count}</span>
-                            {isSelected && <Check size={15} className="inv-item-check" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Date Range Dropdown */}
-            <div className="inv-dropdown-wrap" ref={dateDropdownRef}>
-              <button
-                type="button"
-                className={`inv-filter-btn ${dateDropdownOpen ? "active" : ""}`}
-                onClick={() => {
-                  setDateDropdownOpen((prev) => !prev);
-                  setStatusDropdownOpen(false);
-                }}
-                aria-expanded={dateDropdownOpen}
-                aria-haspopup="listbox"
-                title="Filter by date range"
-              >
-                <CalendarDays size={16} className="inv-filter-icon" />
-                <span className="inv-filter-label">
-                  {dateRangeOptions.find((d) => d.value === dateFilter)?.label}
-                </span>
-                <ChevronDown
-                  size={14}
-                  className={`inv-filter-chevron ${dateDropdownOpen ? "open" : ""}`}
-                />
-              </button>
-              {dateDropdownOpen && (
-                <div className="inv-dropdown-menu date-menu" role="listbox">
-                  <div className="inv-dropdown-header">
-                    <span>Filter by Date</span>
-                  </div>
-                  <div className="inv-dropdown-list">
-                    {dateRangeOptions.map((opt) => {
-                      const isSelected = dateFilter === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          className={`inv-dropdown-item ${isSelected ? "active" : ""}`}
-                          role="option"
-                          aria-selected={isSelected}
-                          onClick={() => {
-                            setDateFilter(opt.value);
-                            setCustomRange({ startDate: "", endDate: "" });
-                            setDateDropdownOpen(false);
-                          }}
-                        >
-                          <div className="inv-dropdown-item-info">
-                            <span className="inv-item-title">{opt.label}</span>
-                            {opt.desc && (
-                              <span className="inv-item-desc">{opt.desc}</span>
-                            )}
-                          </div>
-                          {isSelected && <Check size={15} className="inv-item-check" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Custom Date Range Dropdown */}
-            <div className="inv-dropdown-wrap" ref={customDropdownRef}>
-              <button
-                type="button"
-                className={`inv-filter-btn ${
-                  customDropdownOpen || hasActiveCustomRange ? "active" : ""
-                }`}
-                onClick={() => {
-                  if (!customDropdownOpen) {
-                    setDraftCustomStart(customRange.startDate);
-                    setDraftCustomEnd(customRange.endDate);
-                    setCustomRangeError("");
-                  }
-                  setCustomDropdownOpen((prev) => !prev);
-                  setDateDropdownOpen(false);
-                  setStatusDropdownOpen(false);
-                }}
-                aria-expanded={customDropdownOpen}
-                aria-haspopup="dialog"
-                title="Filter by custom date range"
-              >
-                <CalendarDays size={16} className="inv-filter-icon" />
-                <span className="inv-filter-label">{customRangeLabel}</span>
-                <ChevronDown
-                  size={14}
-                  className={`inv-filter-chevron ${customDropdownOpen ? "open" : ""}`}
-                />
-              </button>
-
-              {customDropdownOpen && (
-                <form
-                  className="inv-dropdown-menu custom-range-menu"
-                  onSubmit={handleApplyCustomRange}
-                  aria-label="Custom date range filter"
+            <div className="inv-search-wrap">
+              <Search size={16} className="inv-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by Invoice #, Customer, Quotation Ref..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="inv-search-input"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="inv-search-clear"
+                  onClick={() => setSearchTerm("")}
+                  title="Clear search"
                 >
-                  <div className="inv-dropdown-header">
-                    <span>Custom Date Range</span>
-                  </div>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
-                  <div className="inv-custom-fields">
-                    <label className="inv-custom-field">
-                      <span>From</span>
-                      <input
-                        type="date"
-                        value={draftCustomStart}
-                        onChange={(e) => {
-                          setDraftCustomStart(e.target.value);
-                          setCustomRangeError("");
-                        }}
-                      />
-                    </label>
-
-                    <label className="inv-custom-field">
-                      <span>To</span>
-                      <input
-                        type="date"
-                        value={draftCustomEnd}
-                        min={draftCustomStart || undefined}
-                        onChange={(e) => {
-                          setDraftCustomEnd(e.target.value);
-                          setCustomRangeError("");
-                        }}
-                      />
-                    </label>
-                  </div>
-
-                  {customRangeError && (
-                    <p className="inv-custom-error" role="alert">
-                      {customRangeError}
-                    </p>
-                  )}
-
-                  <div className="inv-custom-actions">
-                    {hasActiveCustomRange && (
-                      <button
-                        type="button"
-                        className="inv-custom-reset"
-                        onClick={handleResetCustomRange}
-                      >
-                        Reset
-                      </button>
-                    )}
-                    <div className="inv-custom-btn-group">
-                      <button
-                        type="button"
-                        className="inv-custom-cancel"
-                        onClick={() => setCustomDropdownOpen(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button type="submit" className="inv-custom-apply">
-                        Apply
-                      </button>
+            <div className="inv-filters-right">
+              {/* Status Dropdown */}
+              <div className="inv-dropdown-wrap" ref={statusDropdownRef}>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${statusDropdownOpen ? "active" : ""}`}
+                  onClick={() => {
+                    setStatusDropdownOpen((prev) => !prev);
+                    setDateDropdownOpen(false);
+                  }}
+                  aria-expanded={statusDropdownOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by status"
+                >
+                  <SlidersHorizontal size={16} className="inv-filter-icon" />
+                  <span className="inv-filter-label">
+                    {statusFilter === "All" ? "All Status" : statusFilter}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`inv-filter-chevron ${statusDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+                {statusDropdownOpen && (
+                  <div className="inv-dropdown-menu status-menu" role="listbox">
+                    <div className="inv-dropdown-header">
+                      <span>Filter by Status</span>
+                    </div>
+                    <div className="inv-dropdown-list">
+                      {statusFilterOptions.map((opt) => {
+                        const isSelected = statusFilter === opt.value;
+                        const count = statusCounts[opt.value] ?? 0;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`inv-dropdown-item ${isSelected ? "active" : ""}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setStatusFilter(opt.value);
+                              setStatusDropdownOpen(false);
+                            }}
+                          >
+                            <div className="inv-dropdown-item-left">
+                              <span
+                                className="inv-status-dot"
+                                style={{ backgroundColor: opt.color }}
+                              />
+                              <span className="inv-item-title">{opt.label}</span>
+                            </div>
+                            <div className="inv-dropdown-item-right">
+                              <span className="inv-item-badge">{count}</span>
+                              {isSelected && <Check size={15} className="inv-item-check" />}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                </form>
+                )}
+              </div>
+
+              {/* Date Range Dropdown */}
+              <div className="inv-dropdown-wrap" ref={dateDropdownRef}>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${dateDropdownOpen ? "active" : ""}`}
+                  onClick={() => {
+                    setDateDropdownOpen((prev) => !prev);
+                    setStatusDropdownOpen(false);
+                  }}
+                  aria-expanded={dateDropdownOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by date range"
+                >
+                  <CalendarDays size={16} className="inv-filter-icon" />
+                  <span className="inv-filter-label">
+                    {dateRangeOptions.find((d) => d.value === dateFilter)?.label}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`inv-filter-chevron ${dateDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+                {dateDropdownOpen && (
+                  <div className="inv-dropdown-menu date-menu" role="listbox">
+                    <div className="inv-dropdown-header">
+                      <span>Filter by Date</span>
+                    </div>
+                    <div className="inv-dropdown-list">
+                      {dateRangeOptions.map((opt) => {
+                        const isSelected = dateFilter === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            className={`inv-dropdown-item ${isSelected ? "active" : ""}`}
+                            role="option"
+                            aria-selected={isSelected}
+                            onClick={() => {
+                              setDateFilter(opt.value);
+                              setCustomRange({ startDate: "", endDate: "" });
+                              setDateDropdownOpen(false);
+                            }}
+                          >
+                            <div className="inv-dropdown-item-info">
+                              <span className="inv-item-title">{opt.label}</span>
+                              {opt.desc && (
+                                <span className="inv-item-desc">{opt.desc}</span>
+                              )}
+                            </div>
+                            {isSelected && <Check size={15} className="inv-item-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Custom Date Range Dropdown */}
+              <div className="inv-dropdown-wrap" ref={customDropdownRef}>
+                <button
+                  type="button"
+                  className={`inv-filter-btn ${customDropdownOpen || hasActiveCustomRange ? "active" : ""
+                    }`}
+                  onClick={() => {
+                    if (!customDropdownOpen) {
+                      setDraftCustomStart(customRange.startDate);
+                      setDraftCustomEnd(customRange.endDate);
+                      setCustomRangeError("");
+                    }
+                    setCustomDropdownOpen((prev) => !prev);
+                    setDateDropdownOpen(false);
+                    setStatusDropdownOpen(false);
+                  }}
+                  aria-expanded={customDropdownOpen}
+                  aria-haspopup="dialog"
+                  title="Filter by custom date range"
+                >
+                  <CalendarDays size={16} className="inv-filter-icon" />
+                  <span className="inv-filter-label">{customRangeLabel}</span>
+                  <ChevronDown
+                    size={14}
+                    className={`inv-filter-chevron ${customDropdownOpen ? "open" : ""}`}
+                  />
+                </button>
+
+                {customDropdownOpen && (
+                  <form
+                    className="inv-dropdown-menu custom-range-menu"
+                    onSubmit={handleApplyCustomRange}
+                    aria-label="Custom date range filter"
+                  >
+                    <div className="inv-dropdown-header">
+                      <span>Custom Date Range</span>
+                    </div>
+
+                    <div className="inv-custom-fields">
+                      <label className="inv-custom-field">
+                        <span>From</span>
+                        <input
+                          type="date"
+                          value={draftCustomStart}
+                          onChange={(e) => {
+                            setDraftCustomStart(e.target.value);
+                            setCustomRangeError("");
+                          }}
+                        />
+                      </label>
+
+                      <label className="inv-custom-field">
+                        <span>To</span>
+                        <input
+                          type="date"
+                          value={draftCustomEnd}
+                          min={draftCustomStart || undefined}
+                          onChange={(e) => {
+                            setDraftCustomEnd(e.target.value);
+                            setCustomRangeError("");
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {customRangeError && (
+                      <p className="inv-custom-error" role="alert">
+                        {customRangeError}
+                      </p>
+                    )}
+
+                    <div className="inv-custom-actions">
+                      {hasActiveCustomRange && (
+                        <button
+                          type="button"
+                          className="inv-custom-reset"
+                          onClick={handleResetCustomRange}
+                        >
+                          Reset
+                        </button>
+                      )}
+                      <div className="inv-custom-btn-group">
+                        <button
+                          type="button"
+                          className="inv-custom-cancel"
+                          onClick={() => setCustomDropdownOpen(false)}
+                        >
+                          Cancel
+                        </button>
+                        <button type="submit" className="inv-custom-apply">
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  className="inv-clear-all-btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("All");
+                    setDateFilter("all");
+                    setCustomRange({ startDate: "", endDate: "" });
+                    setDraftCustomStart("");
+                    setDraftCustomEnd("");
+                    setCustomRangeError("");
+                  }}
+                  title="Reset all filters"
+                >
+                  <RefreshCw size={13} />
+                  <span>Reset</span>
+                </button>
               )}
             </div>
-
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="inv-clear-all-btn"
-                onClick={() => {
-                  setSearchTerm("");
-                  setStatusFilter("All");
-                  setDateFilter("all");
-                  setCustomRange({ startDate: "", endDate: "" });
-                  setDraftCustomStart("");
-                  setDraftCustomEnd("");
-                  setCustomRangeError("");
-                }}
-                title="Reset all filters"
-              >
-                <RefreshCw size={13} />
-                <span>Reset</span>
-              </button>
-            )}
-          </div>
           </div>
         </section>
 
@@ -1031,9 +1034,8 @@ export default function Invoices() {
                           </td>
                           <td>
                             <span
-                              className={`inv-cell-due ${
-                                isOverdue ? "overdue" : ""
-                              }`}
+                              className={`inv-cell-due ${isOverdue ? "overdue" : ""
+                                }`}
                             >
                               {formatDate(inv.due_date)}
                               {isOverdue && (
@@ -1043,9 +1045,8 @@ export default function Invoices() {
                           </td>
                           <td>
                             <span
-                              className={`inv-creator-pill ${
-                                isSuperCreator ? "super" : "admin"
-                              }`}
+                              className={`inv-creator-pill ${isSuperCreator ? "super" : "admin"
+                                }`}
                               title={
                                 inv.created_by_name
                                   ? `${creatorRole} (${inv.created_by_name})`
@@ -1068,9 +1069,8 @@ export default function Invoices() {
                                 Paid: {formatCurrency(paid, inv.currency)}
                               </span>
                               <span
-                                className={`inv-financial-balance ${
-                                  bal > 0 ? "due" : "settled"
-                                }`}
+                                className={`inv-financial-balance ${bal > 0 ? "due" : "settled"
+                                  }`}
                               >
                                 Balance: {formatCurrency(bal, inv.currency)}
                               </span>
@@ -1125,11 +1125,11 @@ export default function Invoices() {
                                 }
                                 title={
                                   appStatus !== "Approved" ||
-                                  payStatus === "Cancelled"
+                                    payStatus === "Cancelled"
                                     ? "Payment available for approved active invoices"
                                     : payStatus === "Paid"
-                                    ? "View payment settlement & history"
-                                    : "Record payment & settlement"
+                                      ? "View payment settlement & history"
+                                      : "Record payment & settlement"
                                 }
                               >
                                 <CreditCard size={15} />
@@ -1150,7 +1150,12 @@ export default function Invoices() {
                                 type="button"
                                 className="inv-action-btn"
                                 onClick={() => handleDownloadRowPdf(inv)}
-                                title="Download Invoice PDF"
+                                title={
+                                  !isSuperAdmin && appStatus !== "Approved"
+                                    ? "Available after Super Admin approval"
+                                    : "Download Invoice PDF"
+                                }
+                                disabled={!isSuperAdmin && appStatus !== "Approved"}
                               >
                                 <Download size={15} />
                               </button>
@@ -1241,9 +1246,8 @@ export default function Invoices() {
                         <div className="inv-mcard-row">
                           <span className="inv-mcard-lbl">Created By:</span>
                           <span
-                            className={`inv-creator-pill ${
-                              isSuperCreator ? "super" : "admin"
-                            }`}
+                            className={`inv-creator-pill ${isSuperCreator ? "super" : "admin"
+                              }`}
                           >
                             {creatorRole}
                           </span>
@@ -1252,9 +1256,8 @@ export default function Invoices() {
                         <div className="inv-mcard-row">
                           <span className="inv-mcard-lbl">Due Date:</span>
                           <span
-                            className={`inv-mcard-val ${
-                              isOverdue ? "overdue" : ""
-                            }`}
+                            className={`inv-mcard-val ${isOverdue ? "overdue" : ""
+                              }`}
                           >
                             {formatDate(inv.due_date)}
                             {isOverdue && (
@@ -1369,8 +1372,6 @@ export default function Invoices() {
             </div>
           )}
         </section>
-          </>
-        )}
       </main>
 
       {/* Invoice Edit Modal */}

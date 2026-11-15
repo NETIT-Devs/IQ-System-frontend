@@ -33,6 +33,7 @@ import {
   checkDuplicateCustomer,
 } from "../services/quotationService";
 import QuotationDetails from "./QuotationDetails";
+import InvoiceDetails from "./InvoiceDetails";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./Customers.css";
 
@@ -755,11 +756,13 @@ export default function Customers() {
           const qName = String(q.customer_name || q.clientName || "")
             .trim()
             .toLowerCase();
-          if (cName && qName && qName === cName) return true;
           const qEmail = String(q.customer_email || q.email || "")
             .trim()
             .toLowerCase();
-          if (cEmail && qEmail && qEmail === cEmail) return true;
+          if (cName && qName && qName === cName) {
+            if (cEmail && qEmail) return qEmail === cEmail;
+            return !cEmail && !qEmail;
+          }
           return false;
         });
 
@@ -789,11 +792,13 @@ export default function Customers() {
           const invName = String(inv.customer_name || inv.clientName || "")
             .trim()
             .toLowerCase();
-          if (cName && invName && invName === cName) return true;
           const invEmail = String(inv.customer_email || inv.email || "")
             .trim()
             .toLowerCase();
-          if (cEmail && invEmail && invEmail === cEmail) return true;
+          if (cName && invName && invName === cName) {
+            if (cEmail && invEmail) return invEmail === cEmail;
+            return !cEmail && !invEmail;
+          }
           return false;
         });
 
@@ -2121,135 +2126,11 @@ export default function Customers() {
 
       {/* Full Invoice Details Preview Modal (opened from Customer View Modal) */}
       {viewingInvoice && (
-        <div
-          className="cust-modal-overlay"
-          style={{ zIndex: 1100 }}
-          onClick={() => setViewingInvoice(null)}
-        >
-          <div
-            className="cust-modal"
-            style={{ maxWidth: "660px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="cust-modal-header cust-invoice-view-header">
-              <div>
-                <span className="cust-inv-badge">INVOICE RECORD</span>
-                <h3>
-                  {viewingInvoice.invoice_number ||
-                    `#${viewingInvoice.invoice_key}`}
-                </h3>
-              </div>
-              <button
-                type="button"
-                className="cust-modal-close"
-                onClick={() => setViewingInvoice(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="cust-modal-body">
-              <div className="cust-profile-summary-grid">
-                <div>
-                  <span>Customer</span>
-                  <strong>{viewingInvoice.customer_name || "—"}</strong>
-                </div>
-                <div>
-                  <span>Company</span>
-                  <strong>{viewingInvoice.company_name || "—"}</strong>
-                </div>
-                <div>
-                  <span>Invoice Date</span>
-                  <strong>
-                    {formatDisplayDate(
-                      viewingInvoice.invoice_date ||
-                      viewingInvoice.issue_date ||
-                      viewingInvoice.created_at
-                    )}
-                  </strong>
-                </div>
-                <div>
-                  <span>Payment Status</span>
-                  <strong
-                    style={{
-                      color:
-                        classifyInvoiceStatus(viewingInvoice) === "paid"
-                          ? "#15803d"
-                          : classifyInvoiceStatus(viewingInvoice) === "partial"
-                            ? "#b45309"
-                            : "#b91c1c",
-                    }}
-                  >
-                    {viewingInvoice.status || "Unpaid"}
-                  </strong>
-                </div>
-              </div>
-
-              {Array.isArray(viewingInvoice.items) &&
-                viewingInvoice.items.length > 0 ? (
-                <div className="cust-subtable-wrap" style={{ marginTop: "14px" }}>
-                  <table className="cust-table cust-subtable">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>SERVICE / DESCRIPTION</th>
-                        <th>QTY</th>
-                        <th>AMOUNT</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {viewingInvoice.items.map((it, idx) => (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td>
-                            <strong>
-                              {it.item_name ||
-                                it.service_name ||
-                                it.description ||
-                                "Service Item"}
-                            </strong>
-                          </td>
-                          <td>{it.quantity || 1}</td>
-                          <td>
-                            <strong>
-                              {formatCurrency(
-                                it.total_price ||
-                                it.line_total ||
-                                it.unit_price ||
-                                0
-                              )}
-                            </strong>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-
-              <div className="cust-invoice-total-bar">
-                <span>Total Invoice Amount</span>
-                <strong>
-                  {formatCurrency(
-                    viewingInvoice.total_amount ||
-                    viewingInvoice.total ||
-                    viewingInvoice.amount
-                  )}
-                </strong>
-              </div>
-            </div>
-
-            <div className="cust-modal-footer">
-              <button
-                type="button"
-                className="cust-btn-primary"
-                onClick={() => setViewingInvoice(null)}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
+        <InvoiceDetails
+          isOpen={Boolean(viewingInvoice)}
+          onClose={() => setViewingInvoice(null)}
+          invoice={viewingInvoice}
+        />
       )}
 
       {/* Edit Customer Modal */}

@@ -19,6 +19,7 @@ import {
   Download,
   Save,
   Send,
+  Search,
 } from "lucide-react";
 import {
   getAllRegisteredCustomers,
@@ -148,6 +149,21 @@ export default function InvoiceForm({
   const data = initialData || invoiceToEdit;
   const isEditing = Boolean(data?.invoice_id || data?.id);
 
+  const canDownloadPdf = useMemo(() => {
+    if (isSuperAdmin) return true;
+    if (!isEditing) return false;
+    const s = String(data?.status || "").trim().toLowerCase();
+    const a = String(data?.approval_status || "").trim().toLowerCase();
+    if (a === "approved") return true;
+    if (["draft", "pending approval", "pending", "rejected", "cancelled"].includes(s)) {
+      return false;
+    }
+    if (["draft", "pending", "rejected"].includes(a)) {
+      return false;
+    }
+    return Boolean(data?.invoice_id || data?.id);
+  }, [isSuperAdmin, isEditing, data]);
+
   // Registered customers, quotations & invoices for dropdown / sequence calculation
   const [customersList, setCustomersList] = useState([]);
   const [quotationsList, setQuotationsList] = useState([]);
@@ -158,18 +174,77 @@ export default function InvoiceForm({
   const defaultInvoiceDate =
     initialData?.invoice_date || new Date().toISOString().slice(0, 10);
 
+  // Read saved invoice billing settings from company preferences
+  const savedInvSettings = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("iq_invoice_settings");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const defaultPrefix = savedInvSettings?.invoice_prefix || "INV";
+
   // Form states
   const [invoiceNumber, setInvoiceNumber] = useState(
     data?.invoice_number ||
-      (data?.quotation_number
-        ? toInvoiceNumberFromQuotation(data.quotation_number)
-        : "") ||
-      getNextInvoiceNumber([], defaultInvoiceDate)
+    (data?.quotation_number
+      ? toInvoiceNumberFromQuotation(data.quotation_number)
+      : "") ||
+    getNextInvoiceNumber([], defaultInvoiceDate, defaultPrefix)
   );
   const [selectedCustomerMode, setSelectedCustomerMode] = useState("existing"); // "existing" | "new"
   const [selectedCustomerId, setSelectedCustomerId] = useState(
     data?.customer_id ? String(data.customer_id) : ""
   );
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const customerSearchRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (customerSearchRef.current && !customerSearchRef.current.contains(event.target)) {
+        setCustomerSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedCustomerId && customersList.length > 0) {
+      const found = customersList.find((c) => String(c.customer_id) === String(selectedCustomerId));
+      if (found && !customerSearchQuery) {
+        setCustomerSearchQuery(found.customer_name || "");
+      }
+    }
+  }, [selectedCustomerId, customersList]);
+
+  const filteredRegisteredCustomers = useMemo(() => {
+    if (!customerSearchQuery.trim()) return customersList;
+    const q = customerSearchQuery.toLowerCase().trim();
+    const isExactSelected =
+      selectedCustomerId &&
+      customersList.some(
+        (c) =>
+          String(c.customer_id) === String(selectedCustomerId) &&
+          (c.customer_name || "").toLowerCase() === q
+      );
+
+    if (isExactSelected) {
+      return customersList;
+    }
+
+    return customersList.filter((c) => {
+      const name = (c.customer_name || "").toLowerCase();
+      const email = (c.email || "").toLowerCase();
+      const company = (c.company_name || "").toLowerCase();
+      return name.includes(q) || email.includes(q) || company.includes(q);
+    });
+  }, [customersList, customerSearchQuery, selectedCustomerId]);
 
   // Customer fields
   const [customerName, setCustomerName] = useState(
@@ -189,11 +264,23 @@ export default function InvoiceForm({
   const [invoiceDate, setInvoiceDate] = useState(
     initialData?.invoice_date || new Date().toISOString().slice(0, 10)
   );
-  const [dueDate, setDueDate] = useState(
-    data?.due_date ? toDisplayMmDdYyyy(data.due_date) : ""
-  );
+  const [dueDate, setDueDate] = useState(() => {
+    if (data?.due_date) return toDisplayMmDdYyyy(data.due_date);
+    const days = parseInt(savedInvSettings?.default_due_days, 10);
+    if (!Number.isNaN(days) && days > 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    }
+    return "";
+  });
   const dueDatePickerRef = useRef(null);
-  const [currency, setCurrency] = useState(data?.currency || "LKR");
+  const [currency, setCurrency] = useState(
+    data?.currency || savedInvSettings?.default_currency || "LKR"
+  );
 
   // Items
   const [items, setItems] = useState(() => {
@@ -226,17 +313,20 @@ export default function InvoiceForm({
   // Notes & terms
   const [notes, setNotes] = useState(
     data?.notes ||
-      "Please deposit payments into our registered commercial account and email payment slips to accounts@company.lk."
+    savedInvSettings?.default_notes ||
+    "Please deposit payments into our registered commercial account and email payment slips to accounts@company.lk."
   );
   const [terms, setTerms] = useState(
     data?.terms_and_conditions ||
-      "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest."
+    savedInvSettings?.default_terms ||
+    "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest."
   );
 
   const [saving, setSaving] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [companyDetails, setCompanyDetails] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Load registered customers, quotations, existing invoices, and company branding
   useEffect(() => {
@@ -245,18 +335,48 @@ export default function InvoiceForm({
         setLoadingLookLookups(true);
         const [cList, qList, invList, compDetails] = await Promise.all([
           getAllRegisteredCustomers().catch(() => []),
-          getQuotations().catch(() => []),
+          getQuotations({ for_invoice: true }).catch(() => []),
           getInvoices().catch(() => []),
           getCompanyDetails().catch(() => null),
         ]);
         const normalizedInvoices = Array.isArray(invList) ? invList : [];
-        setCustomersList(Array.isArray(cList) ? cList : []);
-        setQuotationsList(Array.isArray(qList) ? qList : []);
         setInvoicesList(normalizedInvoices);
+        setQuotationsList(Array.isArray(qList) ? qList : []);
         if (compDetails) setCompanyDetails(compDetails);
+
+        // Build combined customers list so all customers with quotations or invoices in the system appear
+        const customerMap = new Map();
+        (Array.isArray(cList) ? cList : []).forEach((c) => {
+          if (c && c.customer_id) customerMap.set(String(c.customer_id), c);
+        });
+        (Array.isArray(qList) ? qList : []).forEach((q) => {
+          if (q && q.customer_id && !customerMap.has(String(q.customer_id))) {
+            customerMap.set(String(q.customer_id), {
+              customer_id: q.customer_id,
+              customer_name: q.customer_name || q.clientName || "",
+              company_name: q.company_name || "",
+              email: q.email || q.customer_email || "",
+              phone: q.phone || q.customer_phone || "",
+              address: q.address || q.customer_address || "",
+            });
+          }
+        });
+        (Array.isArray(normalizedInvoices) ? normalizedInvoices : []).forEach((inv) => {
+          if (inv && inv.customer_id && !customerMap.has(String(inv.customer_id))) {
+            customerMap.set(String(inv.customer_id), {
+              customer_id: inv.customer_id,
+              customer_name: inv.customer_name || inv.client_name || "",
+              company_name: inv.company_name || inv.customer_company || "",
+              email: inv.email || inv.customer_email || "",
+              phone: inv.phone || inv.customer_phone || "",
+              address: inv.address || inv.customer_address || "",
+            });
+          }
+        });
+        setCustomersList(Array.from(customerMap.values()));
         if (!isEditing && !selectedQuotationId && !isManualInvoiceNumber.current) {
           setInvoiceNumber(
-            getNextInvoiceNumber(normalizedInvoices, invoiceDate)
+            getNextInvoiceNumber(normalizedInvoices, invoiceDate, defaultPrefix)
           );
         }
       } finally {
@@ -267,11 +387,11 @@ export default function InvoiceForm({
   }, []);
 
   // When selecting an existing customer, auto-fill contact fields
-  function handleCustomerSelect(e) {
-    const custId = e.target.value;
+  function selectCustomerById(custId) {
     setSelectedCustomerId(custId);
 
     if (!custId) return;
+    setFieldErrors((prev) => ({ ...prev, customerName: false }));
     const found = customersList.find((c) => String(c.customer_id) === String(custId));
     if (found) {
       setCustomerName(found.customer_name || "");
@@ -282,6 +402,18 @@ export default function InvoiceForm({
     }
   }
 
+  function handleCustomerSelect(e) {
+    const custId = e.target.value;
+    selectCustomerById(custId);
+    const found = customersList.find((c) => String(c.customer_id) === String(custId));
+    if (found) {
+      setCustomerSearchQuery(found.customer_name || "");
+    } else {
+      setCustomerSearchQuery("");
+    }
+    setCustomerSearchOpen(false);
+  }
+
   // When selecting a quotation, auto-populate customer, items, and details
   function handleQuotationSelect(e) {
     const qVal = e.target.value;
@@ -290,7 +422,7 @@ export default function InvoiceForm({
     if (!qVal) {
       if (!isEditing) {
         isManualInvoiceNumber.current = false;
-        setInvoiceNumber(getNextInvoiceNumber(invoicesList, invoiceDate));
+        setInvoiceNumber(getNextInvoiceNumber(invoicesList, invoiceDate, defaultPrefix));
       }
       return;
     }
@@ -310,6 +442,7 @@ export default function InvoiceForm({
       }
       if (foundQ.customer_name || foundQ.clientName) {
         setCustomerName(foundQ.customer_name || foundQ.clientName || "");
+        setCustomerSearchQuery(foundQ.customer_name || foundQ.clientName || "");
       }
       if (foundQ.company_name) setCompanyName(foundQ.company_name);
       if (foundQ.email) setEmail(foundQ.email);
@@ -349,6 +482,15 @@ export default function InvoiceForm({
 
   function handleRemoveItem(index) {
     setItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+    setFieldErrors((prev) => {
+      const next = {};
+      Object.keys(prev).forEach((key) => {
+        if (!key.startsWith("item_name_") && !key.startsWith("price_")) {
+          next[key] = prev[key];
+        }
+      });
+      return next;
+    });
   }
 
   function handleItemChange(index, field, value) {
@@ -459,28 +601,91 @@ export default function InvoiceForm({
     totalAmount > 0 && remainingBalance <= 0
       ? "Full Paid"
       : totalPaidPreview > 0
-      ? "Partial"
-      : "Unpaid";
+        ? "Partial"
+        : "Unpaid";
+
+  function validateRequiredFields(isDownload = false) {
+    const errors = {};
+    let firstErrorMsg = "";
+
+    const hasQuotation = Boolean(selectedQuotationId);
+    const trimmedNumber = invoiceNumber.trim();
+    const trimmedCust = customerName.trim();
+    const isoDueDate = parseDueDateToIso(dueDate);
+
+    if (!trimmedCust && !hasQuotation) {
+      errors.customerName = true;
+      if (!firstErrorMsg) firstErrorMsg = "Customer name is required.";
+    }
+
+    if (!hasQuotation) {
+      let hasValidItem = false;
+      items.forEach((it, idx) => {
+        const hasName = Boolean(it.item_name && it.item_name.trim());
+        const hasPrice = it.price !== "" && Number(it.price) > 0;
+        if (!hasName) errors[`item_name_${idx}`] = true;
+        if (!hasPrice) errors[`price_${idx}`] = true;
+        if (hasName && hasPrice) hasValidItem = true;
+      });
+      if (!hasValidItem && !firstErrorMsg) {
+        firstErrorMsg = "Please enter at least one invoice item with a name and price.";
+      }
+    }
+
+    if (!trimmedNumber) {
+      errors.invoiceNumber = true;
+      if (!firstErrorMsg) firstErrorMsg = "Invoice number is required.";
+    }
+
+    if (!invoiceDate) {
+      errors.invoiceDate = true;
+      if (!firstErrorMsg) firstErrorMsg = "Invoice date is required.";
+    }
+
+    if (!dueDate.trim() || !isoDueDate) {
+      errors.dueDate = true;
+      if (!firstErrorMsg) {
+        firstErrorMsg = !dueDate.trim()
+          ? "Due date is required."
+          : "Please enter a valid Due Date in mm/dd/yyyy format.";
+      }
+    }
+
+    if (!isDownload) {
+      if (
+        paymentAmount !== "" &&
+        (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) < 0)
+      ) {
+        if (!firstErrorMsg) firstErrorMsg = "Please enter a valid payment amount.";
+      } else if (paymentExceedsBalance) {
+        if (!firstErrorMsg) {
+          firstErrorMsg = `Payment amount cannot exceed remaining balance (${currency} ${maxPayableAmount.toLocaleString(
+            "en-LK",
+            { minimumFractionDigits: 2 }
+          )}).`;
+        }
+      }
+    }
+
+    setFieldErrors(errors);
+
+    if (firstErrorMsg) {
+      setErrorMessage(firstErrorMsg);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const modalBody = document.querySelector(".inv-modal-body");
+      if (modalBody) {
+        modalBody.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return false;
+    }
+
+    setErrorMessage("");
+    return true;
+  }
 
   // Submit Invoice (Draft or Unpaid/Issued)
   async function handleSubmit(saveStatus) {
-    setErrorMessage("");
-
-    if (
-      paymentAmount !== "" &&
-      (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) < 0)
-    ) {
-      setErrorMessage("Please enter a valid payment amount.");
-      return;
-    }
-
-    if (paymentExceedsBalance) {
-      setErrorMessage(
-        `Payment amount cannot exceed remaining balance (${currency} ${maxPayableAmount.toLocaleString(
-          "en-LK",
-          { minimumFractionDigits: 2 }
-        )}).`
-      );
+    if (!validateRequiredFields(false)) {
       return;
     }
 
@@ -488,6 +693,11 @@ export default function InvoiceForm({
       setErrorMessage(
         "Immediate payment cannot be saved with a Draft invoice. Clear the payment amount to save as Draft."
       );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const modalBody = document.querySelector(".inv-modal-body");
+      if (modalBody) {
+        modalBody.scrollTo({ top: 0, behavior: "smooth" });
+      }
       return;
     }
 
@@ -496,31 +706,6 @@ export default function InvoiceForm({
     const trimmedCust = customerName.trim();
     const isoDueDate = parseDueDateToIso(dueDate);
     const validItems = items.filter((it) => it.item_name.trim());
-
-    if (!trimmedNumber) {
-      setErrorMessage("Invoice number is required.");
-      return;
-    }
-
-    if (!invoiceDate) {
-      setErrorMessage("Invoice date is required.");
-      return;
-    }
-
-    if (!isoDueDate) {
-      setErrorMessage("Please enter a valid Due Date in mm/dd/yyyy format.");
-      return;
-    }
-
-    if (!trimmedCust && !hasQuotation) {
-      setErrorMessage("Customer name is required.");
-      return;
-    }
-
-    if (validItems.length === 0 && !hasQuotation) {
-      setErrorMessage("Please enter at least one invoice item with a name and price.");
-      return;
-    }
 
     try {
       setSaving(true);
@@ -534,15 +719,35 @@ export default function InvoiceForm({
         resolvedStatus === "Pending Approval"
           ? "Pending"
           : resolvedStatus === "Draft"
-          ? "Not Required"
-          : resolvedStatus === "Rejected"
-          ? "Rejected"
-          : "Approved";
+            ? "Not Required"
+            : resolvedStatus === "Rejected"
+              ? "Rejected"
+              : "Approved";
+
+      let effectiveCustId = selectedCustomerId ? Number(selectedCustomerId) : null;
+      if (!effectiveCustId) {
+        const valTrim = trimmedCust.toLowerCase();
+        const emailTrim = email.trim().toLowerCase();
+        const found = customersList.find((c) => {
+          const cName = (c.customer_name || "").trim().toLowerCase();
+          const cEmail = (c.email || "").trim().toLowerCase();
+          if (valTrim && emailTrim) {
+            return cName === valTrim && cEmail === emailTrim;
+          }
+          if (valTrim && !emailTrim) {
+            return cName === valTrim && !cEmail;
+          }
+          return false;
+        });
+        if (found && found.customer_id) {
+          effectiveCustId = Number(found.customer_id);
+        }
+      }
 
       const payload = {
         invoice_number: trimmedNumber,
         quotation_id: selectedQuotationId ? Number(selectedQuotationId) : null,
-        customer_id: selectedCustomerId ? Number(selectedCustomerId) : null,
+        customer_id: effectiveCustId,
         customer_name: trimmedCust,
         company_name: companyName.trim() || null,
         email: email.trim() || null,
@@ -654,21 +859,14 @@ export default function InvoiceForm({
   }
 
   async function handleDownloadPdf() {
-    setErrorMessage("");
+    if (!canDownloadPdf) return;
+    if (!validateRequiredFields(true)) {
+      return;
+    }
 
     const trimmedNumber = invoiceNumber.trim() || "Invoice";
     const trimmedCust = customerName.trim();
     const validItems = items.filter((it) => it.item_name.trim());
-
-    if (!trimmedCust && !selectedQuotationId) {
-      setErrorMessage("Please enter a customer name before downloading PDF.");
-      return;
-    }
-
-    if (validItems.length === 0 && !selectedQuotationId) {
-      setErrorMessage("Please enter at least one invoice item before downloading PDF.");
-      return;
-    }
 
     try {
       setDownloadingPdf(true);
@@ -680,10 +878,10 @@ export default function InvoiceForm({
 
       const matchedQuotation = selectedQuotationId
         ? quotationsList.find(
-            (q) =>
-              String(q.quotation_id) === String(selectedQuotationId) ||
-              String(q.quotation_number) === String(selectedQuotationId)
-          )
+          (q) =>
+            String(q.quotation_id) === String(selectedQuotationId) ||
+            String(q.quotation_number) === String(selectedQuotationId)
+        )
         : null;
 
       const parsedIsoDue = parseDueDateToIso(dueDate);
@@ -754,161 +952,383 @@ export default function InvoiceForm({
             <p>Step-by-step business billing &amp; payment tracking</p>
           </div>
         </div>
-        {!asPage && (
-          <button
-            type="button"
-            className="inv-modal-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
-        )}
+        <button
+          type="button"
+          className="inv-modal-close"
+          onClick={onClose}
+          aria-label="Close"
+          title="Close Form"
+        >
+          <X size={20} />
+        </button>
       </div>
 
-        {/* Modal Form Body */}
-        <div className="inv-modal-body">
-          {errorMessage && (
-            <div className="inv-alert-error" role="alert">
-              <AlertCircle size={16} />
-              <span>{errorMessage}</span>
-            </div>
-          )}
+      {/* Modal Form Body */}
+      <div className="inv-modal-body">
+        {errorMessage && (
+          <div className="inv-alert-error" role="alert">
+            <AlertCircle size={16} />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
-          {/* Section 1: Customer Selection */}
-          <div className="inv-form-section">
-            <div className="inv-section-title">
-              <User size={15} />
-              <span>1. Select Customer</span>
-            </div>
+        {/* Section 1: Customer Selection */}
+        <div className="inv-form-section">
+          <div className="inv-section-title">
+            <User size={15} />
+            <span>1. Select Customer</span>
+          </div>
 
-            <div className="inv-radio-group">
-              <label className="inv-radio-label">
-                <input
-                  type="radio"
-                  name="custMode"
-                  value="existing"
-                  checked={selectedCustomerMode === "existing"}
-                  onChange={() => setSelectedCustomerMode("existing")}
-                />
-                <span>Select Registered Customer</span>
-              </label>
-
-              <label className="inv-radio-label">
-                <input
-                  type="radio"
-                  name="custMode"
-                  value="new"
-                  checked={selectedCustomerMode === "new"}
-                  onChange={() => {
-                    setSelectedCustomerMode("new");
-                    setSelectedCustomerId("");
+          <div
+            className="inv-form-field"
+            ref={customerSearchRef}
+            style={{ position: "relative", marginBottom: "14px" }}
+          >
+            <label>Select Customer</label>
+            <div className="inv-customer-search-wrap">
+              <Search size={15} className="inv-customer-search-icon" />
+              <input
+                type="text"
+                className={`inv-input inv-customer-search-input ${fieldErrors.customerName ? "inv-input-error" : ""
+                  }`}
+                placeholder="Search customer by name or email..."
+                value={customerSearchQuery}
+                onFocus={() => setCustomerSearchOpen(true)}
+                onClick={() => setCustomerSearchOpen(true)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomerSearchQuery(val);
+                  setCustomerSearchOpen(true);
+                  if (fieldErrors.customerName) {
+                    setFieldErrors((prev) => ({ ...prev, customerName: false }));
+                  }
+                  const match = customersList.find(
+                    (c) =>
+                      c.customer_name?.toLowerCase() === val.trim().toLowerCase() ||
+                      (c.email && c.email.toLowerCase() === val.trim().toLowerCase())
+                  );
+                  if (match) {
+                    selectCustomerById(match.customer_id);
+                  } else if (!val.trim()) {
+                    selectCustomerById("");
+                  }
+                }}
+                autoComplete="off"
+              />
+              <div className="inv-customer-search-actions">
+                {customerSearchQuery && (
+                  <button
+                    type="button"
+                    className="inv-customer-search-clear"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCustomerSearchQuery("");
+                      selectCustomerById("");
+                      setCustomerSearchOpen(true);
+                    }}
+                    title="Clear customer selection"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="inv-search-toggle-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCustomerSearchOpen((prev) => !prev);
                   }}
-                />
-                <span>Enter New Client Details</span>
-              </label>
-            </div>
-
-            {selectedCustomerMode === "existing" && (
-              <div className="inv-form-field" style={{ marginBottom: "14px" }}>
-                <label>Registered Customer *</label>
-                <select
-                  value={selectedCustomerId}
-                  onChange={handleCustomerSelect}
-                  className="inv-select"
+                  title="Toggle customer list"
                 >
-                  <option value="">-- Choose a registered customer --</option>
-                  {customersList.map((c) => (
-                    <option key={c.customer_id} value={c.customer_id}>
-                      {c.customer_name} {c.company_name ? `(${c.company_name})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="inv-grid-2">
-              <div className="inv-form-field">
-                <label>Customer / Contact Name *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Acme Corporation or John Doe"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  required
-                />
+                  <ChevronDown size={15} className={customerSearchOpen ? "open" : ""} />
+                </button>
               </div>
 
-              <div className="inv-form-field">
-                <label>Company Name (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Acme Lanka Pvt Ltd"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                />
-              </div>
-
-              <div className="inv-form-field">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  placeholder="billing@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="inv-form-field">
-                <label>Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="+94 77 123 4567"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-
-              <div className="inv-form-field inv-col-span-2">
-                <label>Billing Address</label>
-                <input
-                  type="text"
-                  placeholder="e.g. No. 45, Galle Road, Colombo 03"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                />
-              </div>
+              {customerSearchOpen && (
+                <div className="inv-customer-dropdown-menu">
+                  {filteredRegisteredCustomers.length > 0 ? (
+                    filteredRegisteredCustomers.map((c) => {
+                      const isSelected = String(selectedCustomerId) === String(c.customer_id);
+                      return (
+                        <div
+                          key={c.customer_id}
+                          className={`inv-customer-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            selectCustomerById(c.customer_id);
+                            setCustomerSearchQuery(c.customer_name || "");
+                            setCustomerSearchOpen(false);
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <div className="inv-customer-dropdown-name">
+                              {c.customer_name} {c.company_name ? `(${c.company_name})` : ""}
+                            </div>
+                            {isSelected && (
+                              <span style={{ color: "#3b82f6", fontSize: "12px", fontWeight: 700 }}>
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                          {c.email && (
+                            <div className="inv-customer-dropdown-meta">
+                              <span>{c.email}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="inv-customer-dropdown-empty">
+                      No customers match your search
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Section 2: Quotation Reference (Optional) */}
-          <div className="inv-form-section">
-            <div className="inv-section-title">
-              <FileText size={15} />
-              <span>2. Select Quotation (Optional)</span>
+          <div className="inv-grid-2">
+            <div className="inv-form-field">
+              <label>Customer / Contact Name *</label>
+              <input
+                type="text"
+                className={fieldErrors.customerName ? "inv-input-error" : ""}
+                placeholder="e.g. Acme Corporation or John Doe"
+                value={customerName}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  setCustomerName(newName);
+                  if (fieldErrors.customerName) {
+                    setFieldErrors((prev) => ({ ...prev, customerName: false }));
+                  }
+                  const valTrim = newName.trim().toLowerCase();
+                  const emailTrim = (email || "").trim().toLowerCase();
+                  const match = customersList.find((c) => {
+                    const cName = (c.customer_name || "").trim().toLowerCase();
+                    const cEmail = (c.email || "").trim().toLowerCase();
+                    if (valTrim && emailTrim) {
+                      return cName === valTrim && cEmail === emailTrim;
+                    }
+                    if (valTrim && !emailTrim) {
+                      return cName === valTrim && !cEmail;
+                    }
+                    return false;
+                  });
+                  if (match) {
+                    setSelectedCustomerId(String(match.customer_id));
+                    if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                  } else if (selectedCustomerId) {
+                    const cur = customersList.find((c) => String(c.customer_id) === String(selectedCustomerId));
+                    if (cur && cur.customer_name?.trim().toLowerCase() !== newName.trim().toLowerCase()) {
+                      setSelectedCustomerId("");
+                    }
+                  }
+                }}
+                required
+              />
             </div>
 
             <div className="inv-form-field">
-              <label>Link Approved Quotation</label>
-              <select
-                value={selectedQuotationId}
-                onChange={handleQuotationSelect}
-                className="inv-select"
-              >
-                <option value="">
-                  -- None (Direct Invoice without Linked Quotation) --
-                </option>
-                {quotationsList
-                  .filter((q) => {
-                    const role = String(q.created_by_role || "").toLowerCase();
-                    const status = String(q.status || "").toLowerCase();
-                    const approval = String(q.approval_status || "").toLowerCase();
-                    if (role.includes("super") || q.created_by === 2) {
-                      return status !== "draft" && status !== "rejected" && status !== "cancelled" && approval !== "rejected";
+              <label>Company Name (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Acme Lanka Pvt Ltd"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+              />
+            </div>
+
+            <div className="inv-form-field">
+              <label>Email Address</label>
+              <input
+                type="email"
+                placeholder="billing@example.com"
+                value={email}
+                onChange={(e) => {
+                  const newEmail = e.target.value;
+                  setEmail(newEmail);
+                  const valTrim = (customerName || "").trim().toLowerCase();
+                  const emailTrim = newEmail.trim().toLowerCase();
+                  const match = customersList.find((c) => {
+                    const cName = (c.customer_name || "").trim().toLowerCase();
+                    const cEmail = (c.email || "").trim().toLowerCase();
+                    if (valTrim && emailTrim) {
+                      return cName === valTrim && cEmail === emailTrim;
                     }
-                    return approval === "approved" || status === "approved" || status === "accepted";
-                  })
-                  .map((q) => (
+                    if (!valTrim && emailTrim) {
+                      return cEmail === emailTrim;
+                    }
+                    return false;
+                  });
+                  if (match) {
+                    setSelectedCustomerId(String(match.customer_id));
+                    if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                  } else if (selectedCustomerId) {
+                    const cur = customersList.find((c) => String(c.customer_id) === String(selectedCustomerId));
+                    if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
+                      setSelectedCustomerId("");
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            <div className="inv-form-field">
+              <label>Phone Number</label>
+              <input
+                type="text"
+                placeholder="+94 77 123 4567"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="inv-form-field inv-col-span-2">
+              <label>Billing Address</label>
+              <input
+                type="text"
+                placeholder="e.g. No. 45, Galle Road, Colombo 03"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 2: Quotation Reference (Optional) */}
+        <div className="inv-form-section">
+          <div className="inv-section-title">
+            <FileText size={15} />
+            <span>2. Select Quotation (Optional)</span>
+          </div>
+
+          <div className="inv-form-field">
+            <label>Link Approved Quotation</label>
+            <select
+              value={selectedQuotationId}
+              onChange={handleQuotationSelect}
+              className="inv-select"
+            >
+              <option value="">
+                -- None (Direct Invoice without Linked Quotation) --
+              </option>
+              {quotationsList
+                .filter((q) => {
+                  const role = String(q.created_by_role || "").toLowerCase();
+                  const status = String(q.status || "").toLowerCase();
+                  const approval = String(q.approval_status || "").toLowerCase();
+
+                  // Must not be draft, rejected, cancelled, expired, or pending approval
+                  if (
+                    status === "draft" ||
+                    status === "rejected" ||
+                    status === "cancelled" ||
+                    status === "expired" ||
+                    approval === "rejected" ||
+                    approval === "pending"
+                  ) {
+                    return false;
+                  }
+
+                  // Approved check: must be approved / accepted or created by Super Admin
+                  const isApproved =
+                    approval === "approved" ||
+                    status === "approved" ||
+                    status === "accepted" ||
+                    role.includes("super");
+
+                  if (!isApproved) {
+                    return false;
+                  }
+
+                  // If a customer is selected (by ID, Name, or Email), show all approved quotations for this customer
+                  const hasSelectedCustomer = Boolean(
+                    selectedCustomerId ||
+                    customerName?.trim() ||
+                    email?.trim()
+                  );
+
+                  if (hasSelectedCustomer) {
+                    const selectedCust = selectedCustomerId
+                      ? customersList.find(
+                        (c) =>
+                          String(c.customer_id) ===
+                          String(selectedCustomerId)
+                      )
+                      : customersList.find((c) => {
+                        const valTrim = (customerName || "").trim().toLowerCase();
+                        const emailTrim = (email || "").trim().toLowerCase();
+                        const cName = (c.customer_name || "").trim().toLowerCase();
+                        const cEmail = (c.email || "").trim().toLowerCase();
+                        if (valTrim && emailTrim) {
+                          return cName === valTrim && cEmail === emailTrim;
+                        }
+                        if (valTrim && !emailTrim) {
+                          return cName === valTrim && !cEmail;
+                        }
+                        return false;
+                      });
+
+                    const targetId = selectedCust
+                      ? String(selectedCust.customer_id)
+                      : String(selectedCustomerId || "");
+                    const targetName = (
+                      selectedCust?.customer_name ||
+                      customerName ||
+                      ""
+                    )
+                      .trim()
+                      .toLowerCase();
+                    const targetEmail = (
+                      selectedCust?.email ||
+                      email ||
+                      ""
+                    )
+                      .trim()
+                      .toLowerCase();
+
+                    const qCustId =
+                      q.customer_id != null ? String(q.customer_id) : "";
+                    const qCustName = (
+                      q.customer_name ||
+                      q.clientName ||
+                      ""
+                    )
+                      .trim()
+                      .toLowerCase();
+                    const qCustEmail = (
+                      q.email ||
+                      q.customer_email ||
+                      customersList.find(
+                        (c) => String(c.customer_id) === String(q.customer_id)
+                      )?.email ||
+                      ""
+                    )
+                      .trim()
+                      .toLowerCase();
+
+                    const matchesId = Boolean(
+                      targetId && qCustId && qCustId === targetId
+                    );
+                    const matchesName = Boolean(
+                      targetName && qCustName && qCustName === targetName
+                    );
+                    const matchesEmail = Boolean(
+                      targetEmail && qCustEmail && qCustEmail === targetEmail
+                    );
+
+                    return matchesId || matchesName || matchesEmail;
+                  }
+
+                  return true;
+                })
+                .map((q) => (
                   <option
                     key={q.quotation_id || q.id}
                     value={q.quotation_id}
@@ -916,457 +1336,477 @@ export default function InvoiceForm({
                     {q.quotation_number || `#${q.quotation_id}`} — {q.customer_name || q.clientName} (Total: {currency} {Number(q.total_amount || 0).toLocaleString()})
                   </option>
                 ))}
-              </select>
-              <span className="inv-field-tip">
-                Tip: Selecting a quotation automatically imports customer details, service items, and agreed pricing.
-              </span>
+            </select>
+            <span className="inv-field-tip">
+              Tip: Selecting a quotation automatically imports customer details, service items, and agreed pricing.
+            </span>
+          </div>
+        </div>
+
+        {/* Section 3: Add Items */}
+        <div className="inv-form-section">
+          <div className="inv-section-title-between">
+            <div className="inv-section-title" style={{ margin: 0 }}>
+              <Receipt size={15} />
+              <span>3. Invoice Items &amp; Services</span>
             </div>
+            <button
+              type="button"
+              className="inv-btn-secondary-sm"
+              onClick={handleAddItem}
+            >
+              <Plus size={14} />
+              <span>Add Item</span>
+            </button>
           </div>
 
-          {/* Section 3: Add Items */}
-          <div className="inv-form-section">
-            <div className="inv-section-title-between">
-              <div className="inv-section-title" style={{ margin: 0 }}>
-                <Receipt size={15} />
-                <span>3. Invoice Items &amp; Services</span>
-              </div>
-              <button
-                type="button"
-                className="inv-btn-secondary-sm"
-                onClick={handleAddItem}
-              >
-                <Plus size={14} />
-                <span>Add Item</span>
-              </button>
-            </div>
-
-            <div className="inv-items-table-wrap">
-              <table className="inv-items-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: "35%" }}>Item / Service *</th>
-                    <th style={{ width: "32%" }}>Description / Scope</th>
-                    <th style={{ width: "18%" }}>Price ({currency}) *</th>
-                    <th style={{ width: "10%" }}>Tax %</th>
-                    <th style={{ width: "5%" }}></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={item.id}>
-                      <td>
-                        <input
-                          type="text"
-                          className="inv-table-input"
-                          placeholder="e.g. Web Development"
-                          value={item.item_name}
-                          onChange={(e) =>
-                            handleItemChange(idx, "item_name", e.target.value)
-                          }
-                          required
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className="inv-table-input"
-                          placeholder="Brief description..."
-                          value={item.description}
-                          onChange={(e) =>
-                            handleItemChange(idx, "description", e.target.value)
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="inv-table-input"
-                          placeholder="0.00"
-                          value={item.price}
-                          onChange={(e) =>
-                            handleItemChange(idx, "price", e.target.value)
-                          }
-                          required
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          className="inv-table-input"
-                          placeholder="0"
-                          value={item.tax_rate}
-                          onChange={(e) =>
-                            handleItemChange(idx, "tax_rate", e.target.value)
-                          }
-                        />
-                      </td>
-                      <td style={{ textAlign: "center" }}>
-                        <button
-                          type="button"
-                          className="inv-btn-icon-danger"
-                          title="Remove item"
-                          onClick={() => handleRemoveItem(idx)}
-                          disabled={items.length === 1}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Total & Payment Calculation */}
-            <div className="inv-calc-container">
-              <div className="inv-calc-left">
-                <div className="inv-payment-box">
-                  <div className="inv-payment-box-head">
-                    <CreditCard size={14} />
-                    <span>Payment Details (Optional)</span>
-                  </div>
-
-                  <div className="inv-discount-row">
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="inv-select inv-discount-select"
-                      aria-label="Payment method"
-                    >
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Card">Card</option>
-                      <option value="Cash">Cash</option>
-                      <option value="Online">Online</option>
-                      <option value="Other">Other</option>
-                    </select>
-
-                    <div className="inv-discount-input-wrap">
+          <div className="inv-items-table-wrap">
+            <table className="inv-items-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "30%" }}>Item / Service *</th>
+                  <th style={{ width: "27%" }}>Description / Scope</th>
+                  <th style={{ width: "16%" }}>Price ({currency}) *</th>
+                  <th style={{ width: "8%" }}>Tax %</th>
+                  <th style={{ width: "14%", textAlign: "right" }}>Total ({currency})</th>
+                  <th style={{ width: "5%" }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item, idx) => (
+                  <tr key={item.id}>
+                    <td>
                       <input
-                        id="inv-payment-amount"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(e.target.value)}
-                        className="inv-input inv-discount-input"
-                        aria-label="Payment amount"
+                        type="text"
+                        className={`inv-table-input ${fieldErrors[`item_name_${idx}`] ? "inv-input-error" : ""
+                          }`}
+                        placeholder="e.g. Web Development"
+                        value={item.item_name}
+                        onChange={(e) => {
+                          handleItemChange(idx, "item_name", e.target.value);
+                          if (fieldErrors[`item_name_${idx}`]) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              [`item_name_${idx}`]: false,
+                            }));
+                          }
+                        }}
+                        required
                       />
-                      <span className="inv-discount-unit" aria-hidden="true">
-                        {currency}
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="inv-table-input"
+                        placeholder="Brief description..."
+                        value={item.description}
+                        onChange={(e) =>
+                          handleItemChange(idx, "description", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className={`inv-table-input ${fieldErrors[`price_${idx}`] ? "inv-input-error" : ""
+                          }`}
+                        placeholder="0.00"
+                        value={item.price}
+                        onChange={(e) => {
+                          handleItemChange(idx, "price", e.target.value);
+                          if (fieldErrors[`price_${idx}`]) {
+                            setFieldErrors((prev) => ({
+                              ...prev,
+                              [`price_${idx}`]: false,
+                            }));
+                          }
+                        }}
+                        required
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        className="inv-table-input"
+                        placeholder="0"
+                        value={item.tax_rate}
+                        onChange={(e) =>
+                          handleItemChange(idx, "tax_rate", e.target.value)
+                        }
+                      />
+                    </td>
+                    <td className="inv-table-cell-total">
+                      {currency}{" "}
+                      {(
+                        (Number(item.price) || 0) *
+                        (1 + (Number(item.tax_rate) || 0) / 100)
+                      ).toLocaleString("en-LK", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        type="button"
+                        className="inv-btn-icon-danger"
+                        title="Remove item"
+                        onClick={() => handleRemoveItem(idx)}
+                        disabled={items.length === 1}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Total & Payment Calculation */}
+          <div className="inv-calc-container">
+            <div className="inv-calc-left">
+              <div className="inv-overview-card">
+                <div className="inv-overview-card-head">
+                  <Receipt size={14} />
+                  <span>Services &amp; Scope Overview</span>
+                </div>
+                <div className="inv-overview-stats">
+                  <div className="inv-overview-stat-pill">
+                    <span className="inv-stat-k">Services:</span>
+                    <span className="inv-stat-v">
+                      {items.length} {items.length === 1 ? "Line Item" : "Line Items"}
+                    </span>
+                  </div>
+                  <div className="inv-overview-stat-pill">
+                    <span className="inv-stat-k">Currency:</span>
+                    <span className="inv-stat-v">{currency}</span>
+                  </div>
+                  {selectedQuotationObj && (
+                    <div className="inv-overview-stat-pill">
+                      <span className="inv-stat-k">Quotation:</span>
+                      <span className="inv-stat-v">
+                        {selectedQuotationObj.quotation_number || `#${selectedQuotationObj.quotation_id}`}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="inv-slip-upload-row">
-                    <input
-                      ref={paymentSlipInputRef}
-                      id="inv-form-slip-input"
-                      type="file"
-                      accept=".png,.jpg,.jpeg,.webp,.gif,.pdf"
-                      onChange={handlePaymentSlipChange}
-                      className="inv-slip-file-hidden"
-                    />
-                    <label
-                      htmlFor="inv-form-slip-input"
-                      className="inv-slip-upload-btn"
-                    >
-                      <Upload size={13} />
-                      <span>
-                        {paymentSlipFile
-                          ? "Change Slip"
-                          : "Attach Slip (Optional)"}
-                      </span>
-                    </label>
-
-                    {paymentSlipFile && (
-                      <div className="inv-slip-chip">
-                        <Paperclip size={12} />
-                        <span title={paymentSlipFile.name}>
-                          {paymentSlipFile.name}
+                  )}
+                </div>
+                <div className="inv-overview-info-text">
+                  {selectedQuotationObj ? (
+                    <>
+                      <strong>Linked Quotation:</strong> Items and rates are synced with{" "}
+                      <strong>{selectedQuotationObj.quotation_number || `#${selectedQuotationObj.quotation_id}`}</strong>.
+                      {discountAmount > 0 && (
+                        <span className="inv-overview-discount-badge">
+                          Includes {currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })} quotation discount.
                         </span>
-                        <button
-                          type="button"
-                          className="inv-slip-clear-btn"
-                          onClick={handleClearPaymentSlip}
-                          title="Remove slip"
-                          aria-label="Remove payment slip"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <strong>Direct Invoice Scope:</strong> Line item amounts and tax rates are calculated dynamically into the payment summary.
+                    </>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="inv-calc-summary">
+            <div className="inv-calc-summary">
+              <div className="inv-summary-box-head">
+                <FileText size={14} />
+                <span>Payment &amp; Balance Summary</span>
+              </div>
+              <div className="inv-calc-row">
+                <span>Subtotal:</span>
+                <strong>{currency} {subtotal.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+              </div>
+              {taxAmount > 0 && (
                 <div className="inv-calc-row">
-                  <span>Subtotal:</span>
-                  <strong>{currency} {subtotal.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+                  <span>Tax:</span>
+                  <strong>+{currency} {taxAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
                 </div>
-                {taxAmount > 0 && (
-                  <div className="inv-calc-row">
-                    <span>Tax:</span>
-                    <strong>+{currency} {taxAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                )}
-                {discountAmount > 0 && (
-                  <div className="inv-calc-row" style={{ color: "#15803d" }}>
-                    <span>Discount:</span>
-                    <strong>-{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                )}
-                <div className="inv-calc-total">
-                  <span>Grand Total:</span>
-                  <strong>{currency} {totalAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+              )}
+              {discountAmount > 0 && (
+                <div className="inv-calc-row" style={{ color: "#15803d" }}>
+                  <span>Discount:</span>
+                  <strong>-{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
                 </div>
-                <div className="inv-calc-row inv-calc-paid">
-                  <span>Paid Amount:</span>
-                  <strong>
-                    -{currency}{" "}
-                    {totalPaidPreview.toLocaleString("en-LK", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </strong>
-                </div>
-                <div className="inv-calc-balance">
-                  <span>Balance Due:</span>
-                  <strong
-                    className={
-                      remainingBalance <= 0 && totalAmount > 0
-                        ? "settled"
-                        : "due"
-                    }
-                  >
-                    {currency}{" "}
-                    {remainingBalance.toLocaleString("en-LK", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </strong>
-                </div>
-                <div className="inv-calc-status-row">
-                  <span>Payment Status:</span>
-                  <span
-                    className={`inv-calc-status-pill ${paymentPreviewStatus
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")}`}
-                  >
-                    {paymentPreviewStatus}
-                  </span>
-                </div>
+              )}
+              <div className="inv-calc-total">
+                <span>Grand Total:</span>
+                <strong>{currency} {totalAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
               </div>
-            </div>
-          </div>
-
-          {/* Section 4: Invoice Details (Dates, Currency, Notes, Terms) */}
-          <div className="inv-form-section">
-            <div className="inv-section-title">
-              <Calendar size={15} />
-              <span>4. Set Invoice Details &amp; Notes</span>
-            </div>
-
-            <div className="inv-grid-3">
-              <div className="inv-form-field">
-                <label>Invoice Number *</label>
-                <input
-                  type="text"
-                  value={invoiceNumber}
-                  onChange={(e) => {
-                    isManualInvoiceNumber.current = true;
-                    setInvoiceNumber(e.target.value);
-                  }}
-                  required
-                />
+              <div className="inv-calc-row inv-calc-paid">
+                <span>Paid Amount:</span>
+                <strong>
+                  -{currency}{" "}
+                  {totalPaidPreview.toLocaleString("en-LK", {
+                    minimumFractionDigits: 2,
+                  })}
+                </strong>
               </div>
-
-              <div className="inv-form-field">
-                <label>Invoice Date *</label>
-                <input
-                  type="date"
-                  value={invoiceDate}
-                  onChange={(e) => {
-                    const nextDate = e.target.value;
-                    setInvoiceDate(nextDate);
-                    if (
-                      !isEditing &&
-                      !selectedQuotationId &&
-                      !isManualInvoiceNumber.current
-                    ) {
-                      setInvoiceNumber(
-                        getNextInvoiceNumber(invoicesList, nextDate)
-                      );
-                    }
-                  }}
-                  required
-                />
-              </div>
-
-              <div className="inv-form-field">
-                <label htmlFor="inv-due-date-input">Due Date *</label>
-                <div className="inv-date-input-wrap">
-                  <input
-                    id="inv-due-date-input"
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={10}
-                    placeholder="mm/dd/yyyy"
-                    value={dueDate}
-                    onChange={(e) =>
-                      setDueDate((prev) => formatDueDateInput(e.target.value, prev))
-                    }
-                    required
-                  />
-                  <input
-                    ref={dueDatePickerRef}
-                    type="date"
-                    className="inv-date-picker-hidden"
-                    value={parseDueDateToIso(dueDate) || ""}
-                    onChange={(e) =>
-                      setDueDate(toDisplayMmDdYyyy(e.target.value))
-                    }
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  />
-                  <button
-                    type="button"
-                    className="inv-date-picker-btn"
-                    onClick={() => {
-                      if (dueDatePickerRef.current?.showPicker) {
-                        dueDatePickerRef.current.showPicker();
-                      } else {
-                        dueDatePickerRef.current?.click();
-                      }
-                    }}
-                    title="Pick date from calendar"
-                    aria-label="Pick due date from calendar"
-                  >
-                    <Calendar size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="inv-form-field">
-                <label>Billing Currency</label>
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="inv-select"
+              <div className="inv-calc-balance">
+                <span>Balance Due:</span>
+                <strong
+                  className={
+                    remainingBalance <= 0 && totalAmount > 0
+                      ? "settled"
+                      : "due"
+                  }
                 >
-                  <option value="LKR">LKR (Sri Lankan Rupee)</option>
-                  <option value="USD">USD (US Dollar)</option>
-                  <option value="EUR">EUR (Euro)</option>
-                  <option value="GBP">GBP (British Pound)</option>
-                </select>
+                  {currency}{" "}
+                  {remainingBalance.toLocaleString("en-LK", {
+                    minimumFractionDigits: 2,
+                  })}
+                </strong>
               </div>
-
-              <div className="inv-form-field inv-col-span-2">
-                <label>Payment / Bank Notes</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Bank: Commercial Bank, Acc: 12345678, Branch: Kollupitiya"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
-
-              <div className="inv-form-field inv-col-span-3">
-                <label>Terms &amp; Conditions</label>
-                <textarea
-                  rows={2}
-                  placeholder="e.g. Invoices are payable within 14 calendar days..."
-                  value={terms}
-                  onChange={(e) => setTerms(e.target.value)}
-                />
+              <div className="inv-calc-status-row">
+                <span>Payment Status:</span>
+                <span
+                  className={`inv-calc-status-pill ${paymentPreviewStatus
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")}`}
+                >
+                  {paymentPreviewStatus}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Modal Footer Actions */}
-        <div className="inv-modal-footer">
-          <button
-            type="button"
-            className="inv-btn-secondary"
-            onClick={onClose}
-            disabled={saving}
-          >
-            Cancel
-          </button>
+        {/* Section 4: Invoice Details (Dates, Currency, Notes, Terms) */}
+        <div className="inv-form-section">
+          <div className="inv-section-title">
+            <Calendar size={15} />
+            <span>4. Set Invoice Details &amp; Notes</span>
+          </div>
 
-          <div className="inv-footer-right-actions">
-            <button
-              type="button"
-              className="inv-btn-pdf"
-              onClick={handleDownloadPdf}
-              disabled={saving || downloadingPdf}
-              title="Download Invoice PDF"
-            >
-              <Download size={15} />
-              <span>
-                {downloadingPdf ? "Generating PDF..." : "Download PDF"}
-              </span>
-            </button>
+          <div className="inv-grid-3">
+            <div className="inv-form-field">
+              <label>Invoice Number *</label>
+              <input
+                type="text"
+                className={fieldErrors.invoiceNumber ? "inv-input-error" : ""}
+                value={invoiceNumber}
+                onChange={(e) => {
+                  isManualInvoiceNumber.current = true;
+                  setInvoiceNumber(e.target.value);
+                  if (fieldErrors.invoiceNumber) {
+                    setFieldErrors((prev) => ({ ...prev, invoiceNumber: false }));
+                  }
+                }}
+                required
+              />
+            </div>
 
-            <button
-              type="button"
-              className="inv-btn-outline"
-              disabled={saving}
-              onClick={() => handleSubmit("Draft")}
-            >
-              <Save size={15} />
-              <span>{saving ? "Saving..." : "Save as Draft"}</span>
-            </button>
+            <div className="inv-form-field">
+              <label>Invoice Date *</label>
+              <input
+                type="date"
+                className={fieldErrors.invoiceDate ? "inv-input-error" : ""}
+                value={invoiceDate}
+                onChange={(e) => {
+                  const nextDate = e.target.value;
+                  setInvoiceDate(nextDate);
+                  if (fieldErrors.invoiceDate) {
+                    setFieldErrors((prev) => ({ ...prev, invoiceDate: false }));
+                  }
+                  if (
+                    !isEditing &&
+                    !selectedQuotationId &&
+                    !isManualInvoiceNumber.current
+                  ) {
+                    setInvoiceNumber(
+                      getNextInvoiceNumber(invoicesList, nextDate, defaultPrefix)
+                    );
+                  }
+                }}
+                required
+              />
+            </div>
 
-            {isSuperAdmin ? (
-              <button
-                type="button"
-                className="inv-btn-primary"
-                disabled={saving}
-                onClick={() => handleSubmit("Unpaid")}
+            <div className="inv-form-field">
+              <label htmlFor="inv-due-date-input">Due Date *</label>
+              <div className="inv-date-input-wrap">
+                <input
+                  id="inv-due-date-input"
+                  type="text"
+                  className={fieldErrors.dueDate ? "inv-input-error" : ""}
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="mm/dd/yyyy"
+                  value={dueDate}
+                  onChange={(e) => {
+                    setDueDate((prev) => formatDueDateInput(e.target.value, prev));
+                    if (fieldErrors.dueDate) {
+                      setFieldErrors((prev) => ({ ...prev, dueDate: false }));
+                    }
+                  }}
+                  required
+                />
+                <input
+                  ref={dueDatePickerRef}
+                  type="date"
+                  className="inv-date-picker-hidden"
+                  value={parseDueDateToIso(dueDate) || ""}
+                  onChange={(e) =>
+                    setDueDate(toDisplayMmDdYyyy(e.target.value))
+                  }
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  className="inv-date-picker-btn"
+                  onClick={() => {
+                    if (dueDatePickerRef.current?.showPicker) {
+                      dueDatePickerRef.current.showPicker();
+                    } else {
+                      dueDatePickerRef.current?.click();
+                    }
+                  }}
+                  title="Pick date from calendar"
+                  aria-label="Pick due date from calendar"
+                >
+                  <Calendar size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="inv-form-field">
+              <label>Billing Currency</label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="inv-select"
               >
-                <CheckCircle2 size={15} />
-                <span>{saving ? "Finalizing..." : "Finalize Invoice"}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inv-btn-primary"
-                disabled={saving}
-                onClick={() => handleSubmit("Pending Approval")}
-              >
-                <Send size={15} />
-                <span>
-                  {saving
-                    ? "Submitting..."
-                    : data?.status === "Rejected"
-                    ? "Resubmit for Approval"
-                    : "Submit for Approval"}
-                </span>
-              </button>
-            )}
+                <option value="LKR">LKR (Sri Lankan Rupee)</option>
+                <option value="USD">USD (US Dollar)</option>
+                <option value="EUR">EUR (Euro)</option>
+                <option value="GBP">GBP (British Pound)</option>
+              </select>
+            </div>
+
+            <div className="inv-form-field inv-col-span-2">
+              <label>Payment / Bank Notes</label>
+              <input
+                type="text"
+                placeholder="e.g. Bank: Commercial Bank, Acc: 12345678, Branch: Kollupitiya"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+
+            <div className="inv-form-field inv-col-span-3">
+              <label>Terms &amp; Conditions</label>
+              <textarea
+                rows={2}
+                placeholder="e.g. Invoices are payable within 14 calendar days..."
+                value={terms}
+                onChange={(e) => setTerms(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Modal Footer Actions */}
+      <div className="inv-modal-footer">
+        <button
+          type="button"
+          className="inv-btn-secondary"
+          onClick={onClose}
+          disabled={saving}
+        >
+          Cancel
+        </button>
+
+        <div className="inv-footer-right-actions">
+          <button
+            type="button"
+            className="inv-btn-pdf"
+            onClick={handleDownloadPdf}
+            disabled={saving || downloadingPdf || !canDownloadPdf}
+            title={
+              !canDownloadPdf
+                ? "Available after Super Admin approval"
+                : "Download Invoice PDF"
+            }
+            style={
+              !canDownloadPdf
+                ? { opacity: 0.5, cursor: "not-allowed" }
+                : undefined
+            }
+          >
+            <Download size={15} />
+            <span>
+              {downloadingPdf ? "Generating PDF..." : "Download PDF"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="inv-btn-outline"
+            disabled={saving}
+            onClick={() => handleSubmit("Draft")}
+          >
+            <Save size={15} />
+            <span>{saving ? "Saving..." : "Save as Draft"}</span>
+          </button>
+
+          {isSuperAdmin ? (
+            <button
+              type="button"
+              className="inv-btn-primary"
+              disabled={saving}
+              onClick={() => handleSubmit("Unpaid")}
+            >
+              <CheckCircle2 size={15} />
+              <span>{saving ? "Finalizing..." : "Finalize Invoice"}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="inv-btn-primary"
+              disabled={saving}
+              onClick={() => handleSubmit("Pending Approval")}
+            >
+              <Send size={15} />
+              <span>
+                {saving
+                  ? "Submitting..."
+                  : data?.status === "Rejected"
+                    ? "Resubmit for Approval"
+                    : "Submit for Approval"}
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 
   if (asPage) {
     return (
       <div className="inv-form-page">
-        <button
-          type="button"
-          className="inv-screen-back-btn"
-          onClick={onClose}
-          aria-label="Back to Invoices"
-          title="Back to Invoices"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        {formContent}
+        <div className="inv-form-page-layout">
+          <div className="inv-form-page-side-left">
+            <button
+              type="button"
+              className="inv-screen-back-btn"
+              onClick={onClose}
+              aria-label="Back to Invoices"
+              title="Back to Invoices"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          </div>
+          {formContent}
+          <div className="inv-form-page-side-right" aria-hidden="true" />
+        </div>
       </div>
     );
   }

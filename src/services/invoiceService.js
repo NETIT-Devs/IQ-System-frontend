@@ -49,9 +49,16 @@ function writeStorageInvoices(invoices) {
 }
 
 // Fetch all real invoices from the backend API
-export async function getInvoices() {
+export async function getInvoices(params = {}) {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/invoices`, {
+    const qs =
+      params && typeof params === "object"
+        ? new URLSearchParams(params).toString()
+        : "";
+    const url = qs
+      ? `${API_BASE_URL}/api/invoices?${qs}`
+      : `${API_BASE_URL}/api/invoices`;
+    const res = await fetch(url, {
       method: "GET",
       headers: getHeaders(),
     });

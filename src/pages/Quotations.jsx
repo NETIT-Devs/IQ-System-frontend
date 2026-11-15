@@ -610,6 +610,7 @@ export default function Quotations() {
     return (
       <QuotationForm
         isPage
+        openSidebar={openSidebar}
         initialData={selectedQuotation}
         quotationNumber={newQuotationNumber}
         onSave={async () => {

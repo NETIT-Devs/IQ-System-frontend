@@ -71,15 +71,19 @@ export async function getNextQuotationNumberApi(dateStr = "") {
 }
 
 // Fetch all quotations with items
-export async function getQuotations() {
-  const response = await fetch(`${API_BASE_URL}/api/quotations`, {
+export async function getQuotations(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const url = `${API_BASE_URL}/api/quotations${query ? `?${query}` : ""}`;
+  const response = await fetch(url, {
     method: "GET",
     headers: getHeaders(),
   });
 
   const data = await handleResponse(response);
   const quotations = data?.quotations || [];
-  writeLocalJson("iq_quotations", quotations);
+  if (!params.for_invoice) {
+    writeLocalJson("iq_quotations", quotations);
+  }
   return quotations;
 }
 

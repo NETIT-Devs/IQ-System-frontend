@@ -1,4 +1,4 @@
- import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   Building2,
@@ -103,6 +103,32 @@ export default function CompanySettings() {
     is_active: 1,
   });
 
+  // Invoice settings & billing preferences (persisted in localStorage: iq_invoice_settings)
+  const [invoiceSettings, setInvoiceSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("iq_invoice_settings");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch {
+      // fallback
+    }
+    return {
+      invoice_prefix: "INV",
+      default_due_days: "14",
+      default_currency: "LKR",
+      tax_display_option: "itemized",
+      pdf_heading: "INVOICE",
+      pdf_subheading: "OFFICIAL BILLING DOCUMENT",
+      pdf_footer_note:
+        "Thank you for your business! Please reference the invoice number on your payment slip.",
+      default_notes: "",
+      default_terms:
+        "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest.",
+    };
+  });
+  const [savingInvoice, setSavingInvoice] = useState(false);
+
   // File input refs
   const logoInputRef = useRef(null);
   const signatureInputRef = useRef(null);
@@ -151,6 +177,32 @@ export default function CompanySettings() {
           }
         }
         setCustomSections(Array.isArray(loadedSections) ? loadedSections : []);
+
+        // Sync invoice default notes from company bank info if not customized
+        try {
+          const rawInv = localStorage.getItem("iq_invoice_settings");
+          if (rawInv) {
+            const parsed = JSON.parse(rawInv);
+            setInvoiceSettings((prev) => ({
+              ...prev,
+              ...parsed,
+              default_notes:
+                parsed.default_notes ||
+                (data?.bank_name
+                  ? `Please remit payment via bank transfer to ${data.bank_name} (A/C: ${data.bank_account_number || "—"}, Beneficiary: ${data.bank_account_name || data.company_name || "—"}). Reference the invoice number on your payment slip.`
+                  : prev.default_notes),
+            }));
+          } else if (data?.bank_name) {
+            setInvoiceSettings((prev) => ({
+              ...prev,
+              default_notes:
+                prev.default_notes ||
+                `Please remit payment via bank transfer to ${data.bank_name} (A/C: ${data.bank_account_number || "—"}, Beneficiary: ${data.bank_account_name || data.company_name || "—"}). Reference the invoice number on your payment slip.`,
+            }));
+          }
+        } catch {
+          // fallback
+        }
       }
     } catch (err) {
       console.error("Failed to load company settings:", err);
@@ -297,6 +349,121 @@ export default function CompanySettings() {
       setLoadingServices(false);
     }
   };
+
+  /**
+   * Invoice Settings Handlers & Persistence
+   */
+  const handleInvoiceSettingsChange = (field, value) => {
+    setInvoiceSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleFillBankIntoInvoiceNotes = () => {
+    if (!formData.bank_name) {
+      setError("Please configure your Bank Details under Company Profile first.");
+      return;
+    }
+    const bankNote = `Please remit payment via bank transfer to ${formData.bank_name} (A/C: ${formData.bank_account_number || "—"}, Beneficiary: ${formData.bank_account_name || formData.company_name || "—"}). Reference the invoice number on your payment slip.`;
+    handleInvoiceSettingsChange("default_notes", bankNote);
+    setSuccess("Bank remittance instructions imported into Invoice Notes!");
+  };
+
+  const handleSaveInvoiceSettings = (e) => {
+    if (e) e.preventDefault();
+    setSavingInvoice(true);
+    setError("");
+    setSuccess("");
+    try {
+      const cleaned = {
+        invoice_prefix:
+          String(invoiceSettings.invoice_prefix || "INV").trim().toUpperCase() ||
+          "INV",
+        default_due_days:
+          String(invoiceSettings.default_due_days || "14").trim() || "14",
+        default_currency:
+          String(invoiceSettings.default_currency || "LKR").trim() || "LKR",
+        tax_display_option: invoiceSettings.tax_display_option || "itemized",
+        pdf_heading:
+          String(invoiceSettings.pdf_heading || "INVOICE").trim() || "INVOICE",
+        pdf_subheading: String(invoiceSettings.pdf_subheading || "").trim(),
+        pdf_footer_note: String(invoiceSettings.pdf_footer_note || "").trim(),
+        default_notes: String(invoiceSettings.default_notes || "").trim(),
+        default_terms: String(invoiceSettings.default_terms || "").trim(),
+      };
+      setInvoiceSettings(cleaned);
+      localStorage.setItem("iq_invoice_settings", JSON.stringify(cleaned));
+      window.dispatchEvent(
+        new CustomEvent("invoice-settings-updated", { detail: cleaned })
+      );
+      setSuccess(
+        "Invoice billing preferences & template layout saved successfully! New invoices will now inherit these defaults."
+      );
+    } catch (err) {
+      console.error("Failed to save invoice settings:", err);
+      setError("Failed to save invoice settings to local storage.");
+    } finally {
+      setSavingInvoice(false);
+    }
+  };
+
+  const handleResetInvoiceSettings = () => {
+    try {
+      const saved = localStorage.getItem("iq_invoice_settings");
+      if (saved) {
+        setInvoiceSettings(JSON.parse(saved));
+        setSuccess("Invoice settings reset to last saved values.");
+      } else {
+        setInvoiceSettings({
+          invoice_prefix: "INV",
+          default_due_days: "14",
+          default_currency: "LKR",
+          tax_display_option: "itemized",
+          pdf_heading: "INVOICE",
+          pdf_subheading: "OFFICIAL BILLING DOCUMENT",
+          pdf_footer_note:
+            "Thank you for your business! Please reference the invoice number on your payment slip.",
+          default_notes: formData.bank_name
+            ? `Please remit payment via bank transfer to ${formData.bank_name} (A/C: ${formData.bank_account_number || "—"}, Beneficiary: ${formData.bank_account_name || formData.company_name || "—"}). Reference the invoice number on your payment slip.`
+            : "",
+          default_terms:
+            "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest.",
+        });
+        setSuccess("Invoice settings restored to system defaults.");
+      }
+    } catch {
+      // fallback
+    }
+  };
+
+  // Live preview calculations for Invoice Settings preview
+  const previewDueDays = parseInt(invoiceSettings.default_due_days, 10);
+  const previewDueDateStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(
+      d.getDate() +
+        (Number.isNaN(previewDueDays) || previewDueDays <= 0
+          ? 14
+          : previewDueDays)
+    );
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }, [previewDueDays]);
+
+  const previewTodayStr = useMemo(() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  }, []);
+
+  const previewInvoiceNumber = `${(
+    invoiceSettings.invoice_prefix || "INV"
+  ).toUpperCase()}-2611-001`;
 
   /**
    * Handle official logo upload
@@ -488,9 +655,9 @@ export default function CompanySettings() {
             onClick={loadSettings}
             disabled={loading || saving}
             title="Refresh settings from server"
+            aria-label="Refresh settings"
           >
-            <RefreshCw size={14} className={loading ? "cs-spin" : ""} />
-            <span>Refresh</span>
+            <RefreshCw size={15} className={loading ? "cs-spin" : ""} />
           </button>
           <button
             type="button"
@@ -562,10 +729,10 @@ export default function CompanySettings() {
             </button>
           </div>
 
-            {/* TAB 1: Unified Company Profile (Identity, Bank Details & Signature) */}
-            {activeTab === "profile" && (
-              <div className="cs-profile-layout">
-                <form onSubmit={handleSubmit} className="cs-profile-form-col">
+          {/* TAB 1: Unified Company Profile (Identity, Bank Details & Signature) */}
+          {activeTab === "profile" && (
+            <div className="cs-profile-layout">
+              <form onSubmit={handleSubmit} className="cs-profile-form-col">
                 <section className="cs-section-card">
                   <div className="cs-section-header">
                     <div className="cs-section-icon">
@@ -711,490 +878,429 @@ export default function CompanySettings() {
                   </div>
                 </section>
 
-                  {/* Section 2: Banking & Payment Remittance Details (Underneath Profile) */}
-                  <section className="cs-section-card">
-                    <div className="cs-section-header">
-                      <div className="cs-section-icon">
-                        <Landmark size={18} />
-                      </div>
-                      <div>
-                        <h3>Bank &amp; Payment Remittance Details</h3>
-                        <p>
-                          Bank details rendered in quotation and invoice payment boxes for direct client bank transfers.
-                        </p>
-                      </div>
+                {/* Section 2: Banking & Payment Remittance Details (Underneath Profile) */}
+                <section className="cs-section-card">
+                  <div className="cs-section-header">
+                    <div className="cs-section-icon">
+                      <Landmark size={18} />
+                    </div>
+                    <div>
+                      <h3>Bank &amp; Payment Remittance Details</h3>
+                      <p>
+                        Bank details rendered in quotation and invoice payment boxes for direct client bank transfers.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="cs-fields-grid">
+                    <div className="cs-field-group">
+                      <label htmlFor="bank_name">Bank Name</label>
+                      <input
+                        id="bank_name"
+                        name="bank_name"
+                        type="text"
+                        placeholder="e.g. Commercial Bank of Ceylon PLC"
+                        value={formData.bank_name}
+                        onChange={handleInputChange}
+                      />
                     </div>
 
-                    <div className="cs-fields-grid">
-                      <div className="cs-field-group">
-                        <label htmlFor="bank_name">Bank Name</label>
-                        <input
-                          id="bank_name"
-                          name="bank_name"
-                          type="text"
-                          placeholder="e.g. Commercial Bank of Ceylon PLC"
-                          value={formData.bank_name}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="bank_account_name">Account Name (Beneficiary)</label>
-                        <input
-                          id="bank_account_name"
-                          name="bank_account_name"
-                          type="text"
-                          placeholder="e.g. NetIT Technology (Pvt) Ltd"
-                          value={formData.bank_account_name}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="bank_account_number">Bank Account Number</label>
-                        <input
-                          id="bank_account_number"
-                          name="bank_account_number"
-                          type="text"
-                          placeholder="e.g. 8001234567"
-                          value={formData.bank_account_number}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="bank_branch">Branch Name</label>
-                        <input
-                          id="bank_branch"
-                          name="bank_branch"
-                          type="text"
-                          placeholder="e.g. Kandy Main Branch"
-                          value={formData.bank_branch}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="bank_swift_code">SWIFT / BIC Code</label>
-                        <input
-                          id="bank_swift_code"
-                          name="bank_swift_code"
-                          type="text"
-                          placeholder="e.g. CCBLKLX"
-                          value={formData.bank_swift_code}
-                          onChange={handleInputChange}
-                        />
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Section 3: Authorized Digital Signature (Underneath Bank Details) */}
-                  <section className="cs-section-card">
-                    <div className="cs-section-header">
-                      <div className="cs-section-icon">
-                        <FileCheck size={18} />
-                      </div>
-                      <div>
-                        <h3>Authorized Digital Signature</h3>
-                        <p>
-                          Authorized company signature appended at the bottom right of official Quotation &amp; Invoice PDFs.
-                        </p>
-                      </div>
+                    <div className="cs-field-group">
+                      <label htmlFor="bank_account_name">Account Name (Beneficiary)</label>
+                      <input
+                        id="bank_account_name"
+                        name="bank_account_name"
+                        type="text"
+                        placeholder="e.g. NetIT Technology (Pvt) Ltd"
+                        value={formData.bank_account_name}
+                        onChange={handleInputChange}
+                      />
                     </div>
 
-                    <div className="cs-signature-box">
-                      <div className="cs-signature-preview-card">
-                        {signatureUrl ? (
-                          <img
-                            src={signatureUrl}
-                            alt="Authorized Digital Signature"
-                            className="cs-signature-img"
-                          />
-                        ) : (
-                          <div className="cs-signature-placeholder">
-                            <ShieldCheck size={36} color="#94a3b8" />
-                            <span>No Authorized Signature Uploaded</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="cs-field-group">
+                      <label htmlFor="bank_account_number">Bank Account Number</label>
+                      <input
+                        id="bank_account_number"
+                        name="bank_account_number"
+                        type="text"
+                        placeholder="e.g. 8001234567"
+                        value={formData.bank_account_number}
+                        onChange={handleInputChange}
+                      />
+                    </div>
 
-                      <div className="cs-signature-info">
-                        <h4>Upload Authorized Signature</h4>
-                        <p>
-                          Upload a clean, high-resolution signature image on a transparent or white background. It will automatically populate the &quot;Authorized Signature&quot; field on quotation documents.
-                        </p>
+                    <div className="cs-field-group">
+                      <label htmlFor="bank_branch">Branch Name</label>
+                      <input
+                        id="bank_branch"
+                        name="bank_branch"
+                        type="text"
+                        placeholder="e.g. Kandy Main Branch"
+                        value={formData.bank_branch}
+                        onChange={handleInputChange}
+                      />
+                    </div>
 
-                        <div className="cs-logo-btn-row">
-                          <input
-                            ref={signatureInputRef}
-                            type="file"
-                            accept="image/png, image/jpeg, image/jpg"
-                            onChange={handleSignatureUpload}
-                            style={{ display: "none" }}
-                            id="cs-signature-input"
-                          />
+                    <div className="cs-field-group">
+                      <label htmlFor="bank_swift_code">SWIFT / BIC Code</label>
+                      <input
+                        id="bank_swift_code"
+                        name="bank_swift_code"
+                        type="text"
+                        placeholder="e.g. CCBLKLX"
+                        value={formData.bank_swift_code}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section 3: Authorized Digital Signature (Underneath Bank Details) */}
+                <section className="cs-section-card">
+                  <div className="cs-section-header">
+                    <div className="cs-section-icon">
+                      <FileCheck size={18} />
+                    </div>
+                    <div>
+                      <h3>Authorized Digital Signature</h3>
+                      <p>
+                        Authorized company signature appended at the bottom right of official Quotation &amp; Invoice PDFs.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="cs-signature-box">
+                    <div className="cs-signature-preview-card">
+                      {signatureUrl ? (
+                        <img
+                          src={signatureUrl}
+                          alt="Authorized Digital Signature"
+                          className="cs-signature-img"
+                        />
+                      ) : (
+                        <div className="cs-signature-placeholder">
+                          <ShieldCheck size={36} color="#94a3b8" />
+                          <span>No Authorized Signature Uploaded</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="cs-signature-info">
+                      <h4>Upload Authorized Signature</h4>
+                      <p>
+                        Upload a clean, high-resolution signature image on a transparent or white background. It will automatically populate the &quot;Authorized Signature&quot; field on quotation documents.
+                      </p>
+
+                      <div className="cs-logo-btn-row">
+                        <input
+                          ref={signatureInputRef}
+                          type="file"
+                          accept="image/png, image/jpeg, image/jpg"
+                          onChange={handleSignatureUpload}
+                          style={{ display: "none" }}
+                          id="cs-signature-input"
+                        />
+                        <button
+                          type="button"
+                          className="cs-btn-upload"
+                          onClick={() => signatureInputRef.current?.click()}
+                          disabled={uploadingSignature}
+                        >
+                          <Upload size={14} />
+                          <span>
+                            {uploadingSignature ? "Uploading Signature..." : "Upload Signature"}
+                          </span>
+                        </button>
+
+                        {signatureUrl && (
                           <button
                             type="button"
-                            className="cs-btn-upload"
-                            onClick={() => signatureInputRef.current?.click()}
+                            className="cs-btn-remove"
+                            onClick={handleRemoveSignature}
                             disabled={uploadingSignature}
                           >
-                            <Upload size={14} />
-                            <span>
-                              {uploadingSignature ? "Uploading Signature..." : "Upload Signature"}
-                            </span>
+                            <Trash2 size={13} />
+                            <span>Remove</span>
                           </button>
-
-                          {signatureUrl && (
-                            <button
-                              type="button"
-                              className="cs-btn-remove"
-                              onClick={handleRemoveSignature}
-                              disabled={uploadingSignature}
-                            >
-                              <Trash2 size={13} />
-                              <span>Remove</span>
-                            </button>
-                          )}
-                        </div>
-                        <small>Recommended aspect ratio: 3:1 width to height (e.g. 400x120px PNG).</small>
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* Unified Action Bar */}
-                  <div className="cs-action-bar">
-                    <button
-                      type="button"
-                      className="cs-btn-secondary"
-                      onClick={loadSettings}
-                      disabled={saving || loading}
-                    >
-                      Discard Changes
-                    </button>
-                    <button
-                      type="submit"
-                      className="cs-btn-save"
-                      disabled={saving || loading}
-                    >
-                      <Save size={16} />
-                      <span>{saving ? "Saving..." : "Save Company Profile & Settings"}</span>
-                    </button>
-                  </div>
-                </form>
-
-                {/* Right Column: Live Branding Preview for Company Profile */}
-                <aside className="cs-profile-preview-col">
-                  <div className="cs-preview-sticky">
-                    <div className="cs-preview-panel">
-                      <div className="cs-preview-title-bar">
-                        <div className="cs-preview-title-wrap">
-                          <Eye size={15} color="#2563eb" />
-                          <h4>Live Branding Preview</h4>
-                        </div>
-                        <span className="cs-live-pill">Live Sync</span>
-                      </div>
-
-                      <div className="cs-preview-card">
-                        {/* Company Header */}
-                        <div className="cs-prev-header">
-                          <div className="cs-prev-logo-wrap">
-                            {logoUrl ? (
-                              <img src={logoUrl} alt="Logo" className="cs-prev-logo" />
-                            ) : (
-                              <div className="cs-prev-logo-fallback">
-                                <Building2 size={24} color="#2563eb" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="cs-prev-company-name">
-                              {formData.company_name || "Company Name"}
-                            </h3>
-                            <p className="cs-prev-tagline">
-                              {formData.pdf_subheading || "Professional Services"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="cs-prev-divider" />
-
-                        {/* Contact Meta */}
-                        <div className="cs-prev-details">
-                          <div className="cs-prev-item">
-                            <Mail size={13} color="#64748b" />
-                            <span>{formData.email_address || "email@company.com"}</span>
-                          </div>
-                          <div className="cs-prev-item">
-                            <Phone size={13} color="#64748b" />
-                            <span>{formData.contact_number || "Phone numbers"}</span>
-                          </div>
-                          <div className="cs-prev-item">
-                            <MapPin size={13} color="#64748b" />
-                            <span>{formData.company_address || "Company address"}</span>
-                          </div>
-                        </div>
-
-                        {/* Banking Preview */}
-                        {formData.bank_name && (
-                          <div className="cs-prev-bank-box">
-                            <div className="cs-prev-bank-head">
-                              <Landmark size={12} color="#1d4ed8" />
-                              <strong>{formData.bank_name}</strong>
-                            </div>
-                            <div className="cs-prev-bank-row">
-                              <span>A/C Name:</span>
-                              <strong>{formData.bank_account_name || "—"}</strong>
-                            </div>
-                            <div className="cs-prev-bank-row">
-                              <span>A/C No:</span>
-                              <strong>{formData.bank_account_number || "—"}</strong>
-                            </div>
-                            {formData.bank_branch && (
-                              <div className="cs-prev-bank-row">
-                                <span>Branch:</span>
-                                <span>{formData.bank_branch}</span>
-                              </div>
-                            )}
-                          </div>
                         )}
-
-                        {/* Digital Signature Preview */}
-                        <div className="cs-prev-signature-box">
-                          <span className="cs-prev-sig-label">Authorized Sign-off</span>
-                          {signatureUrl ? (
-                            <img
-                              src={signatureUrl}
-                              alt="Signature"
-                              className="cs-prev-signature-img"
-                            />
-                          ) : (
-                            <div className="cs-prev-sig-empty">Signature Pending</div>
-                          )}
-                        </div>
                       </div>
-
-                      <div className="cs-preview-footnote">
-                        <ShieldCheck size={14} color="#10b981" />
-                        <span>Synchronized with PDF generator &amp; system dashboards</span>
-                      </div>
+                      <small>Recommended aspect ratio: 3:1 width to height (e.g. 400x120px PNG).</small>
                     </div>
                   </div>
-                </aside>
-              </div>
-            )}
+                </section>
 
-            {/* TAB 2: Combined Quotation Settings (Template Settings + Form Settings) */}
-            {activeTab === "quotation" && (
-              <div className="cs-quotation-settings-container">
-                {/* Quotation Sub-Tabs */}
-                <div className="cs-subtabs-bar">
+                {/* Unified Action Bar */}
+                <div className="cs-action-bar">
                   <button
                     type="button"
-                    className={`cs-subtab-btn ${quotationSubTab === "template" ? "active" : ""}`}
-                    onClick={() => setQuotationSubTab("template")}
+                    className="cs-btn-secondary"
+                    onClick={loadSettings}
+                    disabled={saving || loading}
                   >
-                    <FileText size={15} />
-                    <span>Quotation Template Settings (PDF Layout &amp; Headings)</span>
+                    Discard Changes
                   </button>
-
                   <button
-                    type="button"
-                    className={`cs-subtab-btn ${quotationSubTab === "form" ? "active" : ""}`}
-                    onClick={() => {
-                      setQuotationSubTab("form");
-                      setIsEditingService(false);
-                      loadServices();
-                    }}
+                    type="submit"
+                    className="cs-btn-save"
+                    disabled={saving || loading}
                   >
-                    <Layers size={15} />
-                    <span>Quotation Form Settings (Services &amp; Item Catalog)</span>
+                    <Save size={16} />
+                    <span>{saving ? "Saving..." : "Save Company Profile & Settings"}</span>
                   </button>
                 </div>
+              </form>
 
-                {/* SUB-TAB 1: Template Settings (PDF Layout & Headings) */}
-                {quotationSubTab === "template" && (
-                  <form onSubmit={handleSubmit} className="cs-form-body">
-                    {/* Live PDF Layout Preview Box */}
-                    <div className="cs-preview-card-box">
-                      <div className="cs-preview-header">
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <Eye size={14} color="#2563eb" />
-                          <strong>Live PDF Layout Preview</strong>
-                        </div>
-                        <span className="cs-preview-badge">Reflected in generated PDFs</span>
+              {/* Right Column: Live Branding Preview for Company Profile */}
+              <aside className="cs-profile-preview-col">
+                <div className="cs-preview-sticky">
+                  <div className="cs-preview-panel">
+                    <div className="cs-preview-title-bar">
+                      <div className="cs-preview-title-wrap">
+                        <Eye size={15} color="#2563eb" />
+                        <h4>Live Branding Preview</h4>
                       </div>
-
-                      <div className="cs-pdf-preview-sheet">
-                        <div className="cs-pdf-header-row">
-                          <div>
-                            <div className="cs-pdf-company-name">
-                              {formData.company_name || "NetIT Technology"}
-                            </div>
-                            <div className="cs-pdf-meta">
-                              {formData.company_address || "Ampitiya, Kandy, Sri Lanka"} | {formData.email_address || "info@netittechnology.com"}
-                            </div>
-                          </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div className="cs-pdf-title">
-                              {formData.pdf_heading || "QUOTATION"}
-                            </div>
-                            <div className="cs-pdf-subtitle">
-                              {formData.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL"}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="cs-pdf-divider" />
-
-                        {formData.pdf_custom_lines && (
-                          <div className="cs-pdf-custom-line">
-                            <span>{formData.pdf_custom_lines}</span>
-                          </div>
-                        )}
-
-                        <div className="cs-pdf-mock-table">
-                          <div className="cs-mock-th">
-                            <span>#</span>
-                            <span>SERVICE SCOPE</span>
-                            <span>UNIT PRICE</span>
-                            <span>TOTAL</span>
-                          </div>
-                          <div className="cs-mock-tr">
-                            <span>1</span>
-                            <span>Web &amp; Software Development (Sample Item)</span>
-                            <span>LKR 75,000.00</span>
-                            <span>LKR 75,000.00</span>
-                          </div>
-                        </div>
-
-                        {/* Custom Template Sections Live Preview */}
-                        {customSections.length > 0 && (
-                          <div style={{ marginTop: "10px" }}>
-                            {customSections.map((sec, idx) => {
-                              if (!sec.heading && !sec.sub_text) return null;
-                              return (
-                                <div key={idx} className="cs-pdf-preview-section">
-                                  {sec.heading && (
-                                    <div className="cs-pdf-section-banner">
-                                      {sec.heading.toUpperCase()}
-                                    </div>
-                                  )}
-                                  {sec.sub_text && (
-                                    <div className="cs-pdf-section-body">
-                                      {sec.sub_text}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {formData.pdf_footer_note && (
-                          <div className="cs-pdf-footer-box">
-                            <strong>Important Notice / Declaration:</strong>
-                            <p>{formData.pdf_footer_note}</p>
-                          </div>
-                        )}
-                      </div>
+                      <span className="cs-live-pill">Live Sync</span>
                     </div>
 
-                    {/* PDF Settings Fields */}
-                    <section className="cs-section-card">
-                      <div className="cs-section-header">
-                        <div className="cs-section-icon">
-                          <FileText size={18} />
+                    <div className="cs-preview-card">
+                      {/* Company Header */}
+                      <div className="cs-prev-header">
+                        <div className="cs-prev-logo-wrap">
+                          {logoUrl ? (
+                            <img src={logoUrl} alt="Logo" className="cs-prev-logo" />
+                          ) : (
+                            <div className="cs-prev-logo-fallback">
+                              <Building2 size={24} color="#2563eb" />
+                            </div>
+                          )}
                         </div>
                         <div>
-                          <h3>PDF Document Headings &amp; Notices</h3>
-                          <p>
-                            Titles, announcement banners, and legal declarations printed on customer quotation PDFs.
+                          <h3 className="cs-prev-company-name">
+                            {formData.company_name || "Company Name"}
+                          </h3>
+                          <p className="cs-prev-tagline">
+                            {formData.pdf_subheading || "Professional Services"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="cs-fields-grid">
-                        <div className="cs-field-group">
-                          <label htmlFor="pdf_heading">
-                            PDF Main Document Heading <span className="cs-required">*</span>
-                          </label>
-                          <input
-                            id="pdf_heading"
-                            name="pdf_heading"
-                            type="text"
-                            required
-                            placeholder="e.g. QUOTATION"
-                            value={formData.pdf_heading}
-                            onChange={handleInputChange}
-                          />
-                          <small>Displayed prominently on the top right of the generated PDF document.</small>
-                        </div>
+                      <div className="cs-prev-divider" />
 
-                        <div className="cs-field-group">
-                          <label htmlFor="pdf_subheading">PDF Sub-Heading</label>
-                          <input
-                            id="pdf_subheading"
-                            name="pdf_subheading"
-                            type="text"
-                            placeholder="e.g. PROFESSIONAL SERVICES PROPOSAL"
-                            value={formData.pdf_subheading}
-                            onChange={handleInputChange}
-                          />
-                          <small>Small blue subtitle line directly underneath the main heading.</small>
+                      {/* Contact Meta */}
+                      <div className="cs-prev-details">
+                        <div className="cs-prev-item">
+                          <Mail size={13} color="#64748b" />
+                          <span>{formData.email_address || "email@company.com"}</span>
                         </div>
-
-                        <div className="cs-field-group cs-full-width">
-                          <label htmlFor="pdf_custom_lines">
-                            Header Custom Line / Announcement Text
-                          </label>
-                          <input
-                            id="pdf_custom_lines"
-                            name="pdf_custom_lines"
-                            type="text"
-                            placeholder="e.g. ISO 9001:2015 Certified IT Solutions Provider | Reg: PV-002498"
-                            value={formData.pdf_custom_lines}
-                            onChange={handleInputChange}
-                          />
-                          <small>Appears as a clean subtitle bar right below the header divider line.</small>
+                        <div className="cs-prev-item">
+                          <Phone size={13} color="#64748b" />
+                          <span>{formData.contact_number || "Phone numbers"}</span>
                         </div>
-
-                        <div className="cs-field-group cs-full-width">
-                          <label htmlFor="pdf_footer_note">Footer Additional Notice / Terms Line</label>
-                          <textarea
-                            id="pdf_footer_note"
-                            name="pdf_footer_note"
-                            rows={2}
-                            placeholder="e.g. All quotations valid for 30 calendar days. Cheques payable to NetIT Technology."
-                            value={formData.pdf_footer_note}
-                            onChange={handleInputChange}
-                          />
-                          <small>Appears at the bottom of the quotation as an authoritative notice / declaration.</small>
-                        </div>
-
-                        <div className="cs-field-group cs-full-width">
-                          <label htmlFor="default_terms_and_conditions">
-                            Default Terms &amp; Conditions (Auto-filled on new quotations)
-                          </label>
-                          <textarea
-                            id="default_terms_and_conditions"
-                            name="default_terms_and_conditions"
-                            rows={3}
-                            placeholder="1. Payment terms as agreed upon...\n2. Quotation validity period is 30 days..."
-                            value={formData.default_terms_and_conditions}
-                            onChange={handleInputChange}
-                          />
-                          <small>Whenever Admin or Super Admin creates a quotation, these terms are loaded by default.</small>
+                        <div className="cs-prev-item">
+                          <MapPin size={13} color="#64748b" />
+                          <span>{formData.company_address || "Company address"}</span>
                         </div>
                       </div>
 
-                      {/* Custom Additional Headings (e.g. SERVICE SCOPE, WORK DELIVERABLES) */}
-                      <div className="cs-sections-box">
-                        <div className="cs-sections-top">
-                          <div className="cs-sections-top-info">
-                            <h4>Custom PDF Headings &amp; Sub-Sections</h4>
+                      {/* Banking Preview */}
+                      {formData.bank_name && (
+                        <div className="cs-prev-bank-box">
+                          <div className="cs-prev-bank-head">
+                            <Landmark size={12} color="#1d4ed8" />
+                            <strong>{formData.bank_name}</strong>
+                          </div>
+                          <div className="cs-prev-bank-row">
+                            <span>A/C Name:</span>
+                            <strong>{formData.bank_account_name || "—"}</strong>
+                          </div>
+                          <div className="cs-prev-bank-row">
+                            <span>A/C No:</span>
+                            <strong>{formData.bank_account_number || "—"}</strong>
+                          </div>
+                          {formData.bank_branch && (
+                            <div className="cs-prev-bank-row">
+                              <span>Branch:</span>
+                              <span>{formData.bank_branch}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Digital Signature Preview */}
+                      <div className="cs-prev-signature-box">
+                        <span className="cs-prev-sig-label">Authorized Sign-off</span>
+                        {signatureUrl ? (
+                          <img
+                            src={signatureUrl}
+                            alt="Signature"
+                            className="cs-prev-signature-img"
+                          />
+                        ) : (
+                          <div className="cs-prev-sig-empty">Signature Pending</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="cs-preview-footnote">
+                      <ShieldCheck size={14} color="#10b981" />
+                      <span>Synchronized with PDF generator &amp; system dashboards</span>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          )}
+
+          {/* TAB 2: Combined Quotation Settings (Template Settings + Form Settings) */}
+          {activeTab === "quotation" && (
+            <div className="cs-quotation-settings-container">
+              {/* Quotation Sub-Tabs */}
+              <div className="cs-subtabs-bar">
+                <button
+                  type="button"
+                  className={`cs-subtab-btn ${quotationSubTab === "template" ? "active" : ""}`}
+                  onClick={() => setQuotationSubTab("template")}
+                >
+                  <FileText size={15} />
+                  <span>Quotation Template Settings (PDF Layout &amp; Headings)</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`cs-subtab-btn ${quotationSubTab === "form" ? "active" : ""}`}
+                  onClick={() => {
+                    setQuotationSubTab("form");
+                    setIsEditingService(false);
+                    loadServices();
+                  }}
+                >
+                  <Layers size={15} />
+                  <span>Quotation Form Settings (Services &amp; Item Catalog)</span>
+                </button>
+              </div>
+
+              {/* SUB-TAB 1: Template Settings (PDF Layout & Headings) */}
+              {quotationSubTab === "template" && (
+                <form onSubmit={handleSubmit} className="cs-template-form-wrap">
+                  <div className="cs-template-layout-grid">
+                    {/* Left Column: Separated Settings Cards */}
+                    <div className="cs-template-cards-col">
+                      {/* CARD 1: Document Headings & Banner Titles */}
+                      <section className="cs-section-card cs-template-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon">
+                            <FileText size={18} />
+                          </div>
+                          <div>
+                            <h3>PDF Document Headings &amp; Titles</h3>
                             <p>
-                              Add extra headings enclosed in navy blue lines/bars on the quotation PDF, with matching descriptive sub-text.
+                              Primary document title, proposal subtitle, and decorative announcement text.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group">
+                            <label htmlFor="pdf_heading">
+                              PDF Main Document Heading <span className="cs-required">*</span>
+                            </label>
+                            <input
+                              id="pdf_heading"
+                              name="pdf_heading"
+                              type="text"
+                              required
+                              placeholder="e.g. QUOTATION"
+                              value={formData.pdf_heading}
+                              onChange={handleInputChange}
+                            />
+                            <small>Displayed prominently on the top right of the generated PDF document.</small>
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label htmlFor="pdf_subheading">PDF Sub-Heading</label>
+                            <input
+                              id="pdf_subheading"
+                              name="pdf_subheading"
+                              type="text"
+                              placeholder="e.g. PROFESSIONAL SERVICES PROPOSAL"
+                              value={formData.pdf_subheading}
+                              onChange={handleInputChange}
+                            />
+                            <small>Small blue subtitle line directly underneath the main heading.</small>
+                          </div>
+
+                          <div className="cs-field-group cs-full-width">
+                            <label htmlFor="pdf_custom_lines">
+                              Header Custom Line / Announcement Text
+                            </label>
+                            <input
+                              id="pdf_custom_lines"
+                              name="pdf_custom_lines"
+                              type="text"
+                              placeholder="e.g. ISO 9001:2015 Certified IT Solutions Provider | Reg: PV-002498"
+                              value={formData.pdf_custom_lines}
+                              onChange={handleInputChange}
+                            />
+                            <small>Appears as a clean subtitle bar right below the header divider line.</small>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* CARD 2: Terms, Policies & Footer Notices */}
+                      <section className="cs-section-card cs-template-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon secondary">
+                            <ShieldCheck size={18} />
+                          </div>
+                          <div>
+                            <h3>Quotation Terms &amp; Footer Notices</h3>
+                            <p>
+                              Set default terms auto-loaded into new quotations and official footer declarations.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group cs-full-width">
+                            <label htmlFor="pdf_footer_note">Footer Additional Notice / Terms Line</label>
+                            <textarea
+                              id="pdf_footer_note"
+                              name="pdf_footer_note"
+                              rows={2}
+                              placeholder="e.g. All quotations valid for 30 calendar days. Cheques payable to NetIT Technology."
+                              value={formData.pdf_footer_note}
+                              onChange={handleInputChange}
+                            />
+                            <small>Appears at the bottom of the quotation as an authoritative notice / declaration.</small>
+                          </div>
+
+                          <div className="cs-field-group cs-full-width">
+                            <label htmlFor="default_terms_and_conditions">
+                              Default Terms &amp; Conditions (Auto-filled on new quotations)
+                            </label>
+                            <textarea
+                              id="default_terms_and_conditions"
+                              name="default_terms_and_conditions"
+                              rows={3}
+                              placeholder="1. Payment terms as agreed upon...\n2. Quotation validity period is 30 days..."
+                              value={formData.default_terms_and_conditions}
+                              onChange={handleInputChange}
+                            />
+                            <small>Whenever Admin or Super Admin creates a quotation, these terms are loaded by default.</small>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* CARD 3: Custom Headings & Scope Sections */}
+                      <section className="cs-section-card cs-template-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon accent">
+                            <Layers size={18} />
+                          </div>
+                          <div className="cs-section-header-text">
+                            <h3>Custom PDF Headings &amp; Sub-Sections</h3>
+                            <p>
+                              Extra custom sections (e.g. SERVICE SCOPE, DELIVERABLES, WARRANTY) printed on quotation PDFs.
                             </p>
                           </div>
                           <button
@@ -1207,434 +1313,882 @@ export default function CompanySettings() {
                           </button>
                         </div>
 
-                        {customSections.length === 0 ? (
-                          <div className="cs-empty-sections-note">
-                            No custom headings added yet. Click &quot;Add Heading / Section&quot; if you want to include custom sections on the PDF.
-                          </div>
-                        ) : (
-                          <div className="cs-sections-list">
-                            {customSections.map((sec, index) => (
-                              <div key={sec.id || index} className="cs-section-card-item">
-                                <div className="cs-section-card-head">
-                                  <span>
-                                    <FileText size={13} color="#2563eb" />
-                                    Section #{index + 1}: {sec.heading ? sec.heading.toUpperCase() : "Untitled Heading"}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="cs-section-delete-btn"
-                                    onClick={() => handleDeleteCustomSection(index)}
-                                    title="Delete this heading section"
-                                  >
-                                    <Trash2 size={12} />
-                                    <span>Delete</span>
-                                  </button>
-                                </div>
+                        <div className="cs-sections-box-inner">
+                          {customSections.length === 0 ? (
+                            <div className="cs-empty-sections-note">
+                              <FileText size={26} style={{ opacity: 0.35, marginBottom: 6 }} />
+                              <p>No custom headings added yet.</p>
+                              <small>Click &quot;Add Heading / Section&quot; above to include custom scope sections on the quotation PDF.</small>
+                            </div>
+                          ) : (
+                            <div className="cs-sections-list">
+                              {customSections.map((sec, index) => (
+                                <div key={sec.id || index} className="cs-section-card-item">
+                                  <div className="cs-section-card-head">
+                                    <div className="cs-section-card-head-left">
+                                      <span className="cs-section-idx-badge">{index + 1}</span>
+                                      <span className="cs-section-title-text">
+                                        {sec.heading ? sec.heading.toUpperCase() : "UNTITLED HEADING"}
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="cs-section-delete-btn"
+                                      onClick={() => handleDeleteCustomSection(index)}
+                                      title="Delete this heading section"
+                                    >
+                                      <Trash2 size={13} />
+                                      <span>Delete</span>
+                                    </button>
+                                  </div>
 
-                                <div className="cs-section-fields">
-                                  <div className="cs-section-field">
-                                    <label>Section Heading Title</label>
-                                    <input
-                                      type="text"
-                                      placeholder="e.g. SERVICE SCOPE, WORK DELIVERABLES"
-                                      value={sec.heading}
-                                      onChange={(e) =>
-                                        handleUpdateCustomSection(index, "heading", e.target.value)
-                                      }
-                                    />
+                                  <div className="cs-section-fields">
+                                    <div className="cs-section-field">
+                                      <label>Section Heading Title</label>
+                                      <input
+                                        type="text"
+                                        placeholder="e.g. SERVICE SCOPE, WORK DELIVERABLES"
+                                        value={sec.heading}
+                                        onChange={(e) =>
+                                          handleUpdateCustomSection(index, "heading", e.target.value)
+                                        }
+                                      />
+                                    </div>
+                                    <div className="cs-section-field">
+                                      <label>Section Sub-Text / Description Line</label>
+                                      <textarea
+                                        rows={2}
+                                        placeholder="Enter the details or scope lines that will appear underneath this navy blue heading..."
+                                        value={sec.sub_text}
+                                        onChange={(e) =>
+                                          handleUpdateCustomSection(index, "sub_text", e.target.value)
+                                        }
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="cs-section-field">
-                                    <label>Section Sub-Text / Description Line</label>
-                                    <textarea
-                                      rows={2}
-                                      placeholder="Enter the details or scope lines that will appear underneath this navy blue heading..."
-                                      value={sec.sub_text}
-                                      onChange={(e) =>
-                                        handleUpdateCustomSection(index, "sub_text", e.target.value)
-                                      }
-                                    />
-                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </section>
+
+                      {/* Bottom Action Bar */}
+                      <div className="cs-action-bar cs-template-action-bar">
+                        <button
+                          type="button"
+                          className="cs-btn-secondary"
+                          onClick={loadSettings}
+                          disabled={saving || loading}
+                        >
+                          Discard Changes
+                        </button>
+                        <button
+                          type="submit"
+                          className="cs-btn-save"
+                          disabled={saving || loading}
+                        >
+                          <Save size={16} />
+                          <span>{saving ? "Saving Template..." : "Save Template Settings"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Sticky Live PDF Layout Preview */}
+                    <aside className="cs-template-preview-col">
+                      <div className="cs-template-preview-sticky">
+                        <div className="cs-preview-card-box">
+                          <div className="cs-preview-header">
+                            <div className="cs-preview-title-left">
+                              <span className="cs-live-indicator-dot" />
+                              <Eye size={15} color="#2563eb" />
+                              <strong>Live PDF Layout Preview</strong>
+                            </div>
+                            <span className="cs-preview-badge">Live Sync</span>
+                          </div>
+
+                          <div className="cs-pdf-preview-sheet">
+                            {/* Top Bar Preview */}
+                            <div className="cs-pdf-header-row">
+                              <div className="cs-pdf-header-left">
+                                <div className="cs-pdf-company-name">
+                                  {formData.company_name || "NetIT Technology"}
+                                </div>
+                                <div className="cs-pdf-meta">
+                                  {formData.company_address || "Ampitiya, Kandy, Sri Lanka"} | {formData.email_address || "info@netittechnology.com"}
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </section>
+                              <div className="cs-pdf-header-right">
+                                <div className="cs-pdf-title">
+                                  {formData.pdf_heading || "QUOTATION"}
+                                </div>
+                                <div className="cs-pdf-subtitle">
+                                  {formData.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL"}
+                                </div>
+                              </div>
+                            </div>
 
-                    <div className="cs-action-bar">
-                      <button
-                        type="button"
-                        className="cs-btn-secondary"
-                        onClick={loadSettings}
-                        disabled={saving || loading}
-                      >
-                        Discard Changes
-                      </button>
-                      <button
-                        type="submit"
-                        className="cs-btn-save"
-                        disabled={saving || loading}
-                      >
-                        <Save size={16} />
-                        <span>{saving ? "Saving Template..." : "Save Template Settings"}</span>
-                      </button>
-                    </div>
-                  </form>
-                )}
+                            {/* Decorative Line Preview */}
+                            <div className="cs-pdf-divider" />
 
-                {/* SUB-TAB 2: Form Settings (Services & Item Catalog) */}
-                {quotationSubTab === "form" && (
-                  <div className="cs-form-settings-section">
-                    {!isEditingService ? (
-                      <section className="cs-section-card">
-                        <div className="cs-service-toolbar">
-                          <div>
-                            <h3>Quotation Form Service Options ({services.length})</h3>
-                            <p>
-                              These services populate the service selection dropdown on the quotation creation form for all staff.
-                            </p>
+                            {/* Custom Extra Line Preview */}
+                            {formData.pdf_custom_lines && (
+                              <div className="cs-pdf-custom-line">
+                                <span>{formData.pdf_custom_lines}</span>
+                              </div>
+                            )}
+
+                            {/* Sample Table Preview Mockup */}
+                            <div className="cs-pdf-mock-table">
+                              <div className="cs-mock-th">
+                                <span>#</span>
+                                <span>SERVICE SCOPE</span>
+                                <span>UNIT PRICE</span>
+                                <span>TOTAL</span>
+                              </div>
+                              <div className="cs-mock-tr">
+                                <span>1</span>
+                                <span>Web &amp; Software Development (Sample Item)</span>
+                                <span>LKR 75,000.00</span>
+                                <span>LKR 75,000.00</span>
+                              </div>
+                            </div>
+
+                            {/* Custom Template Sections Live Preview */}
+                            {customSections.length > 0 && (
+                              <div className="cs-pdf-preview-sections-wrap">
+                                {customSections.map((sec, idx) => {
+                                  if (!sec.heading && !sec.sub_text) return null;
+                                  return (
+                                    <div key={idx} className="cs-pdf-preview-section">
+                                      {sec.heading && (
+                                        <div className="cs-pdf-section-banner">
+                                          {sec.heading.toUpperCase()}
+                                        </div>
+                                      )}
+                                      {sec.sub_text && (
+                                        <div className="cs-pdf-section-body">
+                                          {sec.sub_text}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Footer Notice Preview */}
+                            {formData.pdf_footer_note && (
+                              <div className="cs-pdf-footer-box">
+                                <strong>Important Notice / Declaration:</strong>
+                                <p>{formData.pdf_footer_note}</p>
+                              </div>
+                            )}
+
+                            {/* Default Terms Preview snippet */}
+                            {formData.default_terms_and_conditions && (
+                              <div className="cs-pdf-terms-preview-box">
+                                <strong>Default Terms Preview:</strong>
+                                <p>{formData.default_terms_and_conditions}</p>
+                              </div>
+                            )}
                           </div>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            <button
-                              type="button"
-                              className="cs-refresh-btn"
-                              onClick={loadServices}
-                              disabled={loadingServices}
-                              title="Refresh list"
-                            >
-                              <RefreshCw size={14} className={loadingServices ? "cs-spin" : ""} />
-                              <span>Refresh</span>
-                            </button>
-                            <button
-                              type="button"
-                              className="cs-primary-save-btn"
-                              onClick={handleStartCreateService}
-                            >
-                              <Plus size={14} />
-                              <span>Add New Service</span>
-                            </button>
+
+                          <div className="cs-preview-footnote">
+                            <Eye size={12} color="#2563eb" />
+                            <span>Updates dynamically as you edit headings and notes</span>
                           </div>
                         </div>
+                      </div>
+                    </aside>
+                  </div>
+                </form>
+              )}
 
-                        {loadingServices ? (
-                          <div className="cs-loading-card">
-                            <RefreshCw size={24} className="cs-spin" />
-                            <p>Loading service options catalog...</p>
-                          </div>
-                        ) : services.length === 0 ? (
-                          <div className="cs-empty-box">
-                            No service options found in catalog. Click &quot;Add New Service&quot; to create one.
-                          </div>
-                        ) : (
-                          <div className="cs-table-wrap">
-                            <table className="cs-table">
-                              <thead>
-                                <tr>
-                                  <th>SERVICE / ITEM NAME</th>
-                                  <th>SCOPE &amp; DESCRIPTION</th>
-                                  <th>DEFAULT PRICE</th>
-                                  <th>STATUS</th>
-                                  <th style={{ textAlign: "right" }}>ACTIONS</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {services.map((svc) => (
-                                  <tr key={svc.service_id}>
-                                    <td>
-                                      <strong>{svc.item_name}</strong>
-                                    </td>
-                                    <td style={{ maxWidth: "260px" }}>
-                                      <span className="cs-text-clamp">{svc.description || "—"}</span>
-                                    </td>
-                                    <td>
-                                      <strong>
-                                        {Number(svc.default_price || 0) > 0
-                                          ? `LKR ${Number(svc.default_price).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
-                                          : "Variable Price"}
-                                      </strong>
-                                    </td>
-                                    <td>
-                                      <span className={`cs-status-pill ${svc.is_active ? "active" : "inactive"}`}>
-                                        {svc.is_active ? "Active" : "Inactive"}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: "right" }}>
-                                      <div className="cs-row-actions">
-                                        <button
-                                          type="button"
-                                          className="cs-icon-btn edit"
-                                          title="Edit service"
-                                          onClick={() => handleStartEditService(svc)}
-                                        >
-                                          <Edit2 size={14} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="cs-icon-btn delete"
-                                          title="Delete service"
-                                          onClick={() => handleDeleteService(svc)}
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </section>
-                    ) : (
-                      /* Create / Edit Service Option Form */
-                      <form onSubmit={handleSaveService} className="cs-form-body">
-                        <section className="cs-section-card">
-                          <div className="cs-section-header">
-                            <div className="cs-section-icon">
-                              <Layers size={18} />
-                            </div>
-                            <div>
-                              <h3>
-                                {editingServiceId === "new"
-                                  ? "Add New Service Option"
-                                  : `Edit Service: ${serviceForm.item_name}`}
-                              </h3>
-                              <p>
-                                Configure service details and default scope descriptions for the quotation form.
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="cs-fields-grid">
-                            <div className="cs-field-group cs-full-width">
-                              <label>
-                                Service / Item Name <span className="cs-required">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                required
-                                placeholder="e.g. Mobile App Development, E-Commerce Portal, Cloud Infrastructure"
-                                value={serviceForm.item_name}
-                                onChange={(e) =>
-                                  setServiceForm({ ...serviceForm, item_name: e.target.value })
-                                }
-                              />
-                              <small>This name will appear in the service dropdown when creating quotations.</small>
-                            </div>
-
-                            <div className="cs-field-group">
-                              <label>Default Price (LKR)</label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="0.00 (leave 0 for variable/custom price)"
-                                value={serviceForm.default_price}
-                                onChange={(e) =>
-                                  setServiceForm({ ...serviceForm, default_price: e.target.value })
-                                }
-                              />
-                              <small>Optional baseline unit price auto-filled in the quotation item row.</small>
-                            </div>
-
-                            <div className="cs-field-group">
-                              <label>Status</label>
-                              <select
-                                value={serviceForm.is_active}
-                                onChange={(e) =>
-                                  setServiceForm({
-                                    ...serviceForm,
-                                    is_active: Number(e.target.value),
-                                  })
-                                }
-                              >
-                                <option value={1}>Active (Available on quotation form)</option>
-                                <option value={0}>Inactive (Hidden from dropdown)</option>
-                              </select>
-                            </div>
-
-                            <div className="cs-field-group cs-full-width">
-                              <label>Default Description / Scope</label>
-                              <textarea
-                                rows={2}
-                                placeholder="e.g. Design, development, testing, and deployment of responsive application."
-                                value={serviceForm.description}
-                                onChange={(e) =>
-                                  setServiceForm({ ...serviceForm, description: e.target.value })
-                                }
-                              />
-                            </div>
-
-                            <div className="cs-field-group">
-                              <label>Default Hosting &amp; Domain Policy</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 1 Year Free VPS Hosting & .COM Domain"
-                                value={serviceForm.hosting_domain}
-                                onChange={(e) =>
-                                  setServiceForm({
-                                    ...serviceForm,
-                                    hosting_domain: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-
-                            <div className="cs-field-group">
-                              <label>Maintenance &amp; Support Term</label>
-                              <input
-                                type="text"
-                                placeholder="e.g. 6 Months Free SLA Support"
-                                value={serviceForm.maintenance_support}
-                                onChange={(e) =>
-                                  setServiceForm({
-                                    ...serviceForm,
-                                    maintenance_support: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </div>
-                        </section>
-
-                        <div className="cs-action-bar">
+              {/* SUB-TAB 2: Form Settings (Services & Item Catalog) */}
+              {quotationSubTab === "form" && (
+                <div className="cs-form-settings-section">
+                  {!isEditingService ? (
+                    <section className="cs-section-card">
+                      <div className="cs-service-toolbar">
+                        <div>
+                          <h3>Quotation Form Service Options ({services.length})</h3>
+                          <p>
+                            These services populate the service selection dropdown on the quotation creation form for all staff.
+                          </p>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px" }}>
                           <button
                             type="button"
-                            className="cs-btn-secondary"
-                            onClick={() => {
-                              setIsEditingService(false);
-                              setEditingServiceId(null);
-                            }}
+                            className="cs-refresh-btn"
+                            onClick={loadServices}
+                            disabled={loadingServices}
+                            title="Refresh list"
+                            aria-label="Refresh list"
                           >
-                            Cancel
+                            <RefreshCw size={15} className={loadingServices ? "cs-spin" : ""} />
                           </button>
                           <button
-                            type="submit"
-                            className="cs-btn-save"
-                            disabled={saving}
+                            type="button"
+                            className="cs-primary-save-btn"
+                            onClick={handleStartCreateService}
                           >
-                            <Save size={16} />
-                            <span>{saving ? "Saving..." : "Save Service Option"}</span>
+                            <Plus size={14} />
+                            <span>Add New Service</span>
                           </button>
                         </div>
-                      </form>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 3: Invoice Settings (Module in Development) */}
-            {activeTab === "invoice" && (
-              <div className="cs-invoice-settings-container">
-                <section className="cs-section-card cs-invoice-placeholder-card">
-                  <div className="cs-section-header">
-                    <div className="cs-section-icon cs-invoice-icon">
-                      <Receipt size={20} />
-                    </div>
-                    <div className="cs-section-header-text">
-                      <div className="cs-title-badge-row">
-                        <h3>Invoice Settings &amp; Preferences</h3>
-                        <span className="cs-badge-coming-soon">Module In Development</span>
                       </div>
-                      <p>
-                        Configure default billing sequences, payment terms, and automated invoice settings.
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="cs-invoice-banner">
-                    <div className="cs-invoice-banner-icon">
-                      <Sparkles size={20} color="#2563eb" />
-                    </div>
-                    <div className="cs-invoice-banner-text">
-                      <strong>Invoicing &amp; Billing Module Under Active Development</strong>
-                      <p>
-                        Client billing, automatic invoice generation from accepted quotations, payment tracking, and receipt issuance are coming in the next release. Company branding and bank remittance details configured under <strong>Company Profile</strong> will automatically be inherited.
-                      </p>
-                    </div>
-                  </div>
+                      {loadingServices ? (
+                        <div className="cs-loading-card">
+                          <RefreshCw size={24} className="cs-spin" />
+                          <p>Loading service options catalog...</p>
+                        </div>
+                      ) : services.length === 0 ? (
+                        <div className="cs-empty-box">
+                          No service options found in catalog. Click &quot;Add New Service&quot; to create one.
+                        </div>
+                      ) : (
+                        <div className="cs-table-wrap">
+                          <table className="cs-table">
+                            <thead>
+                              <tr>
+                                <th>SERVICE / ITEM NAME</th>
+                                <th>SCOPE &amp; DESCRIPTION</th>
+                                <th>DEFAULT PRICE</th>
+                                <th>STATUS</th>
+                                <th style={{ textAlign: "right" }}>ACTIONS</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {services.map((svc) => (
+                                <tr key={svc.service_id}>
+                                  <td>
+                                    <strong>{svc.item_name}</strong>
+                                  </td>
+                                  <td style={{ maxWidth: "260px" }}>
+                                    <span className="cs-text-clamp">{svc.description || "—"}</span>
+                                  </td>
+                                  <td>
+                                    <strong>
+                                      {Number(svc.default_price || 0) > 0
+                                        ? `LKR ${Number(svc.default_price).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                                        : "Variable Price"}
+                                    </strong>
+                                  </td>
+                                  <td>
+                                    <span className={`cs-status-pill ${svc.is_active ? "active" : "inactive"}`}>
+                                      {svc.is_active ? "Active" : "Inactive"}
+                                    </span>
+                                  </td>
+                                  <td style={{ textAlign: "right" }}>
+                                    <div className="cs-row-actions">
+                                      <button
+                                        type="button"
+                                        className="cs-icon-btn edit"
+                                        title="Edit service"
+                                        onClick={() => handleStartEditService(svc)}
+                                      >
+                                        <Edit2 size={14} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="cs-icon-btn delete"
+                                        title="Delete service"
+                                        onClick={() => handleDeleteService(svc)}
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  ) : (
+                    /* Create / Edit Service Option Form */
+                    <form onSubmit={handleSaveService} className="cs-form-body">
+                      <section className="cs-section-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon">
+                            <Layers size={18} />
+                          </div>
+                          <div>
+                            <h3>
+                              {editingServiceId === "new"
+                                ? "Add New Service Option"
+                                : `Edit Service: ${serviceForm.item_name}`}
+                            </h3>
+                            <p>
+                              Configure service details and default scope descriptions for the quotation form.
+                            </p>
+                          </div>
+                        </div>
 
-                  <div className="cs-fields-grid cs-invoice-preview-grid">
-                    <div className="cs-field-group">
-                      <label htmlFor="inv_prefix">Invoice Number Prefix</label>
-                      <div className="cs-input-icon-wrap">
-                        <FileText size={16} />
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group cs-full-width">
+                            <label>
+                              Service / Item Name <span className="cs-required">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="e.g. Mobile App Development, E-Commerce Portal, Cloud Infrastructure"
+                              value={serviceForm.item_name}
+                              onChange={(e) =>
+                                setServiceForm({ ...serviceForm, item_name: e.target.value })
+                              }
+                            />
+                            <small>This name will appear in the service dropdown when creating quotations.</small>
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label>Default Price (LKR)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="0.00 (leave 0 for variable/custom price)"
+                              value={serviceForm.default_price}
+                              onChange={(e) =>
+                                setServiceForm({ ...serviceForm, default_price: e.target.value })
+                              }
+                            />
+                            <small>Optional baseline unit price auto-filled in the quotation item row.</small>
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label>Status</label>
+                            <select
+                              value={serviceForm.is_active}
+                              onChange={(e) =>
+                                setServiceForm({
+                                  ...serviceForm,
+                                  is_active: Number(e.target.value),
+                                })
+                              }
+                            >
+                              <option value={1}>Active (Available on quotation form)</option>
+                              <option value={0}>Inactive (Hidden from dropdown)</option>
+                            </select>
+                          </div>
+
+                          <div className="cs-field-group cs-full-width">
+                            <label>Default Description / Scope</label>
+                            <textarea
+                              rows={2}
+                              placeholder="e.g. Design, development, testing, and deployment of responsive application."
+                              value={serviceForm.description}
+                              onChange={(e) =>
+                                setServiceForm({ ...serviceForm, description: e.target.value })
+                              }
+                            />
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label>Default Hosting &amp; Domain Policy</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. 1 Year Free VPS Hosting & .COM Domain"
+                              value={serviceForm.hosting_domain}
+                              onChange={(e) =>
+                                setServiceForm({
+                                  ...serviceForm,
+                                  hosting_domain: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label>Maintenance &amp; Support Term</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. 6 Months Free SLA Support"
+                              value={serviceForm.maintenance_support}
+                              onChange={(e) =>
+                                setServiceForm({
+                                  ...serviceForm,
+                                  maintenance_support: e.target.value,
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </section>
+
+                      <div className="cs-action-bar">
+                        <button
+                          type="button"
+                          className="cs-btn-secondary"
+                          onClick={() => {
+                            setIsEditingService(false);
+                            setEditingServiceId(null);
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="cs-btn-save"
+                          disabled={saving}
+                        >
+                          <Save size={16} />
+                          <span>{saving ? "Saving..." : "Save Service Option"}</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: Invoice Settings & Preferences */}
+          {activeTab === "invoice" && (
+            <div className="cs-template-form-wrap">
+              <div className="cs-template-layout-grid">
+                {/* Left Column: 3 Modern Curved Settings Cards */}
+                <div className="cs-template-cards-col">
+                  {/* CARD 1: Numbering & Billing Defaults */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon secondary">
+                        <Receipt size={18} />
+                      </div>
+                      <div className="cs-section-header-text">
+                        <h3>Invoice Numbering &amp; Billing Defaults</h3>
+                        <p>
+                          Configure auto-numbering prefixes, payment window periods, and billing currency defaults.
+                        </p>
+                      </div>
+                      <span className="cs-badge-active">Active</span>
+                    </div>
+
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_prefix_input">
+                          Invoice Number Prefix <span className="cs-required">*</span>
+                        </label>
                         <input
-                          id="inv_prefix"
+                          id="inv_prefix_input"
                           type="text"
-                          disabled
-                          value="INV-2026-"
-                          className="cs-input-disabled"
+                          required
+                          placeholder="e.g. INV"
+                          value={invoiceSettings.invoice_prefix}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange(
+                              "invoice_prefix",
+                              e.target.value.toUpperCase()
+                            )
+                          }
                         />
+                        <small>e.g. {previewInvoiceNumber} (Sequential numbering format)</small>
                       </div>
-                      <small className="cs-field-hint">e.g. INV-2026-0001 (Sequential generation)</small>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_due_days_input">Default Payment Window (Days)</label>
+                        <select
+                          id="inv_due_days_input"
+                          value={invoiceSettings.default_due_days}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("default_due_days", e.target.value)
+                          }
+                        >
+                          <option value="7">7 Days (Net 7)</option>
+                          <option value="14">14 Days (Net 14 - Standard)</option>
+                          <option value="21">21 Days (Net 21)</option>
+                          <option value="30">30 Days (Net 30)</option>
+                          <option value="45">45 Days (Net 45)</option>
+                          <option value="60">60 Days (Net 60)</option>
+                        </select>
+                        <small>Auto-computes due date ({previewDueDateStr}) for new invoices.</small>
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_currency_input">Default Billing Currency</label>
+                        <select
+                          id="inv_currency_input"
+                          value={invoiceSettings.default_currency}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("default_currency", e.target.value)
+                          }
+                        >
+                          <option value="LKR">LKR - Sri Lankan Rupee (රු)</option>
+                          <option value="USD">USD - US Dollar ($)</option>
+                          <option value="EUR">EUR - Euro (€)</option>
+                          <option value="GBP">GBP - British Pound (£)</option>
+                          <option value="AUD">AUD - Australian Dollar (A$)</option>
+                          <option value="SGD">SGD - Singapore Dollar (S$)</option>
+                          <option value="AED">AED - UAE Dirham (د.إ)</option>
+                        </select>
+                        <small>Applied automatically to newly created client invoices.</small>
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_tax_display_input">Tax &amp; Discount Breakdown</label>
+                        <select
+                          id="inv_tax_display_input"
+                          value={invoiceSettings.tax_display_option}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("tax_display_option", e.target.value)
+                          }
+                        >
+                          <option value="itemized">Itemized Breakdown (Subtotal + VAT / Tax)</option>
+                          <option value="consolidated">Consolidated Total (Tax-Inclusive Pricing)</option>
+                        </select>
+                        <small>Controls taxation display across invoice documents.</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* CARD 2: Document Titles & Layout */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon">
+                        <FileText size={18} />
+                      </div>
+                      <div className="cs-section-header-text">
+                        <h3>Invoice Document Titles &amp; Layout</h3>
+                        <p>
+                          Main invoice heading title, proposal subtitle, and bottom acknowledgement line.
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="cs-field-group">
-                      <label htmlFor="inv_due_days">Default Payment Due Period</label>
-                      <div className="cs-input-icon-wrap">
-                        <CreditCard size={16} />
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_heading_input">
+                          PDF Main Document Heading <span className="cs-required">*</span>
+                        </label>
                         <input
-                          id="inv_due_days"
+                          id="inv_heading_input"
                           type="text"
-                          disabled
-                          value="14 Days from Issue Date"
-                          className="cs-input-disabled"
+                          required
+                          placeholder="e.g. INVOICE or TAX INVOICE"
+                          value={invoiceSettings.pdf_heading}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("pdf_heading", e.target.value)
+                          }
                         />
+                        <small>Displayed prominently on top right of invoice PDF.</small>
                       </div>
-                      <small className="cs-field-hint">Standard client payment window</small>
-                    </div>
 
-                    <div className="cs-field-group">
-                      <label htmlFor="inv_currency">Default Billing Currency</label>
-                      <div className="cs-input-icon-wrap">
-                        <Landmark size={16} />
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_subheading_input">PDF Sub-Heading</label>
                         <input
-                          id="inv_currency"
+                          id="inv_subheading_input"
                           type="text"
-                          disabled
-                          value="LKR (Sri Lankan Rupee)"
-                          className="cs-input-disabled"
+                          placeholder="e.g. OFFICIAL BILLING DOCUMENT"
+                          value={invoiceSettings.pdf_subheading}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("pdf_subheading", e.target.value)
+                          }
                         />
+                        <small>Sub-title line directly beneath the main document heading.</small>
                       </div>
-                      <small className="cs-field-hint">Aligned with quotation currency</small>
-                    </div>
 
-                    <div className="cs-field-group">
-                      <label htmlFor="inv_tax_display">Tax &amp; VAT Display Option</label>
-                      <div className="cs-input-icon-wrap">
-                        <Sliders size={16} />
-                        <input
-                          id="inv_tax_display"
-                          type="text"
-                          disabled
-                          value="Itemized Tax &amp; Discount Lines"
-                          className="cs-input-disabled"
-                        />
-                      </div>
-                      <small className="cs-field-hint">Complies with tax invoice regulations</small>
-                    </div>
-
-                    <div className="cs-field-group cs-full-width">
-                      <label htmlFor="inv_notes">Default Client Remittance Notice</label>
-                      <div className="cs-input-icon-wrap textarea-wrap">
+                      <div className="cs-field-group cs-full-width">
+                        <label htmlFor="inv_footer_note_input">Footer Acknowledgement / Thank You Note</label>
                         <textarea
-                          id="inv_notes"
-                          rows={3}
-                          disabled
-                          value={formData.bank_name ? `Please remit payment via bank transfer to ${formData.bank_name} (A/C: ${formData.bank_account_number || "—"}, Beneficiary: ${formData.bank_account_name || formData.company_name || "—"}). Reference the invoice number on your payment slip.` : "Please remit payment via direct bank transfer referencing the invoice number on your deposit slip."}
-                          className="cs-input-disabled"
+                          id="inv_footer_note_input"
+                          rows={2}
+                          placeholder="e.g. Thank you for your business! Please reference the invoice number on your payment slip."
+                          value={invoiceSettings.pdf_footer_note}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("pdf_footer_note", e.target.value)
+                          }
                         />
+                        <small>Rendered at the footer of the invoice as a professional appreciation line.</small>
                       </div>
-                      <small className="cs-field-hint">Pulls bank details configured in your Company Profile.</small>
+                    </div>
+                  </section>
+
+                  {/* CARD 3: Remittance Notice & Terms */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon accent">
+                        <Landmark size={18} />
+                      </div>
+                      <div className="cs-section-header-text">
+                        <h3>Default Remittance Notes &amp; Payment Terms</h3>
+                        <p>
+                          Payment wire instructions and terms loaded automatically on new invoices.
+                        </p>
+                      </div>
+                      {formData.bank_name && (
+                        <button
+                          type="button"
+                          className="cs-add-section-btn"
+                          onClick={handleFillBankIntoInvoiceNotes}
+                          title="Import bank details from Company Profile"
+                        >
+                          <Landmark size={14} />
+                          <span>Import Bank Info</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group cs-full-width">
+                        <label htmlFor="inv_default_notes_input">
+                          Default Client Remittance Notice (Bank &amp; Payment Details)
+                        </label>
+                        <textarea
+                          id="inv_default_notes_input"
+                          rows={3}
+                          placeholder="Please remit payment via direct bank transfer to..."
+                          value={invoiceSettings.default_notes}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("default_notes", e.target.value)
+                          }
+                        />
+                        <small>
+                          Auto-filled into the &quot;Notes&quot; section of newly created invoices.
+                        </small>
+                      </div>
+
+                      <div className="cs-field-group cs-full-width">
+                        <label htmlFor="inv_default_terms_input">
+                          Default Payment Terms &amp; Conditions
+                        </label>
+                        <textarea
+                          id="inv_default_terms_input"
+                          rows={3}
+                          placeholder="Payment is strictly due within 14 calendar days of issuance..."
+                          value={invoiceSettings.default_terms}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("default_terms", e.target.value)
+                          }
+                        />
+                        <small>
+                          Default legal and billing policies automatically applied to invoices.
+                        </small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Action Bar */}
+                  <div className="cs-action-bar cs-template-action-bar">
+                    <button
+                      type="button"
+                      className="cs-btn-secondary"
+                      onClick={handleResetInvoiceSettings}
+                      disabled={savingInvoice}
+                    >
+                      Discard Changes
+                    </button>
+                    <button
+                      type="button"
+                      className="cs-btn-save"
+                      onClick={handleSaveInvoiceSettings}
+                      disabled={savingInvoice}
+                    >
+                      <Save size={16} />
+                      <span>{savingInvoice ? "Saving Invoice Settings..." : "Save Invoice Settings"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Column: Sticky Live Invoice Layout Preview */}
+                <aside className="cs-template-preview-col">
+                  <div className="cs-template-preview-sticky">
+                    <div className="cs-preview-card-box">
+                      <div className="cs-preview-header">
+                        <div className="cs-preview-title-left">
+                          <span className="cs-live-indicator-dot" />
+                          <Eye size={15} color="#2563eb" />
+                          <strong>Live Invoice Layout Preview</strong>
+                        </div>
+                        <span className="cs-preview-badge">Live Sync</span>
+                      </div>
+
+                      <div className="cs-pdf-preview-sheet">
+                        {/* Top Bar Preview */}
+                        <div className="cs-pdf-header-row">
+                          <div className="cs-pdf-header-left">
+                            <div className="cs-pdf-company-name">
+                              {formData.company_name || "NetIT Technology"}
+                            </div>
+                            <div className="cs-pdf-meta">
+                              {formData.company_address || "Ampitiya, Kandy, Sri Lanka"} |{" "}
+                              {formData.email_address || "info@netittechnology.com"}
+                            </div>
+                          </div>
+                          <div className="cs-pdf-header-right">
+                            <div className="cs-pdf-title">
+                              {invoiceSettings.pdf_heading || "INVOICE"}
+                            </div>
+                            <div className="cs-pdf-subtitle">
+                              {invoiceSettings.pdf_subheading || "OFFICIAL BILLING DOCUMENT"}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Decorative Line Preview */}
+                        <div className="cs-pdf-divider" />
+
+                        {/* Invoice Meta Grid */}
+                        <div className="cs-inv-meta-grid">
+                          <div className="cs-inv-meta-col">
+                            <label>Invoice No</label>
+                            <strong>{previewInvoiceNumber}</strong>
+                          </div>
+                          <div className="cs-inv-meta-col">
+                            <label>Issue Date</label>
+                            <strong>{previewTodayStr}</strong>
+                          </div>
+                          <div className="cs-inv-meta-col">
+                            <label>Due Date</label>
+                            <strong>{previewDueDateStr}</strong>
+                          </div>
+                          <div className="cs-inv-meta-col">
+                            <label>Status</label>
+                            <span className="cs-inv-badge-unpaid">UNPAID</span>
+                          </div>
+                        </div>
+
+                        {/* Bill To Preview */}
+                        <div className="cs-inv-billto-box">
+                          <div className="cs-inv-billto-title">Billed To</div>
+                          <div className="cs-inv-billto-name">Acme Global Solutions (Pvt) Ltd</div>
+                          <div className="cs-inv-billto-sub">
+                            Attn: Finance &amp; Procurement | No 45, Galle Road, Colombo 03
+                          </div>
+                        </div>
+
+                        {/* Mock Items Table */}
+                        <table className="cs-inv-table">
+                          <thead>
+                            <tr>
+                              <th>Description</th>
+                              <th style={{ width: "38px", textAlign: "center" }}>Qty</th>
+                              <th className="text-right">Unit Price</th>
+                              <th className="text-right">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>
+                                <strong>Enterprise Cloud Portal Deployment</strong>
+                                <div style={{ fontSize: "8.5px", color: "#64748b" }}>
+                                  Core infrastructure and authentication service
+                                </div>
+                              </td>
+                              <td style={{ textAlign: "center" }}>1</td>
+                              <td className="text-right">150,000.00</td>
+                              <td className="text-right">150,000.00</td>
+                            </tr>
+                            <tr>
+                              <td>
+                                <strong>Annual SLA Maintenance &amp; 24/7 Monitoring</strong>
+                                <div style={{ fontSize: "8.5px", color: "#64748b" }}>
+                                  Guaranteed 99.9% uptime and security updates
+                                </div>
+                              </td>
+                              <td style={{ textAlign: "center" }}>1</td>
+                              <td className="text-right">45,000.00</td>
+                              <td className="text-right">45,000.00</td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        {/* Totals Summary */}
+                        <div className="cs-inv-totals-box">
+                          {invoiceSettings.tax_display_option === "itemized" ? (
+                            <>
+                              <div className="cs-inv-total-row">
+                                <span>Subtotal:</span>
+                                <span>{invoiceSettings.default_currency} 195,000.00</span>
+                              </div>
+                              <div className="cs-inv-total-row">
+                                <span>Estimated VAT / Tax (8%):</span>
+                                <span>{invoiceSettings.default_currency} 15,600.00</span>
+                              </div>
+                              <div className="cs-inv-total-row grand">
+                                <span>Total Due:</span>
+                                <span>{invoiceSettings.default_currency} 210,600.00</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="cs-inv-total-row">
+                                <span>Subtotal (Taxes Included):</span>
+                                <span>{invoiceSettings.default_currency} 210,600.00</span>
+                              </div>
+                              <div className="cs-inv-total-row grand">
+                                <span>Total Due:</span>
+                                <span>{invoiceSettings.default_currency} 210,600.00</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Remittance Instructions Preview */}
+                        <div className="cs-inv-notes-preview-box">
+                          <div className="cs-inv-notes-preview-head">
+                            <Landmark size={11} />
+                            <span>Payment &amp; Remittance Notice</span>
+                          </div>
+                          <div className="cs-inv-notes-preview-text">
+                            {invoiceSettings.default_notes ||
+                              "Please remit payment via direct bank transfer referencing the invoice number on your deposit slip."}
+                          </div>
+                        </div>
+
+                        {/* Terms Preview */}
+                        {invoiceSettings.default_terms && (
+                          <div className="cs-inv-terms-preview-box">
+                            <div className="cs-inv-terms-preview-head">Terms &amp; Conditions</div>
+                            <div className="cs-inv-terms-preview-text">
+                              {invoiceSettings.default_terms}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Footer Note Preview */}
+                        {invoiceSettings.pdf_footer_note && (
+                          <div className="cs-inv-footer-line">
+                            {invoiceSettings.pdf_footer_note}
+                          </div>
+                        )}
+
+                        {/* Authorized Signature preview */}
+                        <div className="cs-pdf-signature-preview-wrap" style={{ marginTop: "12px" }}>
+                          {signatureUrl ? (
+                            <div className="cs-pdf-sig-box">
+                              <img
+                                src={signatureUrl}
+                                alt="Signature"
+                                className="cs-pdf-sig-img"
+                              />
+                              <div className="cs-pdf-sig-line" />
+                              <span className="cs-pdf-sig-label">Authorized Signature</span>
+                            </div>
+                          ) : (
+                            <div className="cs-pdf-sig-box placeholder">
+                              <div className="cs-pdf-sig-line" />
+                              <span className="cs-pdf-sig-label">Authorized Signature</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="cs-preview-footnote">
+                        <small>
+                          Live preview reflects your saved billing prefix, due dates, currency, and document layout.
+                        </small>
+                      </div>
                     </div>
                   </div>
-                </section>
+                </aside>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
       )}
     </main>
   );

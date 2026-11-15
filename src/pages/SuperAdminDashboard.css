@@ -1667,6 +1667,130 @@
   font-size: 10px;
 }
 
+.sa-table tbody tr.sa-clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.sa-table tbody tr.sa-clickable-row:hover {
+  background-color: #f8fafc;
+}
+
+.sa-table-cell-bold {
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.sa-table-cell-amount {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.sa-invoice-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sa-invoice-badge .sa-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.sa-invoice-badge.paid {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.sa-invoice-badge.unpaid {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.sa-invoice-badge.overdue {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.sa-invoice-badge.partial,
+.sa-invoice-badge.partially-paid {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.sa-invoice-badge.pending,
+.sa-invoice-badge.pending-approval {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.sa-invoice-badge.draft,
+.sa-invoice-badge.cancelled {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+[data-theme="dark"] .sa-table tbody tr.sa-clickable-row:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .sa-table-cell-bold {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .sa-table-cell-amount {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .sa-invoice-badge.paid {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .sa-invoice-badge.unpaid {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="dark"] .sa-invoice-badge.overdue {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+[data-theme="dark"] .sa-invoice-badge.partial,
+[data-theme="dark"] .sa-invoice-badge.partially-paid,
+[data-theme="dark"] .sa-invoice-badge.pending,
+[data-theme="dark"] .sa-invoice-badge.pending-approval {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .sa-invoice-badge.draft,
+[data-theme="dark"] .sa-invoice-badge.cancelled {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
 .sa-empty-table-cell {
   padding: 0 !important;
   border: 0 !important;

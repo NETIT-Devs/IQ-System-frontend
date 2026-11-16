@@ -5,7 +5,6 @@ import {
   Search,
   Plus,
   Eye,
-  Pencil,
   Trash2,
   Copy,
   Download,
@@ -1135,16 +1134,6 @@ export default function Invoices() {
                                 <CreditCard size={15} />
                               </button>
 
-                              {/* Edit */}
-                              <button
-                                type="button"
-                                className="inv-action-btn"
-                                onClick={() => handleOpenEdit(inv)}
-                                title="Edit Invoice"
-                              >
-                                <Pencil size={15} />
-                              </button>
-
                               {/* Download */}
                               <button
                                 type="button"
@@ -1335,14 +1324,6 @@ export default function Invoices() {
                             </button>
                           </>
                         )}
-
-                        <button
-                          type="button"
-                          className="inv-mcard-btn"
-                          onClick={() => handleOpenEdit(inv)}
-                        >
-                          <Pencil size={14} /> Edit
-                        </button>
 
                         <button
                           type="button"

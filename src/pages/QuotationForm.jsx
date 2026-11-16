@@ -435,7 +435,7 @@ export default function QuotationForm({
             setFormData((prev) => ({ ...prev, quotation_number: serverNum }));
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
     if (fieldErrors[field]) {
       setFieldErrors((prev) => {
@@ -777,7 +777,10 @@ export default function QuotationForm({
       if (!firstError) firstError = errors.client_name;
     }
 
-    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+    if (!formData.email.trim()) {
+      errors.client_email = "Email address is required.";
+      if (!firstError) firstError = errors.client_email;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       errors.client_email = "Please enter a valid email address.";
       if (!firstError) firstError = errors.client_email;
     }
@@ -998,8 +1001,10 @@ export default function QuotationForm({
     } else if (!activeClientName) {
       errs.client_name = "Client name is required.";
       setFormError("Please enter a client name before generating PDF.");
+    } else if (!formData.email.trim()) {
+      errs.client_email = "Email address is required.";
+      setFormError("Please enter a client email address before generating PDF.");
     } else if (
-      formData.email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())
     ) {
       errs.client_email = "Please enter a valid email address.";
@@ -1103,848 +1108,850 @@ export default function QuotationForm({
   const formElement = (
     <form onSubmit={handleSaveQuotation} noValidate>
       <div className={`qf-body ${isPage ? "qf-page-body" : ""}`}>
-            <div className={isPage ? "qf-page-group-card" : ""}>
-              {isPage && (
-                <div className="qf-page-header">
-                  <div className="qf-page-header-left">
-                    <div className="qf-header-title">
-                      <div className="qf-header-icon">
-                        <FileText size={18} />
-                      </div>
-                      <div>
-                        <h2>
-                          {initialData?.quotation_id
-                            ? "Edit Quotation"
-                            : "Create New Quotation"}
-                        </h2>
-                        <p>
-                          Configure client details, project scope, services, and
-                          download PDF.
-                        </p>
-                      </div>
-                    </div>
+        <div className={isPage ? "qf-page-group-card" : ""}>
+          {isPage && (
+            <div className="qf-page-header">
+              <div className="qf-page-header-left">
+                <div className="qf-header-title">
+                  <div className="qf-header-icon">
+                    <FileText size={18} />
                   </div>
-
-                  <div className="qf-page-header-right">
-                    <span className="qf-page-quote-pill">
-                      {formData.quotation_number || "New Quotation"}
-                    </span>
+                  <div>
+                    <h2>
+                      {initialData?.quotation_id
+                        ? "Edit Quotation"
+                        : "Create New Quotation"}
+                    </h2>
+                    <p>
+                      Configure client details, project scope, services, and
+                      download PDF.
+                    </p>
                   </div>
                 </div>
-              )}
-
-            {initialData?.status === "Rejected" && (
-              <div className="qf-rejection-banner" role="alert">
-                <div className="qf-rejection-title">
-                  <AlertCircle size={15} />
-                  <span>Quotation Rejected by Super Admin</span>
-                </div>
-                <div>
-                  <strong>Feedback / Reason:</strong>{" "}
-                  {initialData.rejection_reason ||
-                    "Please review the feedback, update the quotation, and resubmit for approval."}
-                </div>
-              </div>
-            )}
-
-            {formError && (
-              <div className="qf-alert-error" role="alert">
-                <AlertCircle size={16} />
-                <span>{formError}</span>
-              </div>
-            )}
-
-            {customerLoadError && (
-              <div className="qf-alert-error" role="status">
-                <AlertCircle size={16} />
-                <span>{customerLoadError}</span>
-                <button
-                  type="button"
-                  className="qf-retry-button"
-                  onClick={retryCustomerLoad}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {companyLoadError && (
-              <div className="qf-alert-error" role="status">
-                <AlertCircle size={16} />
-                <span>{companyLoadError}</span>
-                <button
-                  type="button"
-                  className="qf-retry-button"
-                  onClick={retryCompanyLoad}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {formSuccess && (
-              <div className="qf-alert-success" role="status">
-                <CheckCircle size={16} />
-                <span>{formSuccess}</span>
-              </div>
-            )}
-
-            {/* Section A: Client Information */}
-            <section className="qf-section qf-section-highlight">
-              <div className="qf-section-title">
-                <User size={15} />
-                <span>Client Information</span>
               </div>
 
-              <div className="qf-grid-2">
-                <div className="qf-field col-span-2 qf-client-search-field">
-                  <label className="qf-label">
-                    Select Customer
-                  </label>
-                  <div className="qf-search-input-wrap" ref={clientDropdownRef}>
-                    <Search size={15} className="qf-search-input-icon" />
-                    <input
-                      type="text"
-                      className="qf-input qf-input-search"
-                      placeholder="Search customer by name or email..."
-                      value={customerSearchQuery}
-                      onFocus={() => setClientDropdownOpen(true)}
-                      onClick={() => setClientDropdownOpen(true)}
-                      onChange={(e) => {
-                        setCustomerSearchQuery(e.target.value);
-                        setClientDropdownOpen(true);
-                      }}
-                      autoComplete="off"
-                    />
-                    <button
-                      type="button"
-                      className="qf-search-toggle-btn"
-                      onClick={() => setClientDropdownOpen((prev) => !prev)}
-                      title="Toggle customer list"
-                    >
-                      <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
-                    </button>
-
-                    {/* In-form Dropdown Menu */}
-                    {clientDropdownOpen && (
-                      <div className="qf-client-dropdown">
-                        {filteredCustomers.length > 0 ? (
-                          filteredCustomers.map((customer) => {
-                            const isSelected =
-                              String(formData.customer_id) === String(customer.customer_id) ||
-                              (formData.client_name &&
-                                customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
-                            return (
-                              <div
-                                key={customer.customer_id}
-                                className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
-                                onClick={() => handleSelectCustomer(customer)}
-                              >
-                                <div className="qf-cd-left">
-                                  <div className="qf-cd-name">
-                                    <span>{customer.customer_name}</span>
-                                    {customer.company_name && (
-                                      <span className="qf-cd-company">{customer.company_name}</span>
-                                    )}
-                                  </div>
-                                  {customer.email && (
-                                    <div className="qf-cd-email">
-                                      <Mail size={11} />
-                                      <span>{customer.email}</span>
-                                    </div>
-                                  )}
-                                </div>
-                                {isSelected && <Check size={14} className="qf-cd-check" />}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="qf-client-dropdown-empty">
-                            No customers match your search
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">
-                    <User size={13} />
-                    Client Name <span className="qf-required">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`qf-input ${fieldErrors.client_name ? "qf-input-error" : ""}`}
-                    placeholder="Enter client full name"
-                    value={formData.client_name}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateField("client_name", val);
-                      if (fieldErrors.client_name) {
-                        setFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.client_name;
-                          return next;
-                        });
-                      }
-                      const valTrim = val.trim().toLowerCase();
-                      const emailTrim = (formData.email || "").trim().toLowerCase();
-                      const match = customers.find((c) => {
-                        const cName = (c.customer_name || "").trim().toLowerCase();
-                        const cEmail = (c.email || "").trim().toLowerCase();
-                        if (valTrim && emailTrim) {
-                          return cName === valTrim && cEmail === emailTrim;
-                        }
-                        if (valTrim && !emailTrim) {
-                          return cName === valTrim && !cEmail;
-                        }
-                        return false;
-                      });
-                      if (match) {
-                        updateField("customer_id", String(match.customer_id));
-                        if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                      } else if (formData.customer_id) {
-                        const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
-                        if (cur && cur.customer_name?.trim().toLowerCase() !== val.trim().toLowerCase()) {
-                          updateField("customer_id", "");
-                        }
-                      }
-                    }}
-                    aria-required="true"
-                    required
-                  />
-                  {fieldErrors.client_name && (
-                    <span className="qf-error-text">{fieldErrors.client_name}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">
-                    <Building2 size={13} />
-                    Company Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    className="qf-input"
-                    placeholder="e.g. Acme Corporation"
-                    value={formData.company_name}
-                    onChange={(e) => updateField("company_name", e.target.value)}
-                  />
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">
-                    <Mail size={13} />
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    className={`qf-input ${fieldErrors.client_email ? "qf-input-error" : ""}`}
-                    placeholder="e.g. client@example.com"
-                    value={formData.email}
-                    onChange={(e) => {
-                      const newEmail = e.target.value;
-                      updateField("email", newEmail);
-                      if (fieldErrors.client_email) {
-                        setFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.client_email;
-                          return next;
-                        });
-                      }
-                      const valTrim = (formData.client_name || "").trim().toLowerCase();
-                      const emailTrim = newEmail.trim().toLowerCase();
-                      const match = customers.find((c) => {
-                        const cName = (c.customer_name || "").trim().toLowerCase();
-                        const cEmail = (c.email || "").trim().toLowerCase();
-                        if (valTrim && emailTrim) {
-                          return cName === valTrim && cEmail === emailTrim;
-                        }
-                        if (!valTrim && emailTrim) {
-                          return cEmail === emailTrim;
-                        }
-                        return false;
-                      });
-                      if (match) {
-                        updateField("customer_id", String(match.customer_id));
-                        if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                      } else if (formData.customer_id) {
-                        const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
-                        if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
-                          updateField("customer_id", "");
-                        }
-                      }
-                    }}
-                  />
-                  {fieldErrors.client_email && (
-                    <span className="qf-error-text">{fieldErrors.client_email}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">
-                    <Phone size={13} />
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    className={`qf-input ${fieldErrors.client_phone ? "qf-input-error" : ""}`}
-                    placeholder="e.g. +94 77 123 4567"
-                    value={formData.phone}
-                    onChange={(e) => {
-                      updateField("phone", e.target.value);
-                      if (fieldErrors.client_phone) {
-                        setFieldErrors((prev) => {
-                          const next = { ...prev };
-                          delete next.client_phone;
-                          return next;
-                        });
-                      }
-                    }}
-                  />
-                  {fieldErrors.client_phone && (
-                    <span className="qf-error-text">{fieldErrors.client_phone}</span>
-                  )}
-                </div>
-
-                <div className="qf-field col-span-2">
-                  <label className="qf-label">Billing Address</label>
-                  <input
-                    type="text"
-                    className="qf-input"
-                    placeholder="e.g. No. 45, Galle Road, Colombo 03"
-                    value={formData.address}
-                    onChange={(e) => updateField("address", e.target.value)}
-                  />
-                </div>
+              <div className="qf-page-header-right">
+                <span className="qf-page-quote-pill">
+                  {formData.quotation_number || "New Quotation"}
+                </span>
               </div>
-            </section>
+            </div>
+          )}
+
+          {initialData?.status === "Rejected" && (
+            <div className="qf-rejection-banner" role="alert">
+              <div className="qf-rejection-title">
+                <AlertCircle size={15} />
+                <span>Quotation Rejected by Super Admin</span>
+              </div>
+              <div>
+                <strong>Feedback / Reason:</strong>{" "}
+                {initialData.rejection_reason ||
+                  "Please review the feedback, update the quotation, and resubmit for approval."}
+              </div>
+            </div>
+          )}
+
+          {formError && (
+            <div className="qf-alert-error" role="alert">
+              <AlertCircle size={16} />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {customerLoadError && (
+            <div className="qf-alert-error" role="status">
+              <AlertCircle size={16} />
+              <span>{customerLoadError}</span>
+              <button
+                type="button"
+                className="qf-retry-button"
+                onClick={retryCustomerLoad}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {companyLoadError && (
+            <div className="qf-alert-error" role="status">
+              <AlertCircle size={16} />
+              <span>{companyLoadError}</span>
+              <button
+                type="button"
+                className="qf-retry-button"
+                onClick={retryCompanyLoad}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {formSuccess && (
+            <div className="qf-alert-success" role="status">
+              <CheckCircle size={16} />
+              <span>{formSuccess}</span>
+            </div>
+          )}
+
+          {/* Section A: Client Information */}
+          <section className="qf-section qf-section-highlight">
+            <div className="qf-section-title">
+              <User size={15} />
+              <span>Client Information</span>
             </div>
 
-            {/* Section B: Quotation & Project Timeline */}
-            <section className="qf-section qf-section-highlight">
-              <div className="qf-section-title">
-                <Calendar size={15} />
-                <span>Quotation &amp; Timeline</span>
-              </div>
-
-              <div className="qf-grid-3">
-                <div className="qf-field">
-                  <label className="qf-label">
-                    Quotation Number <span className="qf-required">*</span>
-                  </label>
+            <div className="qf-grid-2">
+              <div className="qf-field col-span-2 qf-client-search-field">
+                <label className="qf-label">
+                  Select Customer
+                </label>
+                <div className="qf-search-input-wrap" ref={clientDropdownRef}>
+                  <Search size={15} className="qf-search-input-icon" />
                   <input
                     type="text"
-                    className={`qf-input ${fieldErrors.quotation_number ? "qf-input-error" : ""}`}
-                    value={formData.quotation_number}
-                    onChange={(e) => updateField("quotation_number", e.target.value)}
-                    placeholder="e.g. QUO-2611-001"
-                    required
+                    className="qf-input qf-input-search"
+                    placeholder="Search customer by name or email..."
+                    value={customerSearchQuery}
+                    onFocus={() => setClientDropdownOpen(true)}
+                    onClick={() => setClientDropdownOpen(true)}
+                    onChange={(e) => {
+                      setCustomerSearchQuery(e.target.value);
+                      setClientDropdownOpen(true);
+                    }}
+                    autoComplete="off"
                   />
-                  {fieldErrors.quotation_number && (
-                    <span className="qf-error-text">{fieldErrors.quotation_number}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">
-                    Quotation Date <span className="qf-required">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    className={`qf-input ${fieldErrors.quotation_date ? "qf-input-error" : ""}`}
-                    value={formData.quotation_date}
-                    onChange={(e) => updateField("quotation_date", e.target.value)}
-                    required
-                  />
-                  {fieldErrors.quotation_date && (
-                    <span className="qf-error-text">{fieldErrors.quotation_date}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">Valid Until</label>
-                  <input
-                    type="date"
-                    className={`qf-input ${fieldErrors.valid_until ? "qf-input-error" : ""}`}
-                    min={formData.quotation_date}
-                    value={formData.valid_until}
-                    onChange={(e) => updateField("valid_until", e.target.value)}
-                  />
-                  {fieldErrors.valid_until && (
-                    <span className="qf-error-text">{fieldErrors.valid_until}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">Project Start Date</label>
-                  <div
-                    className="qf-highlight-box"
-                    aria-label="Project Start Date: Initial Advance Payment Date"
+                  <button
+                    type="button"
+                    className="qf-search-toggle-btn"
+                    onClick={() => setClientDropdownOpen((prev) => !prev)}
+                    title="Toggle customer list"
                   >
-                    <span className="qf-highlight-dot" aria-hidden="true" />
-                    <span>Initial Advance Payment Date</span>
+                    <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
+                  </button>
+
+                  {/* In-form Dropdown Menu */}
+                  {clientDropdownOpen && (
+                    <div className="qf-client-dropdown">
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.map((customer) => {
+                          const isSelected =
+                            String(formData.customer_id) === String(customer.customer_id) ||
+                            (formData.client_name &&
+                              customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
+                          return (
+                            <div
+                              key={customer.customer_id}
+                              className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
+                              onClick={() => handleSelectCustomer(customer)}
+                            >
+                              <div className="qf-cd-left">
+                                <div className="qf-cd-name">
+                                  <span>{customer.customer_name}</span>
+                                  {customer.company_name && (
+                                    <span className="qf-cd-company">{customer.company_name}</span>
+                                  )}
+                                </div>
+                                {customer.email && (
+                                  <div className="qf-cd-email">
+                                    <Mail size={11} />
+                                    <span>{customer.email}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {isSelected && <Check size={14} className="qf-cd-check" />}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="qf-client-dropdown-empty">
+                          No customers match your search
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="qf-field">
+                <label className="qf-label">
+                  <User size={13} />
+                  Client Name <span className="qf-required">*</span>
+                </label>
+                <input
+                  type="text"
+                  className={`qf-input ${fieldErrors.client_name ? "qf-input-error" : ""}`}
+                  placeholder="Enter client full name"
+                  value={formData.client_name}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateField("client_name", val);
+                    if (fieldErrors.client_name) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.client_name;
+                        return next;
+                      });
+                    }
+                    const valTrim = val.trim().toLowerCase();
+                    const emailTrim = (formData.email || "").trim().toLowerCase();
+                    const match = customers.find((c) => {
+                      const cName = (c.customer_name || "").trim().toLowerCase();
+                      const cEmail = (c.email || "").trim().toLowerCase();
+                      if (valTrim && emailTrim) {
+                        return cName === valTrim && cEmail === emailTrim;
+                      }
+                      if (valTrim && !emailTrim) {
+                        return cName === valTrim && !cEmail;
+                      }
+                      return false;
+                    });
+                    if (match) {
+                      updateField("customer_id", String(match.customer_id));
+                      if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                    } else if (formData.customer_id) {
+                      const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
+                      if (cur && cur.customer_name?.trim().toLowerCase() !== val.trim().toLowerCase()) {
+                        updateField("customer_id", "");
+                      }
+                    }
+                  }}
+                  aria-required="true"
+                  required
+                />
+                {fieldErrors.client_name && (
+                  <span className="qf-error-text">{fieldErrors.client_name}</span>
+                )}
+              </div>
+
+              <div className="qf-field">
+                <label className="qf-label">
+                  <Building2 size={13} />
+                  Company Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  className="qf-input"
+                  placeholder="e.g. Acme Corporation"
+                  value={formData.company_name}
+                  onChange={(e) => updateField("company_name", e.target.value)}
+                />
+              </div>
+
+              <div className="qf-field">
+                <label className="qf-label">
+                  <Mail size={13} />
+                  Email Address <span className="qf-required">*</span>
+                </label>
+                <input
+                  type="email"
+                  className={`qf-input ${fieldErrors.client_email ? "qf-input-error" : ""}`}
+                  placeholder="e.g. client@example.com"
+                  value={formData.email}
+                  aria-required="true"
+                  required
+                  onChange={(e) => {
+                    const newEmail = e.target.value;
+                    updateField("email", newEmail);
+                    if (fieldErrors.client_email) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.client_email;
+                        return next;
+                      });
+                    }
+                    const valTrim = (formData.client_name || "").trim().toLowerCase();
+                    const emailTrim = newEmail.trim().toLowerCase();
+                    const match = customers.find((c) => {
+                      const cName = (c.customer_name || "").trim().toLowerCase();
+                      const cEmail = (c.email || "").trim().toLowerCase();
+                      if (valTrim && emailTrim) {
+                        return cName === valTrim && cEmail === emailTrim;
+                      }
+                      if (!valTrim && emailTrim) {
+                        return cEmail === emailTrim;
+                      }
+                      return false;
+                    });
+                    if (match) {
+                      updateField("customer_id", String(match.customer_id));
+                      if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
+                    } else if (formData.customer_id) {
+                      const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
+                      if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
+                        updateField("customer_id", "");
+                      }
+                    }
+                  }}
+                />
+                {fieldErrors.client_email && (
+                  <span className="qf-error-text">{fieldErrors.client_email}</span>
+                )}
+              </div>
+
+              <div className="qf-field">
+                <label className="qf-label">
+                  <Phone size={13} />
+                  Contact Number
+                </label>
+                <input
+                  type="text"
+                  className={`qf-input ${fieldErrors.client_phone ? "qf-input-error" : ""}`}
+                  placeholder="e.g. +94 77 123 4567"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    updateField("phone", e.target.value);
+                    if (fieldErrors.client_phone) {
+                      setFieldErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.client_phone;
+                        return next;
+                      });
+                    }
+                  }}
+                />
+                {fieldErrors.client_phone && (
+                  <span className="qf-error-text">{fieldErrors.client_phone}</span>
+                )}
+              </div>
+
+              <div className="qf-field col-span-2">
+                <label className="qf-label">Billing Address</label>
+                <input
+                  type="text"
+                  className="qf-input"
+                  placeholder="e.g. No. 45, Galle Road, Colombo 03"
+                  value={formData.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                />
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Section B: Quotation & Project Timeline */}
+        <section className="qf-section qf-section-highlight">
+          <div className="qf-section-title">
+            <Calendar size={15} />
+            <span>Quotation &amp; Timeline</span>
+          </div>
+
+          <div className="qf-grid-3">
+            <div className="qf-field">
+              <label className="qf-label">
+                Quotation Number <span className="qf-required">*</span>
+              </label>
+              <input
+                type="text"
+                className={`qf-input ${fieldErrors.quotation_number ? "qf-input-error" : ""}`}
+                value={formData.quotation_number}
+                onChange={(e) => updateField("quotation_number", e.target.value)}
+                placeholder="e.g. QUO-2611-001"
+                required
+              />
+              {fieldErrors.quotation_number && (
+                <span className="qf-error-text">{fieldErrors.quotation_number}</span>
+              )}
+            </div>
+
+            <div className="qf-field">
+              <label className="qf-label">
+                Quotation Date <span className="qf-required">*</span>
+              </label>
+              <input
+                type="date"
+                className={`qf-input ${fieldErrors.quotation_date ? "qf-input-error" : ""}`}
+                value={formData.quotation_date}
+                onChange={(e) => updateField("quotation_date", e.target.value)}
+                required
+              />
+              {fieldErrors.quotation_date && (
+                <span className="qf-error-text">{fieldErrors.quotation_date}</span>
+              )}
+            </div>
+
+            <div className="qf-field">
+              <label className="qf-label">Valid Until</label>
+              <input
+                type="date"
+                className={`qf-input ${fieldErrors.valid_until ? "qf-input-error" : ""}`}
+                min={formData.quotation_date}
+                value={formData.valid_until}
+                onChange={(e) => updateField("valid_until", e.target.value)}
+              />
+              {fieldErrors.valid_until && (
+                <span className="qf-error-text">{fieldErrors.valid_until}</span>
+              )}
+            </div>
+
+            <div className="qf-field">
+              <label className="qf-label">Project Start Date</label>
+              <div
+                className="qf-highlight-box"
+                aria-label="Project Start Date: Initial Advance Payment Date"
+              >
+                <span className="qf-highlight-dot" aria-hidden="true" />
+                <span>Initial Advance Payment Date</span>
+              </div>
+            </div>
+
+            <div className="qf-field">
+              <label className="qf-label">Project Duration</label>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  className={`qf-input ${fieldErrors.estimated_duration ? "qf-input-error" : ""}`}
+                  placeholder="e.g. 4"
+                  value={formData.estimated_duration}
+                  onChange={(e) => updateField("estimated_duration", e.target.value)}
+                />
+                <select
+                  className="qf-select"
+                  style={{ width: "95px" }}
+                  value={formData.duration_unit}
+                  onChange={(e) => updateField("duration_unit", e.target.value)}
+                >
+                  <option value="Days">Days</option>
+                  <option value="Weeks">Weeks</option>
+                  <option value="Months">Months</option>
+                </select>
+              </div>
+              {fieldErrors.estimated_duration && (
+                <span className="qf-error-text">{fieldErrors.estimated_duration}</span>
+              )}
+            </div>
+
+            <div className="qf-field">
+              <label className="qf-label">Currency</label>
+              <select
+                className="qf-select"
+                value={formData.currency}
+                onChange={(e) => updateField("currency", e.target.value)}
+              >
+                <option value="LKR">LKR - Sri Lankan Rupee</option>
+                <option value="USD">USD - US Dollar</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="GBP">GBP - British Pound</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* Section C: Quotation Items & Services */}
+        <section className="qf-section">
+          <div className="qf-items-header">
+            <div className="qf-section-title" style={{ margin: 0, border: "none", padding: 0 }}>
+              <Layers size={15} />
+              <span>Services / Scope</span>
+            </div>
+
+            <button type="button" className="qf-add-btn" onClick={addItem}>
+              <Plus size={14} />
+              Add Service
+            </button>
+          </div>
+
+          {items.map((item, index) =>
+            item.is_additional ? (
+              <div
+                key={index}
+                className="qf-item-card qf-additional-item-card"
+              >
+                <div className="qf-item-card-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span className="qf-item-num">Item #{index + 1}</span>
+                    <span className="qf-additional-badge">
+                      Additional Item
+                    </span>
                   </div>
+
+                  <button
+                    type="button"
+                    className="qf-delete-item-btn"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length === 1}
+                    title="Remove Additional Item"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
 
-                <div className="qf-field">
-                  <label className="qf-label">Project Duration</label>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                <div className="qf-additional-item-fields">
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      Item Name (ex: Logo) <span className="qf-required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className={`qf-input ${fieldErrors[`item_name_${index}`] ? "qf-input-error" : ""}`}
+                      placeholder="e.g. Logo, Domain, SSL..."
+                      value={item.item_name}
+                      onChange={(e) => updateItem(index, "item_name", e.target.value)}
+                      required
+                      autoFocus
+                    />
+                    {fieldErrors[`item_name_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`item_name_${index}`]}</span>
+                    )}
+                  </div>
+
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      Amount ({formData.currency}) <span className="qf-required">*</span>
+                    </label>
+                    <AmountInput
+                      value={item.unit_price}
+                      onChange={(val) => updateItem(index, "unit_price", val)}
+                      suffix=".00"
+                      placeholder="0"
+                      required
+                      hasError={Boolean(fieldErrors[`unit_price_${index}`])}
+                    />
+                    {fieldErrors[`unit_price_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`unit_price_${index}`]}</span>
+                    )}
+                  </div>
+
+                  <div className="qf-field">
+                    <label className="qf-label">Tax Rate (%)</label>
                     <input
                       type="number"
                       min="0"
+                      max="100"
                       step="any"
-                      className={`qf-input ${fieldErrors.estimated_duration ? "qf-input-error" : ""}`}
-                      placeholder="e.g. 4"
-                      value={formData.estimated_duration}
-                      onChange={(e) => updateField("estimated_duration", e.target.value)}
+                      className={`qf-input ${fieldErrors[`tax_rate_${index}`] ? "qf-input-error" : ""}`}
+                      placeholder="0"
+                      value={item.tax_rate}
+                      onChange={(e) => updateItem(index, "tax_rate", e.target.value)}
+                      onFocus={(e) => {
+                        if (e.target.value === "0" || e.target.value === "0.00") {
+                          updateItem(index, "tax_rate", "");
+                        } else {
+                          e.target.select();
+                        }
+                      }}
+                      onClick={(e) => {
+                        if (e.target.value === "0" || e.target.value === "0.00") {
+                          updateItem(index, "tax_rate", "");
+                        }
+                      }}
+                      onWheel={(e) => e.target.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                      }}
                     />
+                    {fieldErrors[`tax_rate_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`tax_rate_${index}`]}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div key={index} className="qf-item-card">
+                <div className="qf-item-card-header">
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <span className="qf-item-num">Item #{index + 1}</span>
+                    {item.item_name && (
+                      <span className="qf-service-preset-badge">
+                        {item.item_name}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="qf-delete-item-btn"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length === 1}
+                    title="Remove Item"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+
+                <div className="qf-grid-3">
+                  {/* Service options are populated from the backend catalogue. */}
+                  <div className="qf-field col-span-3">
+                    <label className="qf-label">Select Service</label>
                     <select
                       className="qf-select"
-                      style={{ width: "95px" }}
-                      value={formData.duration_unit}
-                      onChange={(e) => updateField("duration_unit", e.target.value)}
+                      value={getServiceOptionValue(serviceCatalog, item.item_name)}
+                      onChange={(e) => handleSelectServicePreset(index, e.target.value)}
+                      disabled={serviceCatalog.length === 0}
                     >
-                      <option value="Days">Days</option>
-                      <option value="Weeks">Weeks</option>
-                      <option value="Months">Months</option>
-                    </select>
-                  </div>
-                  {fieldErrors.estimated_duration && (
-                    <span className="qf-error-text">{fieldErrors.estimated_duration}</span>
-                  )}
-                </div>
-
-                <div className="qf-field">
-                  <label className="qf-label">Currency</label>
-                  <select
-                    className="qf-select"
-                    value={formData.currency}
-                    onChange={(e) => updateField("currency", e.target.value)}
-                  >
-                    <option value="LKR">LKR - Sri Lankan Rupee</option>
-                    <option value="USD">USD - US Dollar</option>
-                    <option value="EUR">EUR - Euro</option>
-                    <option value="GBP">GBP - British Pound</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            {/* Section C: Quotation Items & Services */}
-            <section className="qf-section">
-              <div className="qf-items-header">
-                <div className="qf-section-title" style={{ margin: 0, border: "none", padding: 0 }}>
-                  <Layers size={15} />
-                  <span>Services / Scope</span>
-                </div>
-
-                <button type="button" className="qf-add-btn" onClick={addItem}>
-                  <Plus size={14} />
-                  Add Service
-                </button>
-              </div>
-
-              {items.map((item, index) =>
-                item.is_additional ? (
-                  <div
-                    key={index}
-                    className="qf-item-card qf-additional-item-card"
-                  >
-                    <div className="qf-item-card-header">
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span className="qf-item-num">Item #{index + 1}</span>
-                        <span className="qf-additional-badge">
-                          Additional Item
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="qf-delete-item-btn"
-                        onClick={() => removeItem(index)}
-                        disabled={items.length === 1}
-                        title="Remove Additional Item"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-
-                    <div className="qf-additional-item-fields">
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          Item Name (ex: Logo) <span className="qf-required">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className={`qf-input ${fieldErrors[`item_name_${index}`] ? "qf-input-error" : ""}`}
-                          placeholder="e.g. Logo, Domain, SSL..."
-                          value={item.item_name}
-                          onChange={(e) => updateItem(index, "item_name", e.target.value)}
-                          required
-                          autoFocus
-                        />
-                        {fieldErrors[`item_name_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`item_name_${index}`]}</span>
-                        )}
-                      </div>
-
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          Amount ({formData.currency}) <span className="qf-required">*</span>
-                        </label>
-                        <AmountInput
-                          value={item.unit_price}
-                          onChange={(val) => updateItem(index, "unit_price", val)}
-                          suffix=".00"
-                          placeholder="0"
-                          required
-                          hasError={Boolean(fieldErrors[`unit_price_${index}`])}
-                        />
-                        {fieldErrors[`unit_price_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`unit_price_${index}`]}</span>
-                        )}
-                      </div>
-
-                      <div className="qf-field">
-                        <label className="qf-label">Tax Rate (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="any"
-                          className={`qf-input ${fieldErrors[`tax_rate_${index}`] ? "qf-input-error" : ""}`}
-                          placeholder="0"
-                          value={item.tax_rate}
-                          onChange={(e) => updateItem(index, "tax_rate", e.target.value)}
-                          onFocus={(e) => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              updateItem(index, "tax_rate", "");
-                            } else {
-                              e.target.select();
-                            }
-                          }}
-                          onClick={(e) => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              updateItem(index, "tax_rate", "");
-                            }
-                          }}
-                          onWheel={(e) => e.target.blur()}
-                          onKeyDown={(e) => {
-                            if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
-                          }}
-                        />
-                        {fieldErrors[`tax_rate_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`tax_rate_${index}`]}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div key={index} className="qf-item-card">
-                    <div className="qf-item-card-header">
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <span className="qf-item-num">Item #{index + 1}</span>
-                        {item.item_name && (
-                          <span className="qf-service-preset-badge">
-                            {item.item_name}
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        className="qf-delete-item-btn"
-                        onClick={() => removeItem(index)}
-                        disabled={items.length === 1}
-                        title="Remove Item"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-
-                    <div className="qf-grid-3">
-                      {/* Service options are populated from the backend catalogue. */}
-                      <div className="qf-field col-span-3">
-                        <label className="qf-label">Select Service</label>
-                        <select
-                          className="qf-select"
-                          value={getServiceOptionValue(serviceCatalog, item.item_name)}
-                          onChange={(e) => handleSelectServicePreset(index, e.target.value)}
-                          disabled={serviceCatalog.length === 0}
+                      <option value="">-- Select Service --</option>
+                      {serviceCatalog.map((service) => (
+                        <option
+                          key={service.service_id || service.item_name}
+                          value={String(service.service_id ?? service.item_name)}
                         >
-                          <option value="">-- Select Service --</option>
-                          {serviceCatalog.map((service) => (
-                            <option
-                              key={service.service_id || service.item_name}
-                              value={String(service.service_id ?? service.item_name)}
-                            >
-                              {service.item_name}
-                            </option>
-                          ))}
-                        </select>
-                        {serviceLoadError && (
-                          <div className="qf-field-help" role="status">
-                            <span>{serviceLoadError}</span>
-                            <button
-                              type="button"
-                              className="qf-retry-button"
-                              onClick={retryServiceLoad}
-                            >
-                              Retry
-                            </button>
-                          </div>
+                          {service.item_name}
+                        </option>
+                      ))}
+                    </select>
+                    {serviceLoadError && (
+                      <div className="qf-field-help" role="status">
+                        <span>{serviceLoadError}</span>
+                        <button
+                          type="button"
+                          className="qf-retry-button"
+                          onClick={retryServiceLoad}
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Service Name */}
+                  <div className="qf-field col-span-3">
+                    <label className="qf-label">
+                      Service Name <span className="qf-required">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className={`qf-input ${fieldErrors[`item_name_${index}`] ? "qf-input-error" : ""}`}
+                      placeholder="e.g. WordPress Website"
+                      value={item.item_name}
+                      onChange={(e) => updateItem(index, "item_name", e.target.value)}
+                      required
+                    />
+                    {fieldErrors[`item_name_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`item_name_${index}`]}</span>
+                    )}
+                  </div>
+
+                  {/* Technology Stack */}
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      <Code size={13} /> Technology
+                    </label>
+                    <input
+                      type="text"
+                      className="qf-input"
+                      placeholder="e.g. WordPress CMS / PHP"
+                      value={item.technology}
+                      onChange={(e) => updateItem(index, "technology", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Website Type */}
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      <Globe size={13} /> Website Type
+                    </label>
+                    <input
+                      type="text"
+                      className="qf-input"
+                      placeholder="e.g. Corporate / Business Website"
+                      value={item.website_type}
+                      onChange={(e) => updateItem(index, "website_type", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Hosting & Domain */}
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      <Server size={13} /> Hosting &amp; Domain
+                    </label>
+                    <input
+                      type="text"
+                      className="qf-input"
+                      placeholder="e.g. Domain and hosting setup assistance included"
+                      value={item.hosting_domain}
+                      onChange={(e) => updateItem(index, "hosting_domain", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Description / Deliverables */}
+                  <div className="qf-field col-span-3">
+                    <label className="qf-label">Description &amp; Deliverables</label>
+                    <AutoGrowTextarea
+                      rows={5}
+                      className="qf-textarea qf-textarea-deliverables"
+                      placeholder="Detailed deliverables, core features, maintenance support, and SEO setup..."
+                      value={item.description}
+                      onChange={(e) => updateItem(index, "description", e.target.value)}
+                    />
+                  </div>
+
+                  {/* Price and Tax */}
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      Price ({formData.currency}) <span className="qf-required">*</span>
+                    </label>
+                    <AmountInput
+                      value={item.unit_price}
+                      onChange={(val) => updateItem(index, "unit_price", val)}
+                      suffix=".00"
+                      placeholder="0"
+                      required
+                      hasError={Boolean(fieldErrors[`unit_price_${index}`])}
+                    />
+                    {fieldErrors[`unit_price_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`unit_price_${index}`]}</span>
+                    )}
+                  </div>
+
+                  <div className="qf-field">
+                    <label className="qf-label">Tax Rate (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="any"
+                      className={`qf-input ${fieldErrors[`tax_rate_${index}`] ? "qf-input-error" : ""}`}
+                      placeholder="0"
+                      value={item.tax_rate}
+                      onChange={(e) => updateItem(index, "tax_rate", e.target.value)}
+                      onFocus={(e) => {
+                        if (e.target.value === "0" || e.target.value === "0.00") {
+                          updateItem(index, "tax_rate", "");
+                        } else {
+                          e.target.select();
+                        }
+                      }}
+                      onClick={(e) => {
+                        if (e.target.value === "0" || e.target.value === "0.00") {
+                          updateItem(index, "tax_rate", "");
+                        }
+                      }}
+                      onWheel={(e) => e.target.blur()}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                      }}
+                    />
+                    {fieldErrors[`tax_rate_${index}`] && (
+                      <span className="qf-error-text">{fieldErrors[`tax_rate_${index}`]}</span>
+                    )}
+                  </div>
+
+                  <div className="qf-field">
+                    <label className="qf-label">Line Total</label>
+                    <div className="qf-line-total-badge">
+                      <span>Total (inc. tax):</span>
+                      <span>
+                        {formatMoney(
+                          (Number(item.unit_price) || 0) *
+                          (1 + (Number(item.tax_rate) || 0) / 100)
                         )}
-                      </div>
-
-                      {/* Service Name */}
-                      <div className="qf-field col-span-3">
-                        <label className="qf-label">
-                          Service Name <span className="qf-required">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          className={`qf-input ${fieldErrors[`item_name_${index}`] ? "qf-input-error" : ""}`}
-                          placeholder="e.g. WordPress Website"
-                          value={item.item_name}
-                          onChange={(e) => updateItem(index, "item_name", e.target.value)}
-                          required
-                        />
-                        {fieldErrors[`item_name_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`item_name_${index}`]}</span>
-                        )}
-                      </div>
-
-                      {/* Technology Stack */}
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          <Code size={13} /> Technology
-                        </label>
-                        <input
-                          type="text"
-                          className="qf-input"
-                          placeholder="e.g. WordPress CMS / PHP"
-                          value={item.technology}
-                          onChange={(e) => updateItem(index, "technology", e.target.value)}
-                        />
-                      </div>
-
-                      {/* Website Type */}
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          <Globe size={13} /> Website Type
-                        </label>
-                        <input
-                          type="text"
-                          className="qf-input"
-                          placeholder="e.g. Corporate / Business Website"
-                          value={item.website_type}
-                          onChange={(e) => updateItem(index, "website_type", e.target.value)}
-                        />
-                      </div>
-
-                      {/* Hosting & Domain */}
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          <Server size={13} /> Hosting &amp; Domain
-                        </label>
-                        <input
-                          type="text"
-                          className="qf-input"
-                          placeholder="e.g. Domain and hosting setup assistance included"
-                          value={item.hosting_domain}
-                          onChange={(e) => updateItem(index, "hosting_domain", e.target.value)}
-                        />
-                      </div>
-
-                      {/* Description / Deliverables */}
-                      <div className="qf-field col-span-3">
-                        <label className="qf-label">Description &amp; Deliverables</label>
-                        <AutoGrowTextarea
-                          rows={5}
-                          className="qf-textarea qf-textarea-deliverables"
-                          placeholder="Detailed deliverables, core features, maintenance support, and SEO setup..."
-                          value={item.description}
-                          onChange={(e) => updateItem(index, "description", e.target.value)}
-                        />
-                      </div>
-
-                      {/* Price and Tax */}
-                      <div className="qf-field">
-                        <label className="qf-label">
-                          Price ({formData.currency}) <span className="qf-required">*</span>
-                        </label>
-                        <AmountInput
-                          value={item.unit_price}
-                          onChange={(val) => updateItem(index, "unit_price", val)}
-                          suffix=".00"
-                          placeholder="0"
-                          required
-                          hasError={Boolean(fieldErrors[`unit_price_${index}`])}
-                        />
-                        {fieldErrors[`unit_price_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`unit_price_${index}`]}</span>
-                        )}
-                      </div>
-
-                      <div className="qf-field">
-                        <label className="qf-label">Tax Rate (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="any"
-                          className={`qf-input ${fieldErrors[`tax_rate_${index}`] ? "qf-input-error" : ""}`}
-                          placeholder="0"
-                          value={item.tax_rate}
-                          onChange={(e) => updateItem(index, "tax_rate", e.target.value)}
-                          onFocus={(e) => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              updateItem(index, "tax_rate", "");
-                            } else {
-                              e.target.select();
-                            }
-                          }}
-                          onClick={(e) => {
-                            if (e.target.value === "0" || e.target.value === "0.00") {
-                              updateItem(index, "tax_rate", "");
-                            }
-                          }}
-                          onWheel={(e) => e.target.blur()}
-                          onKeyDown={(e) => {
-                            if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
-                          }}
-                        />
-                        {fieldErrors[`tax_rate_${index}`] && (
-                          <span className="qf-error-text">{fieldErrors[`tax_rate_${index}`]}</span>
-                        )}
-                      </div>
-
-                      <div className="qf-field">
-                        <label className="qf-label">Line Total</label>
-                        <div className="qf-line-total-badge">
-                          <span>Total (inc. tax):</span>
-                          <span>
-                            {formatMoney(
-                              (Number(item.unit_price) || 0) *
-                              (1 + (Number(item.tax_rate) || 0) / 100)
-                            )}
-                          </span>
-                        </div>
-                      </div>
+                      </span>
                     </div>
                   </div>
-                )
-              )}
+                </div>
+              </div>
+            )
+          )}
 
-              {/* Add Additional Row Button (At the bottom of items list) */}
-              <div className="qf-bottom-add-container" style={{ marginTop: "14px", display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                <button
-                  type="button"
-                  className="qf-btn-add-additional"
-                  onClick={addAdditionalItem}
-                  title="Add an additional item with just Name and Amount"
-                >
-                  <Plus size={15} />
-                  <span>Add Additional Item</span>
-                </button>
+          {/* Add Additional Row Button (At the bottom of items list) */}
+          <div className="qf-bottom-add-container" style={{ marginTop: "14px", display: "flex", flexWrap: "wrap", gap: "10px" }}>
+            <button
+              type="button"
+              className="qf-btn-add-additional"
+              onClick={addAdditionalItem}
+              title="Add an additional item with just Name and Amount"
+            >
+              <Plus size={15} />
+              <span>Add Additional Item</span>
+            </button>
+          </div>
+        </section>
+
+        {/* Section D: Notes, Terms, Financial Summary, and Actions */}
+        <div className={isPage ? "qf-page-group-card qf-page-bottom-group" : ""}>
+          <div className="qf-bottom-area">
+            <section className="qf-section" style={{ height: "100%" }}>
+              <div className="qf-section-title">
+                <FileText size={15} />
+                <span>Terms &amp; Notes</span>
+              </div>
+
+              <div className="qf-field" style={{ marginBottom: "10px" }}>
+                <label className="qf-label">Terms and Conditions</label>
+                <textarea
+                  rows={4}
+                  className="qf-textarea"
+                  value={formData.terms_and_conditions}
+                  onChange={(e) => updateField("terms_and_conditions", e.target.value)}
+                />
+              </div>
+
+              <div className="qf-field">
+                <label className="qf-label">Special Notes</label>
+                <textarea
+                  rows={3}
+                  className="qf-textarea"
+                  placeholder="Optional notes or instructions..."
+                  value={formData.notes}
+                  onChange={(e) => updateField("notes", e.target.value)}
+                />
               </div>
             </section>
 
-            {/* Section D: Notes, Terms, Financial Summary, and Actions */}
-            <div className={isPage ? "qf-page-group-card qf-page-bottom-group" : ""}>
-            <div className="qf-bottom-area">
-              <section className="qf-section" style={{ height: "100%" }}>
-                <div className="qf-section-title">
-                  <FileText size={15} />
-                  <span>Terms &amp; Notes</span>
-                </div>
+            {/* Financial Summary */}
+            <div className="qf-summary-box">
+              <div className="qf-section-title">
+                <span>Financial Summary</span>
+              </div>
 
-                <div className="qf-field" style={{ marginBottom: "10px" }}>
-                  <label className="qf-label">Terms and Conditions</label>
-                  <textarea
-                    rows={4}
-                    className="qf-textarea"
-                    value={formData.terms_and_conditions}
-                    onChange={(e) => updateField("terms_and_conditions", e.target.value)}
-                  />
-                </div>
+              <div className="qf-summary-row">
+                <span>Subtotal:</span>
+                <span style={{ fontWeight: 700 }}>
+                  {formatMoney(totals.subtotal)}
+                </span>
+              </div>
 
-                <div className="qf-field">
-                  <label className="qf-label">Special Notes</label>
-                  <textarea
-                    rows={3}
-                    className="qf-textarea"
-                    placeholder="Optional notes or instructions..."
-                    value={formData.notes}
-                    onChange={(e) => updateField("notes", e.target.value)}
-                  />
-                </div>
-              </section>
+              <div className="qf-summary-row">
+                <span>Tax Amount:</span>
+                <span style={{ fontWeight: 700 }}>
+                  + {formatMoney(totals.taxAmount)}
+                </span>
+              </div>
 
-              {/* Financial Summary */}
-              <div className="qf-summary-box">
-                <div className="qf-section-title">
-                  <span>Financial Summary</span>
-                </div>
+              <div className="qf-field" style={{ margin: "8px 0" }}>
+                <label className="qf-label">
+                  Discount ({formData.currency})
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  className={`qf-input ${fieldErrors.discount_amount ? "qf-input-error" : ""}`}
+                  placeholder="0"
+                  value={formData.discount_amount}
+                  onChange={(e) => updateField("discount_amount", e.target.value)}
+                  onFocus={(e) => {
+                    if (e.target.value === "0" || e.target.value === "0.00") {
+                      updateField("discount_amount", "");
+                    } else {
+                      e.target.select();
+                    }
+                  }}
+                  onClick={(e) => {
+                    if (e.target.value === "0" || e.target.value === "0.00") {
+                      updateField("discount_amount", "");
+                    }
+                  }}
+                  onWheel={(e) => e.target.blur()}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                  }}
+                />
+                {fieldErrors.discount_amount && (
+                  <span className="qf-error-text">{fieldErrors.discount_amount}</span>
+                )}
+              </div>
 
-                <div className="qf-summary-row">
-                  <span>Subtotal:</span>
-                  <span style={{ fontWeight: 700 }}>
-                    {formatMoney(totals.subtotal)}
-                  </span>
-                </div>
-
-                <div className="qf-summary-row">
-                  <span>Tax Amount:</span>
-                  <span style={{ fontWeight: 700 }}>
-                    + {formatMoney(totals.taxAmount)}
-                  </span>
-                </div>
-
-                <div className="qf-field" style={{ margin: "8px 0" }}>
-                  <label className="qf-label">
-                    Discount ({formData.currency})
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    className={`qf-input ${fieldErrors.discount_amount ? "qf-input-error" : ""}`}
-                    placeholder="0"
-                    value={formData.discount_amount}
-                    onChange={(e) => updateField("discount_amount", e.target.value)}
-                    onFocus={(e) => {
-                      if (e.target.value === "0" || e.target.value === "0.00") {
-                        updateField("discount_amount", "");
-                      } else {
-                        e.target.select();
-                      }
-                    }}
-                    onClick={(e) => {
-                      if (e.target.value === "0" || e.target.value === "0.00") {
-                        updateField("discount_amount", "");
-                      }
-                    }}
-                    onWheel={(e) => e.target.blur()}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
-                    }}
-                  />
-                  {fieldErrors.discount_amount && (
-                    <span className="qf-error-text">{fieldErrors.discount_amount}</span>
-                  )}
-                </div>
-
-                  <div className="qf-summary-row total-row">
-                  <span>Grand Total:</span>
-                  <span className="qf-grand-total">
-                    {formatMoney(totals.total)}
-                  </span>
-                </div>
+              <div className="qf-summary-row total-row">
+                <span>Grand Total:</span>
+                <span className="qf-grand-total">
+                  {formatMoney(totals.total)}
+                </span>
               </div>
             </div>
+          </div>
 
           {/* Footer with Actions */}
           <div className={`qf-footer ${isPage ? "qf-page-footer" : ""}`}>
@@ -2033,7 +2040,7 @@ export default function QuotationForm({
               )}
             </div>
           </div>
-          </div>
+        </div>
       </div>
     </form>
   );

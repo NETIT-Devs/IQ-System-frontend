@@ -159,6 +159,22 @@ function navigateTo(path) {
 // Reusable dashboard summary card.
 function StatCard({ item }) {
   const Icon = item.icon;
+  const isOutstanding = item.title === "Outstanding Balance";
+
+  const renderValue = () => {
+    if (isOutstanding && typeof item.value === "string") {
+      const match = item.value.match(/^(Rs\.?\s*)(.*)$/);
+      if (match) {
+        return (
+          <>
+            <span>{match[1]}</span>
+            <span style={{ fontSize: "0.8em" }}>{match[2]}</span>
+          </>
+        );
+      }
+    }
+    return item.value;
+  };
 
   return (
     <article className="sa-stat-card">
@@ -168,7 +184,9 @@ function StatCard({ item }) {
 
       <div className="sa-stat-content">
         <p>{item.title}</p>
-        <h3>{item.value}</h3>
+        <h3 style={isOutstanding ? { whiteSpace: "nowrap" } : undefined}>
+          {renderValue()}
+        </h3>
       </div>
     </article>
   );

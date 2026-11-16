@@ -29,14 +29,14 @@ export default function ForgotPassword() {
 
             setMessage(
                 response?.message ||
-                    "If an account exists with this email, a password reset link will be sent."
+                "If an account exists with this email, a password reset link will be sent."
             );
 
             setEmail("");
         } catch (err) {
             setError(
                 err.message ||
-                    "Unable to send the reset link. Please try again."
+                "Unable to send the reset link. Please try again."
             );
         } finally {
             setLoading(false);

@@ -420,16 +420,16 @@ export default function Customers() {
         isSuperAdmin || uid == null
           ? safeQuotes
           : safeQuotes.filter(
-              (q) => q.created_by == null || Number(q.created_by) === Number(uid)
-            )
+            (q) => q.created_by == null || Number(q.created_by) === Number(uid)
+          )
       );
       setInvoices(
         isSuperAdmin || uid == null
           ? safeInvoices
           : safeInvoices.filter(
-              (inv) =>
-                inv.created_by == null || Number(inv.created_by) === Number(uid)
-            )
+            (inv) =>
+              inv.created_by == null || Number(inv.created_by) === Number(uid)
+          )
       );
     } catch (err) {
       console.error("Failed to load customer records:", err);
@@ -528,6 +528,11 @@ export default function Customers() {
     }
 
     const inputEmail = String(newCustomer.email || "").trim().toLowerCase();
+    if (!inputEmail) {
+      setFormError("Customer email is required.");
+      return;
+    }
+
     const inputPhone = String(newCustomer.phone || "").trim();
 
     // Prevent re-adding a customer already added by Super Admin or another Admin
@@ -1055,294 +1060,294 @@ export default function Customers() {
             />
           </label>
 
-            <div className="cust-filters" ref={filtersContainerRef}>
-              {/* 1. Customer Type Dropdown */}
-              <div className="cust-dropdown-wrap">
-                <button
-                  type="button"
-                  className={`cust-dropdown-btn ${openFilterMenu === "type" ? "active" : ""}`}
-                  onClick={() =>
-                    setOpenFilterMenu((prev) => (prev === "type" ? null : "type"))
-                  }
-                  aria-expanded={openFilterMenu === "type"}
-                >
-                  <span className="cust-dropdown-label">
-                    {typeFilter === "regular"
-                      ? "Regular Customers"
-                      : typeFilter === "new"
-                        ? "New Customers"
-                        : "All Types"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`cust-dropdown-chevron ${openFilterMenu === "type" ? "open" : ""}`}
-                  />
-                </button>
+          <div className="cust-filters" ref={filtersContainerRef}>
+            {/* 1. Customer Type Dropdown */}
+            <div className="cust-dropdown-wrap">
+              <button
+                type="button"
+                className={`cust-dropdown-btn ${openFilterMenu === "type" ? "active" : ""}`}
+                onClick={() =>
+                  setOpenFilterMenu((prev) => (prev === "type" ? null : "type"))
+                }
+                aria-expanded={openFilterMenu === "type"}
+              >
+                <span className="cust-dropdown-label">
+                  {typeFilter === "regular"
+                    ? "Regular Customers"
+                    : typeFilter === "new"
+                      ? "New Customers"
+                      : "All Types"}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`cust-dropdown-chevron ${openFilterMenu === "type" ? "open" : ""}`}
+                />
+              </button>
 
-                {openFilterMenu === "type" && (
-                  <div className="cust-dropdown-menu" role="listbox">
-                    <div className="cust-dropdown-header">
-                      <span>Filter by Customer Type</span>
-                    </div>
-                    <div className="cust-dropdown-list">
-                      {[
-                        {
-                          value: "all",
-                          label: "All Types",
-                          color: "#64748b",
-                          count: stats.totalClients,
-                        },
-                        {
-                          value: "regular",
-                          label: "Regular Customers",
-                          color: "#f59e0b",
-                          count: stats.regularClients,
-                        },
-                        {
-                          value: "new",
-                          label: "New Customers",
-                          color: "#2563eb",
-                          count: Math.max(0, stats.totalClients - stats.regularClients),
-                        },
-                      ].map((opt) => {
-                        const isSelected = typeFilter === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
-                            onClick={() => {
-                              setTypeFilter(opt.value);
-                              setOpenFilterMenu(null);
-                            }}
-                          >
-                            <div className="cust-dropdown-item-left">
-                              <span
-                                className="cust-dropdown-dot"
-                                style={{ backgroundColor: opt.color }}
-                              />
-                              <span className="cust-dropdown-item-text">{opt.label}</span>
-                            </div>
-                            <div className="cust-dropdown-item-right">
-                              <span className="cust-dropdown-count">{opt.count}</span>
-                              {isSelected && <Check size={14} className="cust-dropdown-check" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+              {openFilterMenu === "type" && (
+                <div className="cust-dropdown-menu" role="listbox">
+                  <div className="cust-dropdown-header">
+                    <span>Filter by Customer Type</span>
                   </div>
-                )}
-              </div>
-
-              {/* 2. Customer Status Dropdown */}
-              <div className="cust-dropdown-wrap">
-                <button
-                  type="button"
-                  className={`cust-dropdown-btn ${openFilterMenu === "status" ? "active" : ""}`}
-                  onClick={() =>
-                    setOpenFilterMenu((prev) => (prev === "status" ? null : "status"))
-                  }
-                  aria-expanded={openFilterMenu === "status"}
-                >
-                  <span className="cust-dropdown-label">
-                    {statusFilter === "active"
-                      ? "Active"
-                      : statusFilter === "inactive"
-                        ? "Inactive"
-                        : "All Status"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`cust-dropdown-chevron ${openFilterMenu === "status" ? "open" : ""}`}
-                  />
-                </button>
-
-                {openFilterMenu === "status" && (
-                  <div className="cust-dropdown-menu" role="listbox">
-                    <div className="cust-dropdown-header">
-                      <span>Filter by Customer Status</span>
-                    </div>
-                    <div className="cust-dropdown-list">
-                      {[
-                        {
-                          value: "all",
-                          label: "All Status",
-                          color: "#64748b",
-                          count: stats.totalClients,
-                        },
-                        {
-                          value: "active",
-                          label: "Active",
-                          color: "#16a34a",
-                          count: stats.activeClients,
-                        },
-                        {
-                          value: "inactive",
-                          label: "Inactive",
-                          color: "#dc2626",
-                          count: stats.inactiveClients,
-                        },
-                      ].map((opt) => {
-                        const isSelected = statusFilter === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
-                            onClick={() => {
-                              setStatusFilter(opt.value);
-                              setOpenFilterMenu(null);
-                            }}
-                          >
-                            <div className="cust-dropdown-item-left">
-                              <span
-                                className="cust-dropdown-dot"
-                                style={{ backgroundColor: opt.color }}
-                              />
-                              <span className="cust-dropdown-item-text">{opt.label}</span>
-                            </div>
-                            <div className="cust-dropdown-item-right">
-                              <span className="cust-dropdown-count">{opt.count}</span>
-                              {isSelected && <Check size={14} className="cust-dropdown-check" />}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. Quotations Status Dropdown */}
-              <div className="cust-dropdown-wrap">
-                <button
-                  type="button"
-                  className={`cust-dropdown-btn ${openFilterMenu === "quote" ? "active" : ""}`}
-                  onClick={() =>
-                    setOpenFilterMenu((prev) => (prev === "quote" ? null : "quote"))
-                  }
-                  aria-expanded={openFilterMenu === "quote"}
-                >
-                  <span className="cust-dropdown-label">
-                    {quoteStatusFilter === "accepted"
-                      ? "Approved / Accepted"
-                      : quoteStatusFilter === "sent"
-                        ? "Sent"
-                        : quoteStatusFilter === "rejected"
-                          ? "Rejected"
-                          : "All Quotations Status"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`cust-dropdown-chevron ${openFilterMenu === "quote" ? "open" : ""}`}
-                  />
-                </button>
-
-                {openFilterMenu === "quote" && (
-                  <div className="cust-dropdown-menu" role="listbox">
-                    <div className="cust-dropdown-header">
-                      <span>Filter by Quotations Status</span>
-                    </div>
-                    <div className="cust-dropdown-list">
-                      {[
-                        { value: "all", label: "All Quotations Status", color: "#64748b" },
-                        { value: "accepted", label: "Approved / Accepted", color: "#16a34a" },
-                        { value: "sent", label: "Sent", color: "#0284c7" },
-                        { value: "rejected", label: "Rejected", color: "#dc2626" },
-                      ].map((opt) => {
-                        const isSelected = quoteStatusFilter === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
-                            onClick={() => {
-                              setQuoteStatusFilter(opt.value);
-                              setOpenFilterMenu(null);
-                            }}
-                          >
-                            <div className="cust-dropdown-item-left">
-                              <span
-                                className="cust-dropdown-dot"
-                                style={{ backgroundColor: opt.color }}
-                              />
-                              <span className="cust-dropdown-item-text">{opt.label}</span>
-                            </div>
+                  <div className="cust-dropdown-list">
+                    {[
+                      {
+                        value: "all",
+                        label: "All Types",
+                        color: "#64748b",
+                        count: stats.totalClients,
+                      },
+                      {
+                        value: "regular",
+                        label: "Regular Customers",
+                        color: "#f59e0b",
+                        count: stats.regularClients,
+                      },
+                      {
+                        value: "new",
+                        label: "New Customers",
+                        color: "#2563eb",
+                        count: Math.max(0, stats.totalClients - stats.regularClients),
+                      },
+                    ].map((opt) => {
+                      const isSelected = typeFilter === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setTypeFilter(opt.value);
+                            setOpenFilterMenu(null);
+                          }}
+                        >
+                          <div className="cust-dropdown-item-left">
+                            <span
+                              className="cust-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="cust-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          <div className="cust-dropdown-item-right">
+                            <span className="cust-dropdown-count">{opt.count}</span>
                             {isSelected && <Check size={14} className="cust-dropdown-check" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-
-              {/* 4. Invoice Status Dropdown */}
-              <div className="cust-dropdown-wrap">
-                <button
-                  type="button"
-                  className={`cust-dropdown-btn ${openFilterMenu === "invoice" ? "active" : ""}`}
-                  onClick={() =>
-                    setOpenFilterMenu((prev) => (prev === "invoice" ? null : "invoice"))
-                  }
-                  aria-expanded={openFilterMenu === "invoice"}
-                >
-                  <span className="cust-dropdown-label">
-                    {invoiceStatusFilter === "paid"
-                      ? "Paid"
-                      : invoiceStatusFilter === "partial"
-                        ? "Partial"
-                        : invoiceStatusFilter === "unpaid"
-                          ? "Unpaid"
-                          : "All Invoice Status"}
-                  </span>
-                  <ChevronDown
-                    size={14}
-                    className={`cust-dropdown-chevron ${openFilterMenu === "invoice" ? "open" : ""}`}
-                  />
-                </button>
-
-                {openFilterMenu === "invoice" && (
-                  <div className="cust-dropdown-menu" role="listbox">
-                    <div className="cust-dropdown-header">
-                      <span>Filter by Invoice Status</span>
-                    </div>
-                    <div className="cust-dropdown-list">
-                      {[
-                        { value: "all", label: "All Invoice Status", color: "#64748b" },
-                        { value: "paid", label: "Paid", color: "#16a34a" },
-                        { value: "partial", label: "Partial", color: "#f59e0b" },
-                        { value: "unpaid", label: "Unpaid", color: "#dc2626" },
-                      ].map((opt) => {
-                        const isSelected = invoiceStatusFilter === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
-                            onClick={() => {
-                              setInvoiceStatusFilter(opt.value);
-                              setOpenFilterMenu(null);
-                            }}
-                          >
-                            <div className="cust-dropdown-item-left">
-                              <span
-                                className="cust-dropdown-dot"
-                                style={{ backgroundColor: opt.color }}
-                              />
-                              <span className="cust-dropdown-item-text">{opt.label}</span>
-                            </div>
-                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-          </section>
+
+            {/* 2. Customer Status Dropdown */}
+            <div className="cust-dropdown-wrap">
+              <button
+                type="button"
+                className={`cust-dropdown-btn ${openFilterMenu === "status" ? "active" : ""}`}
+                onClick={() =>
+                  setOpenFilterMenu((prev) => (prev === "status" ? null : "status"))
+                }
+                aria-expanded={openFilterMenu === "status"}
+              >
+                <span className="cust-dropdown-label">
+                  {statusFilter === "active"
+                    ? "Active"
+                    : statusFilter === "inactive"
+                      ? "Inactive"
+                      : "All Status"}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`cust-dropdown-chevron ${openFilterMenu === "status" ? "open" : ""}`}
+                />
+              </button>
+
+              {openFilterMenu === "status" && (
+                <div className="cust-dropdown-menu" role="listbox">
+                  <div className="cust-dropdown-header">
+                    <span>Filter by Customer Status</span>
+                  </div>
+                  <div className="cust-dropdown-list">
+                    {[
+                      {
+                        value: "all",
+                        label: "All Status",
+                        color: "#64748b",
+                        count: stats.totalClients,
+                      },
+                      {
+                        value: "active",
+                        label: "Active",
+                        color: "#16a34a",
+                        count: stats.activeClients,
+                      },
+                      {
+                        value: "inactive",
+                        label: "Inactive",
+                        color: "#dc2626",
+                        count: stats.inactiveClients,
+                      },
+                    ].map((opt) => {
+                      const isSelected = statusFilter === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setStatusFilter(opt.value);
+                            setOpenFilterMenu(null);
+                          }}
+                        >
+                          <div className="cust-dropdown-item-left">
+                            <span
+                              className="cust-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="cust-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          <div className="cust-dropdown-item-right">
+                            <span className="cust-dropdown-count">{opt.count}</span>
+                            {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Quotations Status Dropdown */}
+            <div className="cust-dropdown-wrap">
+              <button
+                type="button"
+                className={`cust-dropdown-btn ${openFilterMenu === "quote" ? "active" : ""}`}
+                onClick={() =>
+                  setOpenFilterMenu((prev) => (prev === "quote" ? null : "quote"))
+                }
+                aria-expanded={openFilterMenu === "quote"}
+              >
+                <span className="cust-dropdown-label">
+                  {quoteStatusFilter === "accepted"
+                    ? "Approved / Accepted"
+                    : quoteStatusFilter === "sent"
+                      ? "Sent"
+                      : quoteStatusFilter === "rejected"
+                        ? "Rejected"
+                        : "All Quotations Status"}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`cust-dropdown-chevron ${openFilterMenu === "quote" ? "open" : ""}`}
+                />
+              </button>
+
+              {openFilterMenu === "quote" && (
+                <div className="cust-dropdown-menu" role="listbox">
+                  <div className="cust-dropdown-header">
+                    <span>Filter by Quotations Status</span>
+                  </div>
+                  <div className="cust-dropdown-list">
+                    {[
+                      { value: "all", label: "All Quotations Status", color: "#64748b" },
+                      { value: "accepted", label: "Approved / Accepted", color: "#16a34a" },
+                      { value: "sent", label: "Sent", color: "#0284c7" },
+                      { value: "rejected", label: "Rejected", color: "#dc2626" },
+                    ].map((opt) => {
+                      const isSelected = quoteStatusFilter === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setQuoteStatusFilter(opt.value);
+                            setOpenFilterMenu(null);
+                          }}
+                        >
+                          <div className="cust-dropdown-item-left">
+                            <span
+                              className="cust-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="cust-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Invoice Status Dropdown */}
+            <div className="cust-dropdown-wrap">
+              <button
+                type="button"
+                className={`cust-dropdown-btn ${openFilterMenu === "invoice" ? "active" : ""}`}
+                onClick={() =>
+                  setOpenFilterMenu((prev) => (prev === "invoice" ? null : "invoice"))
+                }
+                aria-expanded={openFilterMenu === "invoice"}
+              >
+                <span className="cust-dropdown-label">
+                  {invoiceStatusFilter === "paid"
+                    ? "Paid"
+                    : invoiceStatusFilter === "partial"
+                      ? "Partial"
+                      : invoiceStatusFilter === "unpaid"
+                        ? "Unpaid"
+                        : "All Invoice Status"}
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={`cust-dropdown-chevron ${openFilterMenu === "invoice" ? "open" : ""}`}
+                />
+              </button>
+
+              {openFilterMenu === "invoice" && (
+                <div className="cust-dropdown-menu" role="listbox">
+                  <div className="cust-dropdown-header">
+                    <span>Filter by Invoice Status</span>
+                  </div>
+                  <div className="cust-dropdown-list">
+                    {[
+                      { value: "all", label: "All Invoice Status", color: "#64748b" },
+                      { value: "paid", label: "Paid", color: "#16a34a" },
+                      { value: "partial", label: "Partial", color: "#f59e0b" },
+                      { value: "unpaid", label: "Unpaid", color: "#dc2626" },
+                    ].map((opt) => {
+                      const isSelected = invoiceStatusFilter === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          className={`cust-dropdown-item ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            setInvoiceStatusFilter(opt.value);
+                            setOpenFilterMenu(null);
+                          }}
+                        >
+                          <div className="cust-dropdown-item-left">
+                            <span
+                              className="cust-dropdown-dot"
+                              style={{ backgroundColor: opt.color }}
+                            />
+                            <span className="cust-dropdown-item-text">{opt.label}</span>
+                          </div>
+                          {isSelected && <Check size={14} className="cust-dropdown-check" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* Main Customers Table Panel */}
         <section className="cust-panel" aria-label="Customer list">
@@ -1489,12 +1494,11 @@ export default function Customers() {
                           <button
                             type="button"
                             data-breakdown-trigger="true"
-                            className={`cust-count-trigger ${
-                              openBreakdown?.customerId === client.customer_id &&
-                              openBreakdown?.type === "quotations"
+                            className={`cust-count-trigger ${openBreakdown?.customerId === client.customer_id &&
+                                openBreakdown?.type === "quotations"
                                 ? "active"
                                 : ""
-                            }`}
+                              }`}
                             onMouseEnter={(e) =>
                               handleHoverBreakdown(
                                 e,
@@ -1525,12 +1529,11 @@ export default function Customers() {
                           <button
                             type="button"
                             data-breakdown-trigger="true"
-                            className={`cust-count-trigger ${
-                              openBreakdown?.customerId === client.customer_id &&
-                              openBreakdown?.type === "invoices"
+                            className={`cust-count-trigger ${openBreakdown?.customerId === client.customer_id &&
+                                openBreakdown?.type === "invoices"
                                 ? "active"
                                 : ""
-                            }`}
+                              }`}
                             onMouseEnter={(e) =>
                               handleHoverBreakdown(
                                 e,
@@ -1624,56 +1627,54 @@ export default function Customers() {
             : activeBreakdownCustomer.total_invoices;
           const items = isQuotes
             ? [
-                {
-                  key: "accepted",
-                  label: "Accepted",
-                  count: activeBreakdownCustomer.approved_quotations,
-                  tone: "green",
-                },
-                {
-                  key: "sent",
-                  label: "Sent",
-                  count: activeBreakdownCustomer.sent_quotations,
-                  tone: "blue",
-                },
-                {
-                  key: "rejected",
-                  label: "Rejected",
-                  count: activeBreakdownCustomer.rejected_quotations,
-                  tone: "red",
-                },
-              ]
+              {
+                key: "accepted",
+                label: "Accepted",
+                count: activeBreakdownCustomer.approved_quotations,
+                tone: "green",
+              },
+              {
+                key: "sent",
+                label: "Sent",
+                count: activeBreakdownCustomer.sent_quotations,
+                tone: "blue",
+              },
+              {
+                key: "rejected",
+                label: "Rejected",
+                count: activeBreakdownCustomer.rejected_quotations,
+                tone: "red",
+              },
+            ]
             : [
-                {
-                  key: "paid",
-                  label: "Paid",
-                  count: activeBreakdownCustomer.paid_invoices,
-                  tone: "green",
-                },
-                {
-                  key: "partial",
-                  label: "Partial",
-                  count: activeBreakdownCustomer.partial_invoices,
-                  tone: "amber",
-                },
-                {
-                  key: "unpaid",
-                  label: "Unpaid",
-                  count: activeBreakdownCustomer.unpaid_invoices,
-                  tone: "red",
-                },
-              ];
+              {
+                key: "paid",
+                label: "Paid",
+                count: activeBreakdownCustomer.paid_invoices,
+                tone: "green",
+              },
+              {
+                key: "partial",
+                label: "Partial",
+                count: activeBreakdownCustomer.partial_invoices,
+                tone: "amber",
+              },
+              {
+                key: "unpaid",
+                label: "Unpaid",
+                count: activeBreakdownCustomer.unpaid_invoices,
+                tone: "red",
+              },
+            ];
 
           return (
             <div
               ref={breakdownPopoverRef}
-              className={`cust-breakdown-popover ${
-                openBreakdown.placement === "top" ? "place-top" : "place-bottom"
-              }`}
+              className={`cust-breakdown-popover ${openBreakdown.placement === "top" ? "place-top" : "place-bottom"
+                }`}
               role="dialog"
-              aria-label={`${
-                isQuotes ? "Quotations" : "Invoices"
-              } breakdown for ${activeBreakdownCustomer.customer_name}`}
+              aria-label={`${isQuotes ? "Quotations" : "Invoices"
+                } breakdown for ${activeBreakdownCustomer.customer_name}`}
               onMouseEnter={clearBreakdownCloseTimer}
               onMouseLeave={scheduleBreakdownClose}
               style={{
@@ -2413,12 +2414,13 @@ export default function Customers() {
                       required
                       placeholder="e.g. John Doe"
                       value={newCustomer.customer_name}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        if (formError) setFormError("");
                         setNewCustomer({
                           ...newCustomer,
                           customer_name: e.target.value,
-                        })
-                      }
+                        });
+                      }}
                     />
                   </div>
 
@@ -2438,9 +2440,10 @@ export default function Customers() {
                   </div>
 
                   <div className="cust-field">
-                    <label>Email Address</label>
+                    <label>Email Address *</label>
                     <input
                       type="email"
+                      required
                       placeholder="client@example.com"
                       value={newCustomer.email}
                       onChange={(e) => {

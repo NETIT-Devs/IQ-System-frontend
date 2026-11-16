@@ -391,7 +391,7 @@ export default function InvoiceForm({
     setSelectedCustomerId(custId);
 
     if (!custId) return;
-    setFieldErrors((prev) => ({ ...prev, customerName: false }));
+    setFieldErrors((prev) => ({ ...prev, customerName: false, email: false }));
     const found = customersList.find((c) => String(c.customer_id) === String(custId));
     if (found) {
       setCustomerName(found.customer_name || "");
@@ -611,11 +611,20 @@ export default function InvoiceForm({
     const hasQuotation = Boolean(selectedQuotationId);
     const trimmedNumber = invoiceNumber.trim();
     const trimmedCust = customerName.trim();
+    const trimmedEmail = (email || "").trim();
     const isoDueDate = parseDueDateToIso(dueDate);
 
-    if (!trimmedCust && !hasQuotation) {
+    if (!trimmedCust) {
       errors.customerName = true;
       if (!firstErrorMsg) firstErrorMsg = "Customer name is required.";
+    }
+
+    if (!trimmedEmail) {
+      errors.email = true;
+      if (!firstErrorMsg) firstErrorMsg = "Email address is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      errors.email = true;
+      if (!firstErrorMsg) firstErrorMsg = "Please enter a valid email address.";
     }
 
     if (!hasQuotation) {
@@ -648,6 +657,11 @@ export default function InvoiceForm({
         firstErrorMsg = !dueDate.trim()
           ? "Due date is required."
           : "Please enter a valid Due Date in mm/dd/yyyy format.";
+      }
+    } else if (invoiceDate && isoDueDate <= invoiceDate) {
+      errors.dueDate = true;
+      if (!firstErrorMsg) {
+        firstErrorMsg = "Due date must be after the invoice date.";
       }
     }
 
@@ -1145,14 +1159,18 @@ export default function InvoiceForm({
             </div>
 
             <div className="inv-form-field">
-              <label>Email Address</label>
+              <label>Email Address *</label>
               <input
                 type="email"
+                className={fieldErrors.email ? "inv-input-error" : ""}
                 placeholder="billing@example.com"
                 value={email}
                 onChange={(e) => {
                   const newEmail = e.target.value;
                   setEmail(newEmail);
+                  if (fieldErrors.email) {
+                    setFieldErrors((prev) => ({ ...prev, email: false }));
+                  }
                   const valTrim = (customerName || "").trim().toLowerCase();
                   const emailTrim = newEmail.trim().toLowerCase();
                   const match = customersList.find((c) => {
@@ -1176,6 +1194,7 @@ export default function InvoiceForm({
                     }
                   }
                 }}
+                required
               />
             </div>
 
@@ -1611,7 +1630,9 @@ export default function InvoiceForm({
                 onChange={(e) => {
                   const nextDate = e.target.value;
                   setInvoiceDate(nextDate);
-                  if (fieldErrors.invoiceDate) {
+                  if (fieldErrors.dueDate) {
+                    setFieldErrors((prev) => ({ ...prev, invoiceDate: false, dueDate: false }));
+                  } else if (fieldErrors.invoiceDate) {
                     setFieldErrors((prev) => ({ ...prev, invoiceDate: false }));
                   }
                   if (
@@ -1652,6 +1673,11 @@ export default function InvoiceForm({
                   type="date"
                   className="inv-date-picker-hidden"
                   value={parseDueDateToIso(dueDate) || ""}
+                  min={invoiceDate ? (() => {
+                    const [y, m, d] = invoiceDate.split("-").map(Number);
+                    const dt = new Date(Date.UTC(y, m - 1, d + 1));
+                    return dt.toISOString().slice(0, 10);
+                  })() : undefined}
                   onChange={(e) =>
                     setDueDate(toDisplayMmDdYyyy(e.target.value))
                   }

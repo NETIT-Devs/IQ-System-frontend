@@ -521,22 +521,18 @@ export default function Customers() {
     e.preventDefault();
     setFormError("");
 
-    const nameTrimmed = String(newCustomer.customer_name || "").trim();
-    if (!nameTrimmed) {
-      setFormError("Customer name is required.");
-      return;
-    }
-
-    const inputEmail = String(newCustomer.email || "").trim().toLowerCase();
-    if (!inputEmail) {
-      setFormError("Customer email is required.");
-      return;
-    }
-
     const inputPhone = String(newCustomer.phone || "").trim();
+    if (!inputPhone) {
+      setFormError("Phone number is required.");
+      return;
+    }
+
+    const nameTrimmed = String(newCustomer.customer_name || "").trim();
+    const finalCustomerName = nameTrimmed || inputPhone;
+    const inputEmail = String(newCustomer.email || "").trim().toLowerCase();
 
     // Prevent re-adding a customer already added by Super Admin or another Admin
-    const duplicateError = checkDuplicateCustomer(nameTrimmed, inputEmail, inputPhone);
+    const duplicateError = checkDuplicateCustomer(finalCustomerName, inputEmail, inputPhone);
     if (duplicateError) {
       setFormError(duplicateError);
       return;
@@ -577,7 +573,12 @@ export default function Customers() {
 
     try {
       setSavingCustomer(true);
-      const res = await createCustomer(newCustomer);
+      const res = await createCustomer({
+        ...newCustomer,
+        customer_name: finalCustomerName,
+        phone: inputPhone,
+        email: inputEmail,
+      });
 
       // If this customer was previously deleted or backend reused the ID, remove from deletedCustomerIds
       const createdId = res?.customer_id;
@@ -832,24 +833,13 @@ export default function Customers() {
           (inv) => classifyInvoiceStatus(inv) === "unpaid"
         );
 
-        // Count total services across quotations & invoices to auto-detect Regular Customers
-        const totalServiceItems = clientQuotes.reduce(
-          (sum, q) => sum + (Array.isArray(q.items) ? q.items.length : 0),
-          0
-        );
-
-        const serviceActivityCount = Math.max(
-          clientQuotes.length + directInvoices.length,
+        // Customer becomes regular only when quotation and invoice are created for the 2nd time (quotation count >= 2 && invoice count >= 2)
+        const quoteCount = Math.max(
           clientQuotes.length,
-          clientInvoices.length,
-          totalServiceItems,
           Number(c.total_quotations) || 0
         );
-
-        const autoRegular =
-          serviceActivityCount >= 2 ||
-          (clientQuotes.length >= 1 && clientInvoices.length >= 1) ||
-          (c.notes && /daily|frequent|regular/i.test(c.notes));
+        const invoiceCount = clientInvoices.length;
+        const autoRegular = quoteCount >= 2 && invoiceCount >= 2;
 
         const isRegularCustomer = unpinnedIds.includes(cId)
           ? false
@@ -1033,6 +1023,7 @@ export default function Customers() {
             </p>
           </div>
 
+          {/* Add Customer button hidden per request
           <button
             type="button"
             className="cust-add-btn"
@@ -1045,6 +1036,7 @@ export default function Customers() {
             <UserPlus size={16} />
             <span>Add Customer</span>
           </button>
+          */}
         </div>
 
         {/* Separated Modern Search Bar & 4 Filter Dropdowns */}
@@ -1495,9 +1487,9 @@ export default function Customers() {
                             type="button"
                             data-breakdown-trigger="true"
                             className={`cust-count-trigger ${openBreakdown?.customerId === client.customer_id &&
-                                openBreakdown?.type === "quotations"
-                                ? "active"
-                                : ""
+                              openBreakdown?.type === "quotations"
+                              ? "active"
+                              : ""
                               }`}
                             onMouseEnter={(e) =>
                               handleHoverBreakdown(
@@ -1530,9 +1522,9 @@ export default function Customers() {
                             type="button"
                             data-breakdown-trigger="true"
                             className={`cust-count-trigger ${openBreakdown?.customerId === client.customer_id &&
-                                openBreakdown?.type === "invoices"
-                                ? "active"
-                                : ""
+                              openBreakdown?.type === "invoices"
+                              ? "active"
+                              : ""
                               }`}
                             onMouseEnter={(e) =>
                               handleHoverBreakdown(
@@ -2408,10 +2400,9 @@ export default function Customers() {
 
                 <div className="cust-form-grid">
                   <div className="cust-field">
-                    <label>Customer Name *</label>
+                    <label>Customer Name</label>
                     <input
                       type="text"
-                      required
                       placeholder="e.g. John Doe"
                       value={newCustomer.customer_name}
                       onChange={(e) => {
@@ -2440,10 +2431,9 @@ export default function Customers() {
                   </div>
 
                   <div className="cust-field">
-                    <label>Email Address *</label>
+                    <label>Email Address</label>
                     <input
                       type="email"
-                      required
                       placeholder="client@example.com"
                       value={newCustomer.email}
                       onChange={(e) => {
@@ -2457,9 +2447,10 @@ export default function Customers() {
                   </div>
 
                   <div className="cust-field">
-                    <label>Phone Number</label>
+                    <label>Phone Number *</label>
                     <input
                       type="text"
+                      required
                       placeholder="+94 77 123 4567"
                       value={newCustomer.phone}
                       onChange={(e) => {

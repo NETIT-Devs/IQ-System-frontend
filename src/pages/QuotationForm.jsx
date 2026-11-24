@@ -1,6 +1,6 @@
 
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   FileText,
   User,
@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Check,
   ArrowLeft,
+  CreditCard,
 } from "lucide-react";
 import {
   createQuotation,
@@ -47,6 +48,7 @@ import { downloadQuotationPdf } from "../utils/pdfGenerator";
 import {
   formatServicePresetDescription,
   formatDescriptionPointByPoint,
+  isAdditionalQuotationItem,
 } from "../utils/deliverablesFormatter";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import { getNextQuotationNumber } from "../utils/formatters";
@@ -74,12 +76,25 @@ function formatTermsAndConditions(terms) {
   return String(terms).replace(/([^\n])\s+(\d+\.\s+)/g, "$1\n$2");
 }
 
+// Normalize phone numbers to match by last digits
+function normalizePhone(p) {
+  if (!p) return "";
+  const digits = String(p).replace(/\D/g, "");
+  if (digits.length >= 9) {
+    return digits.slice(-9);
+  }
+  return digits;
+}
+
 // Textarea that automatically grows vertically so all bullet points stay visible
-function AutoGrowTextarea({ value, minHeight = 108, className = "", ...props }) {
-  const textareaRef = useRef(null);
+const AutoGrowTextarea = forwardRef(function AutoGrowTextarea(
+  { value, minHeight = 108, className = "", ...props },
+  ref
+) {
+  const innerRef = useRef(null);
 
   useEffect(() => {
-    const el = textareaRef.current;
+    const el = innerRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.max(minHeight, el.scrollHeight)}px`;
@@ -87,13 +102,20 @@ function AutoGrowTextarea({ value, minHeight = 108, className = "", ...props }) 
 
   return (
     <textarea
-      ref={textareaRef}
+      ref={(node) => {
+        innerRef.current = node;
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          ref.current = node;
+        }
+      }}
       value={value}
       className={className}
       {...props}
     />
   );
-}
+});
 
 // Amount input component with non-clickable .00 suffix
 function AmountInput({
@@ -205,28 +227,68 @@ export default function QuotationForm({
     terms_and_conditions: formatTermsAndConditions(
       initialData?.terms_and_conditions || ""
     ),
+    advance_price: (() => {
+      if (!initialData) return "";
+      const direct = Number(
+        initialData?.advance_price ??
+        initialData?.advance_amount ??
+        initialData?.advancePrice ??
+        initialData?.advanceAmount ??
+        0
+      );
+      if (Number.isFinite(direct) && direct > 0) return String(direct);
+
+      try {
+        const rawAdvances = localStorage.getItem("iq_quotation_advances");
+        if (rawAdvances) {
+          const advMap = JSON.parse(rawAdvances);
+          const val = Number(
+            advMap[String(initialData.quotation_id)] ??
+            advMap[String(initialData.quotation_number)] ??
+            advMap[String(initialData.id)] ??
+            0
+          );
+          if (Number.isFinite(val) && val > 0) return String(val);
+        }
+      } catch {
+        // ignore
+      }
+
+      const texts = [initialData?.notes, initialData?.terms_and_conditions].filter(Boolean).join(" ");
+      const match = texts.match(/advance(?:\s+payment)?(?:\s*price)?(?:\s*[:=-])?\s*(?:[A-Z]{3}\s*)?([0-9,]+(?:\.[0-9]{1,2})?)/i);
+      if (match && match[1]) {
+        const v = Number(match[1].replace(/,/g, ""));
+        if (Number.isFinite(v) && v > 0) return String(v);
+      }
+      return "";
+    })(),
   });
 
   // Items list
   const [items, setItems] = useState(
     initialData?.items?.length > 0
-      ? initialData.items.map((it) => ({
+      ? initialData.items.map((it, idx) => ({
         quotation_item_id: it.quotation_item_id,
         item_name: it.item_name || "",
         technology: it.technology || "",
         website_type: it.website_type || "",
         hosting_domain: it.hosting_domain || "",
         description: formatDescriptionPointByPoint(it.description || ""),
-        unit_price:
-          it.unit_price != null && Number(it.unit_price) > 0
-            ? String(it.unit_price)
-            : it.Price != null && Number(it.Price) > 0
-              ? String(it.Price)
-              : "",
+        unit_price: (() => {
+          if (it.unit_price_text) return it.unit_price_text;
+          const match = String(it.description || "").match(/\[custom_amount:([^\]]+)\]/);
+          if (match) return match[1];
+          if (it.unit_price != null && (Number(it.unit_price) > 0 || typeof it.unit_price === "string")) {
+            return String(it.unit_price);
+          }
+          if (it.Price != null && Number(it.Price) > 0) return String(it.Price);
+          return "";
+        })(),
         tax_rate:
           it.tax_rate != null && Number(it.tax_rate) > 0
             ? String(it.tax_rate)
             : "",
+        is_additional: isAdditionalQuotationItem(it, idx),
       }))
       : [{ ...initialItem }]
   );
@@ -253,6 +315,16 @@ export default function QuotationForm({
   );
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
   const clientDropdownRef = useRef(null);
+
+  // State for on-screen Add Heading dialog
+  const [headingModalState, setHeadingModalState] = useState({
+    isOpen: false,
+    itemIndex: null,
+    value: "",
+    cursorPos: null,
+  });
+  const deliverablesTextareaRefs = useRef({});
+  const deliverablesCursorRef = useRef({});
 
   // Load customer and service options from backend on mount
   useEffect(() => {
@@ -446,70 +518,17 @@ export default function QuotationForm({
     }
   };
 
-  // Sync customer details when customer_id is set
-  useEffect(() => {
-    if (formData.customer_id && customers.length > 0) {
-      const found = customers.find(
-        (c) => String(c.customer_id) === String(formData.customer_id)
-      );
-      if (found) {
-        if (!customerSearchQuery) {
-          setCustomerSearchQuery(found.customer_name || "");
-        }
-        setFormData((prev) => ({
-          ...prev,
-          company_name: prev.company_name || found.company_name || "",
-          email: prev.email || found.email || "",
-          phone: prev.phone || found.phone || "",
-          address: prev.address || found.address || "",
-        }));
-      }
-    }
-  }, [formData.customer_id, customers]);
-
-  // Handle selecting a customer from dropdown
-  const handleSelectCustomer = (customer) => {
-    setFormData((prev) => ({
-      ...prev,
-      client_name: customer.customer_name || "",
-      customer_id: String(customer.customer_id),
-      company_name: customer.company_name || "",
-      email: customer.email || "",
-      phone: customer.phone || "",
-      address: customer.address || "",
-    }));
-    setCustomerSearchQuery(customer.customer_name || "");
-    setClientDropdownOpen(false);
-    setFieldErrors((prev) => {
-      const next = { ...prev };
-      delete next.client_name;
-      delete next.client_email;
-      delete next.client_phone;
-      return next;
-    });
-  };
-
-  // Selected customer / client object
+  // Selected customer / client object from form data
   const selectedCustomer = useMemo(() => {
-    if (!formData.client_name) return null;
-    return (
-      customers.find(
-        (c) =>
-          String(c.customer_id) === String(formData.customer_id) ||
-          c.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase() ||
-          (formData.email && c.email?.toLowerCase() === formData.email.trim().toLowerCase())
-      ) || {
-        customer_name: formData.client_name.trim(),
-        company_name: formData.company_name?.trim() || "",
-        email: formData.email?.trim() || "",
-        phone: formData.phone?.trim() || "",
-        address: formData.address?.trim() || "",
-      }
-    );
+    return {
+      customer_name: formData.client_name?.trim() || "",
+      company_name: formData.company_name?.trim() || "",
+      email: formData.email?.trim() || "",
+      phone: formData.phone?.trim() || "",
+      address: formData.address?.trim() || "",
+    };
   }, [
-    customers,
     formData.client_name,
-    formData.customer_id,
     formData.company_name,
     formData.email,
     formData.phone,
@@ -544,8 +563,14 @@ export default function QuotationForm({
     return customers.filter((c) => {
       const name = (c.customer_name || "").toLowerCase();
       const email = (c.email || "").toLowerCase();
+      const phone = (c.phone || "").toLowerCase();
       const company = (c.company_name || "").toLowerCase();
-      return name.includes(term) || email.includes(term) || company.includes(term);
+      return (
+        name.includes(term) ||
+        email.includes(term) ||
+        phone.includes(term) ||
+        company.includes(term)
+      );
     });
   }, [customers, customerSearchQuery]);
 
@@ -622,6 +647,229 @@ export default function QuotationForm({
   // Add new standard item line
   const addItem = () => {
     setItems((prev) => [...prev, { ...initialItem }]);
+  };
+
+  // Helper actions for Description & Deliverables formatting
+  const addDeliverableBullet = (itemIndex) => {
+    const textarea = deliverablesTextareaRefs.current[itemIndex];
+    const cur = items[itemIndex]?.description || "";
+
+    let start = cur.length;
+    let end = cur.length;
+    if (textarea && typeof textarea.selectionStart === "number") {
+      start = textarea.selectionStart;
+      end = textarea.selectionEnd;
+    } else if (deliverablesCursorRef.current[itemIndex]) {
+      start = deliverablesCursorRef.current[itemIndex].start ?? cur.length;
+      end = deliverablesCursorRef.current[itemIndex].end ?? cur.length;
+    }
+
+    start = Math.max(0, Math.min(start, cur.length));
+    end = Math.max(start, Math.min(end, cur.length));
+
+    const before = cur.substring(0, start);
+    const after = cur.substring(end);
+
+    const bulletSnippet = !before || before.endsWith("\n") ? "• " : "\n• ";
+    const updated = `${before}${bulletSnippet}${after}`;
+    const newCursorPos = before.length + bulletSnippet.length;
+
+    updateItem(itemIndex, "description", updated);
+
+    deliverablesCursorRef.current[itemIndex] = { start: newCursorPos, end: newCursorPos };
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+      }
+    }, 0);
+  };
+
+  const addDeliverableCustomHeading = (itemIndex) => {
+    const textarea = deliverablesTextareaRefs.current[itemIndex];
+    const cur = items[itemIndex]?.description || "";
+
+    let start = cur.length;
+    let end = cur.length;
+    if (textarea && typeof textarea.selectionStart === "number") {
+      start = textarea.selectionStart;
+      end = textarea.selectionEnd;
+    } else if (deliverablesCursorRef.current[itemIndex]) {
+      start = deliverablesCursorRef.current[itemIndex].start ?? cur.length;
+      end = deliverablesCursorRef.current[itemIndex].end ?? cur.length;
+    }
+
+    start = Math.max(0, Math.min(start, cur.length));
+    end = Math.max(start, Math.min(end, cur.length));
+
+    setHeadingModalState({
+      isOpen: true,
+      itemIndex,
+      value: "",
+      cursorPos: { start, end },
+    });
+  };
+
+  const handleConfirmAddHeading = () => {
+    const heading = headingModalState.value?.trim();
+    if (!heading) return;
+    const cleanHeading = heading.replace(/:+$/, "");
+    const itemIndex = headingModalState.itemIndex;
+    if (itemIndex !== null && items[itemIndex]) {
+      const cur = items[itemIndex]?.description || "";
+      const textarea = deliverablesTextareaRefs.current[itemIndex];
+
+      let start = headingModalState.cursorPos?.start ?? cur.length;
+      let end = headingModalState.cursorPos?.end ?? start;
+
+      start = Math.max(0, Math.min(start, cur.length));
+      end = Math.max(start, Math.min(end, cur.length));
+
+      const before = cur.substring(0, start);
+      const after = cur.substring(end);
+
+      let prefix = "";
+      if (before) {
+        if (before.endsWith("\n\n")) {
+          prefix = "";
+        } else if (before.endsWith("\n")) {
+          prefix = "\n";
+        } else {
+          prefix = "\n\n";
+        }
+      }
+
+      const snippet = `${prefix}${cleanHeading}:\n• `;
+      const updated = `${before}${snippet}${after}`;
+      const newCursorPos = before.length + snippet.length;
+
+      updateItem(itemIndex, "description", updated);
+
+      deliverablesCursorRef.current[itemIndex] = { start: newCursorPos, end: newCursorPos };
+      setTimeout(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+        }
+      }, 0);
+    }
+    setHeadingModalState({ isOpen: false, itemIndex: null, value: "", cursorPos: null });
+  };
+
+  const handleDeliverablesKeyDown = (e, itemIndex) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      const textarea = e.target;
+      const { selectionStart, selectionEnd, value } = textarea;
+      if (selectionStart === selectionEnd) {
+        const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+        const currentLine = value.substring(lineStart, selectionStart);
+
+        const bulletMatch = currentLine.match(/^(\s*[\u2022•*\-–—]\s*)/);
+        if (bulletMatch) {
+          const bulletPrefix = bulletMatch[1];
+          const contentAfter = currentLine.substring(bulletPrefix.length).trim();
+
+          // If user pressed Enter on an empty bullet line, remove the bullet
+          if (!contentAfter) {
+            e.preventDefault();
+            const beforeLine = value.substring(0, lineStart);
+            const afterCursor = value.substring(selectionStart);
+            const updated = `${beforeLine}\n${afterCursor}`;
+            updateItem(itemIndex, "description", updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = lineStart + 1;
+            }, 0);
+            return;
+          }
+
+          // Continue with bullet on next line
+          e.preventDefault();
+          const beforeCursor = value.substring(0, selectionStart);
+          const afterCursor = value.substring(selectionStart);
+          const nextBullet = "\n• ";
+          const updated = `${beforeCursor}${nextBullet}${afterCursor}`;
+          updateItem(itemIndex, "description", updated);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + nextBullet.length;
+          }, 0);
+        }
+      }
+    }
+  };
+
+  const handleHostingKeyDown = (e, itemIndex) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      const textarea = e.target;
+      const { selectionStart, selectionEnd, value } = textarea;
+      if (selectionStart === selectionEnd) {
+        e.preventDefault();
+
+        const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+        const lineEndIndex = value.indexOf("\n", selectionStart);
+        const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+        const currentLine = value.substring(lineStart, lineEnd);
+
+        const bulletMatch = currentLine.match(/^(\s*[\u2022•*\-–—]\s*)/);
+
+        if (bulletMatch) {
+          const bulletPrefix = bulletMatch[1];
+          const contentAfter = currentLine.substring(bulletPrefix.length).trim();
+
+          // If user pressed Enter on an empty bullet line, remove the bullet
+          if (!contentAfter) {
+            const beforeLine = value.substring(0, lineStart);
+            const afterLine = value.substring(lineEnd);
+            const cleanBefore = beforeLine.endsWith("\n") ? beforeLine.slice(0, -1) : beforeLine;
+            const updated = `${cleanBefore}${afterLine}`;
+            updateItem(itemIndex, "hosting_domain", updated);
+            setTimeout(() => {
+              const newPos = Math.min(cleanBefore.length, updated.length);
+              textarea.selectionStart = textarea.selectionEnd = newPos;
+            }, 0);
+            return;
+          }
+
+          // Continue with bullet on next line
+          const beforeCursor = value.substring(0, selectionStart);
+          const afterCursor = value.substring(selectionStart);
+          const nextBullet = "\n• ";
+          const updated = `${beforeCursor}${nextBullet}${afterCursor}`;
+          updateItem(itemIndex, "hosting_domain", updated);
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = selectionStart + nextBullet.length;
+          }, 0);
+        } else {
+          // Current line does NOT have a bullet prefix yet
+          const trimmed = currentLine.trim();
+          if (!trimmed) {
+            // Line is empty, start first bullet
+            const beforeLine = value.substring(0, lineStart);
+            const afterLine = value.substring(lineEnd);
+            const bullet = "• ";
+            const updated = `${beforeLine}${bullet}${afterLine}`;
+            updateItem(itemIndex, "hosting_domain", updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = lineStart + bullet.length;
+            }, 0);
+          } else {
+            // Current line has text: prefix current line with "• " and create new line with "• "
+            const beforeLine = value.substring(0, lineStart);
+            const textBeforeCursor = value.substring(lineStart, selectionStart).trimStart();
+            const textAfterCursor = value.substring(selectionStart, lineEnd).trimStart();
+            const afterLine = value.substring(lineEnd);
+
+            const formattedCurrent = `• ${textBeforeCursor}`;
+            const nextBullet = "\n• ";
+            const updated = `${beforeLine}${formattedCurrent}${nextBullet}${textAfterCursor}${afterLine}`;
+            const newCursorPos = beforeLine.length + formattedCurrent.length + nextBullet.length;
+            updateItem(itemIndex, "hosting_domain", updated);
+            setTimeout(() => {
+              textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+            }, 0);
+          }
+        }
+      }
+    }
   };
 
   // Add simple additional item line (Name and Amount only)
@@ -704,7 +952,9 @@ export default function QuotationForm({
 
   // Prepare full quotation payload
   const buildPayload = (assignedCustomerId, statusToSave) => {
-    const resolvedClientName = formData.client_name ? formData.client_name.trim() : "";
+    const resolvedClientName = formData.client_name
+      ? formData.client_name.trim()
+      : (selectedCustomer?.customer_name || formData.company_name?.trim() || formData.email?.trim() || formData.phone?.trim() || "Client");
     const isPending =
       statusToSave === "Pending Approval" ||
       statusToSave === "Pending" ||
@@ -746,19 +996,29 @@ export default function QuotationForm({
       valid_until: formData.valid_until || null,
       currency: formData.currency || "LKR",
       discount_amount: totals.discount,
+      advance_price: formData.advance_price ? Number(formData.advance_price) : 0,
+      advance_amount: formData.advance_price ? Number(formData.advance_price) : 0,
       notes: formData.notes?.trim() || null,
       terms_and_conditions: formData.terms_and_conditions?.trim() || null,
       status: effectiveStatus,
       approval_status: effectiveApprovalStatus,
-      items: items.map((item) => ({
-        item_name: item.item_name.trim(),
-        description: item.description?.trim() || null,
-        technology: item.technology?.trim() || null,
-        website_type: item.website_type?.trim() || null,
-        hosting_domain: item.hosting_domain?.trim() || null,
-        unit_price: Number(item.unit_price),
-        tax_rate: Number(item.tax_rate || 0),
-      })),
+      items: items.map((item) => {
+        const isCustomText = Boolean(item.is_additional) && typeof item.unit_price === "string" && Number.isNaN(Number(item.unit_price)) && item.unit_price.trim() !== "";
+        return {
+          quotation_item_id: item.quotation_item_id,
+          item_name: item.item_name.trim(),
+          description: item.is_additional
+            ? (isCustomText ? `[custom_amount:${item.unit_price.trim()}]` : null)
+            : (item.description?.trim() || null),
+          technology: item.is_additional ? null : (item.technology?.trim() || null),
+          website_type: item.is_additional ? null : (item.website_type?.trim() || null),
+          hosting_domain: item.is_additional ? null : (item.hosting_domain?.trim() || null),
+          unit_price: Number.isNaN(Number(item.unit_price)) ? 0 : Number(item.unit_price),
+          unit_price_text: isCustomText ? item.unit_price.trim() : null,
+          tax_rate: Number(item.tax_rate || 0),
+          is_additional: Boolean(item.is_additional),
+        };
+      }),
     };
   };
 
@@ -772,17 +1032,17 @@ export default function QuotationForm({
       if (!firstError) firstError = errors.quotation_number;
     }
 
-    if (!formData.client_name.trim()) {
-      errors.client_name = "Client name is required.";
-      if (!firstError) firstError = errors.client_name;
+    if (!formData.phone || !formData.phone.trim()) {
+      errors.client_phone = "Phone number is required.";
+      if (!firstError) firstError = errors.client_phone;
     }
 
-    if (!formData.email.trim()) {
-      errors.client_email = "Email address is required.";
-      if (!firstError) firstError = errors.client_email;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      errors.client_email = "Please enter a valid email address.";
-      if (!firstError) firstError = errors.client_email;
+    // Client Name and Email are optional as requested
+    if (formData.email && formData.email.trim()) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        errors.client_email = "Please enter a valid email address.";
+        if (!firstError) firstError = errors.client_email;
+      }
     }
 
     if (!formData.quotation_date) {
@@ -815,9 +1075,19 @@ export default function QuotationForm({
         if (!firstError) firstError = errors[`item_name_${i}`];
       }
 
-      if (it.unit_price === "" || Number(it.unit_price) < 0) {
-        errors[`unit_price_${i}`] = `Please enter a valid price for line ${i + 1}.`;
-        if (!firstError) firstError = errors[`unit_price_${i}`];
+      if (!it.is_additional) {
+        if (it.unit_price === "" || Number.isNaN(Number(it.unit_price)) || Number(it.unit_price) < 0) {
+          errors[`unit_price_${i}`] = `Please enter a valid price for line ${i + 1}.`;
+          if (!firstError) firstError = errors[`unit_price_${i}`];
+        }
+      } else {
+        if (it.unit_price === "" || (typeof it.unit_price === "string" && !it.unit_price.trim())) {
+          errors[`unit_price_${i}`] = `Please enter a valid amount for line ${i + 1}.`;
+          if (!firstError) firstError = errors[`unit_price_${i}`];
+        } else if (!Number.isNaN(Number(it.unit_price)) && Number(it.unit_price) < 0) {
+          errors[`unit_price_${i}`] = `Please enter a valid amount for line ${i + 1}.`;
+          if (!firstError) firstError = errors[`unit_price_${i}`];
+        }
       }
 
       const tax = Number(it.tax_rate || 0);
@@ -870,30 +1140,47 @@ export default function QuotationForm({
     try {
       setSaving(true);
 
-      // Resolve customer_id from client_name
+      // Resolve customer_id from email, phone, or client_name
       let targetCustomerId = formData.customer_id ? Number(formData.customer_id) : null;
 
       if (!targetCustomerId || Number.isNaN(targetCustomerId)) {
-        const valTrim = (formData.client_name || "").trim().toLowerCase();
         const emailTrim = (formData.email || "").trim().toLowerCase();
-        const existing = customers.find((c) => {
-          const cName = (c.customer_name || "").trim().toLowerCase();
-          const cEmail = (c.email || "").trim().toLowerCase();
-          if (valTrim && emailTrim) {
-            return cName === valTrim && cEmail === emailTrim;
-          }
-          if (valTrim && !emailTrim) {
-            return cName === valTrim && !cEmail;
-          }
-          return false;
-        });
+        const phoneNorm = normalizePhone(formData.phone);
+        const nameTrim = (formData.client_name || "").trim().toLowerCase();
+
+        // 1. Identify by Email
+        let existing = emailTrim
+          ? customers.find((c) => (c.email || "").trim().toLowerCase() === emailTrim)
+          : null;
+
+        // 2. Identify by Phone
+        if (!existing && phoneNorm && phoneNorm.length >= 7) {
+          existing = customers.find((c) => normalizePhone(c.phone) === phoneNorm);
+        }
+
+        // 3. Identify by Name
+        if (!existing && nameTrim) {
+          existing = customers.find(
+            (c) => (c.customer_name || "").trim().toLowerCase() === nameTrim
+          );
+        }
 
         if (existing && existing.customer_id) {
           targetCustomerId = Number(existing.customer_id);
-        } else {
+          if (!formData.client_name && existing.customer_name) {
+            updateField("client_name", existing.customer_name);
+          }
+        } else if (emailTrim || phoneNorm || nameTrim || formData.company_name?.trim()) {
+          const customerNameToUse =
+            formData.client_name?.trim() ||
+            formData.company_name?.trim() ||
+            formData.email?.trim() ||
+            formData.phone?.trim() ||
+            "Client";
+
           try {
             const created = await createCustomer({
-              customer_name: formData.client_name.trim(),
+              customer_name: customerNameToUse,
               company_name: formData.company_name?.trim() || null,
               email: formData.email?.trim() || null,
               phone: formData.phone?.trim() || null,
@@ -969,14 +1256,38 @@ export default function QuotationForm({
         }
       }
 
+      // Save advance price to local storage cache so it persists even offline
+      try {
+        const qId = response?.quotation_id || initialData?.quotation_id;
+        const qNum = formData.quotation_number.trim();
+        const advVal = Number(formData.advance_price || 0);
+        const rawAdvances = localStorage.getItem("iq_quotation_advances");
+        const advMap = rawAdvances ? JSON.parse(rawAdvances) : {};
+        if (qId) advMap[String(qId)] = advVal;
+        if (qNum) advMap[String(qNum)] = advVal;
+        localStorage.setItem("iq_quotation_advances", JSON.stringify(advMap));
+      } catch (e) {
+        console.warn("Could not cache advance price in localStorage:", e);
+      }
+
       if (onSave) {
         await onSave({
           ...payload,
           quotation_id: response?.quotation_id || initialData?.quotation_id,
+          quotation_number: response?.quotation_number || payload.quotation_number,
           subtotal: totals.subtotal,
           tax_amount: totals.taxAmount,
           total_amount: totals.total,
           customer_name: formData.client_name.trim(),
+          clientName: formData.client_name.trim(),
+          phone: formData.phone?.trim() || "",
+          clientPhone: formData.phone?.trim() || "",
+          customer_phone: formData.phone?.trim() || "",
+          email: formData.email?.trim() || "",
+          company_name: formData.company_name?.trim() || "",
+          address: formData.address?.trim() || "",
+          advance_price: Number(formData.advance_price || 0),
+          advance_amount: Number(formData.advance_price || 0),
           status: statusToSave,
         });
       }
@@ -992,19 +1303,24 @@ export default function QuotationForm({
     if (!canDownloadFormPdf) return;
     setFormError("");
 
-    const activeClientName = formData.client_name.trim();
+    const activeClientName =
+      formData.client_name?.trim() ||
+      selectedCustomer?.customer_name ||
+      formData.company_name?.trim() ||
+      formData.email?.trim() ||
+      formData.phone?.trim() ||
+      "Client";
 
     const errs = {};
     if (!formData.quotation_number.trim()) {
       errs.quotation_number = "Quotation number is required.";
       setFormError("Please enter a quotation number before generating PDF.");
-    } else if (!activeClientName) {
-      errs.client_name = "Client name is required.";
-      setFormError("Please enter a client name before generating PDF.");
-    } else if (!formData.email.trim()) {
-      errs.client_email = "Email address is required.";
-      setFormError("Please enter a client email address before generating PDF.");
+    } else if (!formData.phone || !formData.phone.trim()) {
+      errs.client_phone = "Phone number is required.";
+      setFormError("Please enter a phone number before generating PDF.");
     } else if (
+      formData.email &&
+      formData.email.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())
     ) {
       errs.client_email = "Please enter a valid email address.";
@@ -1037,13 +1353,14 @@ export default function QuotationForm({
     try {
       setDownloadingPdf(true);
       let activeCompany = companyDetails;
-      if (!activeCompany?.bank_name) {
-        try {
-          activeCompany = await getCompanyDetails();
-          setCompanyDetails(activeCompany);
-        } catch (fetchErr) {
-          console.warn("Could not refetch company details:", fetchErr);
+      try {
+        const freshCompany = await getCompanyDetails();
+        if (freshCompany) {
+          activeCompany = freshCompany;
+          setCompanyDetails(freshCompany);
         }
+      } catch (fetchErr) {
+        console.warn("Could not refetch company details:", fetchErr);
       }
       const filename = `${formData.quotation_number.trim()}.pdf`;
       await downloadQuotationPdf(
@@ -1054,7 +1371,7 @@ export default function QuotationForm({
           customer_name: formData.client_name,
           address: selectedCustomer?.address || "",
           email: selectedCustomer?.email || "",
-          phone: selectedCustomer?.phone || "",
+          phone: formData.phone || selectedCustomer?.phone || "",
         },
         filename
       );
@@ -1085,6 +1402,8 @@ export default function QuotationForm({
     total_amount: totals.total,
     grand_total: totals.total,
     total_balance: totals.total,
+    advance_price: formData.advance_price ? Number(formData.advance_price) : 0,
+    advance_amount: formData.advance_price ? Number(formData.advance_price) : 0,
     notes: formData.notes,
     terms_and_conditions: formData.terms_and_conditions,
     status: initialData?.status || "Draft",
@@ -1099,9 +1418,11 @@ export default function QuotationForm({
       website_type: it.website_type,
       hosting_domain: it.hosting_domain,
       description: it.description,
-      unit_price: Number(it.unit_price) || 0,
+      unit_price: it.unit_price,
+      unit_price_text: typeof it.unit_price === "string" && Number.isNaN(Number(it.unit_price)) ? it.unit_price.trim() : "",
       tax_rate: Number(it.tax_rate) || 0,
       line_total: (Number(it.unit_price) || 0) * (1 + (Number(it.tax_rate) || 0) / 100),
+      is_additional: Boolean(it.is_additional),
     })),
   };
 
@@ -1134,6 +1455,15 @@ export default function QuotationForm({
                 <span className="qf-page-quote-pill">
                   {formData.quotation_number || "New Quotation"}
                 </span>
+                <button
+                  type="button"
+                  className="qf-close-btn"
+                  onClick={onClose || (() => window.history.back())}
+                  title="Cancel & Close Form"
+                  aria-label="Cancel & Close Form"
+                >
+                  <X size={18} />
+                </button>
               </div>
             </div>
           )}
@@ -1202,90 +1532,23 @@ export default function QuotationForm({
             </div>
 
             <div className="qf-grid-2">
-              <div className="qf-field col-span-2 qf-client-search-field">
-                <label className="qf-label">
-                  Select Customer
-                </label>
-                <div className="qf-search-input-wrap" ref={clientDropdownRef}>
-                  <Search size={15} className="qf-search-input-icon" />
-                  <input
-                    type="text"
-                    className="qf-input qf-input-search"
-                    placeholder="Search customer by name or email..."
-                    value={customerSearchQuery}
-                    onFocus={() => setClientDropdownOpen(true)}
-                    onClick={() => setClientDropdownOpen(true)}
-                    onChange={(e) => {
-                      setCustomerSearchQuery(e.target.value);
-                      setClientDropdownOpen(true);
-                    }}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    className="qf-search-toggle-btn"
-                    onClick={() => setClientDropdownOpen((prev) => !prev)}
-                    title="Toggle customer list"
-                  >
-                    <ChevronDown size={14} className={clientDropdownOpen ? "open" : ""} />
-                  </button>
-
-                  {/* In-form Dropdown Menu */}
-                  {clientDropdownOpen && (
-                    <div className="qf-client-dropdown">
-                      {filteredCustomers.length > 0 ? (
-                        filteredCustomers.map((customer) => {
-                          const isSelected =
-                            String(formData.customer_id) === String(customer.customer_id) ||
-                            (formData.client_name &&
-                              customer.customer_name?.toLowerCase() === formData.client_name.trim().toLowerCase());
-                          return (
-                            <div
-                              key={customer.customer_id}
-                              className={`qf-client-dropdown-item ${isSelected ? "selected" : ""}`}
-                              onClick={() => handleSelectCustomer(customer)}
-                            >
-                              <div className="qf-cd-left">
-                                <div className="qf-cd-name">
-                                  <span>{customer.customer_name}</span>
-                                  {customer.company_name && (
-                                    <span className="qf-cd-company">{customer.company_name}</span>
-                                  )}
-                                </div>
-                                {customer.email && (
-                                  <div className="qf-cd-email">
-                                    <Mail size={11} />
-                                    <span>{customer.email}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {isSelected && <Check size={14} className="qf-cd-check" />}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="qf-client-dropdown-empty">
-                          No customers match your search
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               <div className="qf-field">
                 <label className="qf-label">
                   <User size={13} />
-                  Client Name <span className="qf-required">*</span>
+                  Client Name
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   className={`qf-input ${fieldErrors.client_name ? "qf-input-error" : ""}`}
-                  placeholder="Enter client full name"
+                  placeholder="Enter client full name (optional)"
                   value={formData.client_name}
                   onChange={(e) => {
                     const val = e.target.value;
                     updateField("client_name", val);
+                    if (!initialData?.quotation_id) {
+                      updateField("customer_id", "");
+                    }
                     if (fieldErrors.client_name) {
                       setFieldErrors((prev) => {
                         const next = { ...prev };
@@ -1293,31 +1556,7 @@ export default function QuotationForm({
                         return next;
                       });
                     }
-                    const valTrim = val.trim().toLowerCase();
-                    const emailTrim = (formData.email || "").trim().toLowerCase();
-                    const match = customers.find((c) => {
-                      const cName = (c.customer_name || "").trim().toLowerCase();
-                      const cEmail = (c.email || "").trim().toLowerCase();
-                      if (valTrim && emailTrim) {
-                        return cName === valTrim && cEmail === emailTrim;
-                      }
-                      if (valTrim && !emailTrim) {
-                        return cName === valTrim && !cEmail;
-                      }
-                      return false;
-                    });
-                    if (match) {
-                      updateField("customer_id", String(match.customer_id));
-                      if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                    } else if (formData.customer_id) {
-                      const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
-                      if (cur && cur.customer_name?.trim().toLowerCase() !== val.trim().toLowerCase()) {
-                        updateField("customer_id", "");
-                      }
-                    }
                   }}
-                  aria-required="true"
-                  required
                 />
                 {fieldErrors.client_name && (
                   <span className="qf-error-text">{fieldErrors.client_name}</span>
@@ -1331,6 +1570,7 @@ export default function QuotationForm({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   className="qf-input"
                   placeholder="e.g. Acme Corporation"
                   value={formData.company_name}
@@ -1341,46 +1581,26 @@ export default function QuotationForm({
               <div className="qf-field">
                 <label className="qf-label">
                   <Mail size={13} />
-                  Email Address <span className="qf-required">*</span>
+                  Email Address
                 </label>
                 <input
                   type="email"
+                  autoComplete="off"
                   className={`qf-input ${fieldErrors.client_email ? "qf-input-error" : ""}`}
-                  placeholder="e.g. client@example.com"
+                  placeholder="e.g. client@example.com (optional)"
                   value={formData.email}
-                  aria-required="true"
-                  required
                   onChange={(e) => {
                     const newEmail = e.target.value;
                     updateField("email", newEmail);
+                    if (!initialData?.quotation_id) {
+                      updateField("customer_id", "");
+                    }
                     if (fieldErrors.client_email) {
                       setFieldErrors((prev) => {
                         const next = { ...prev };
                         delete next.client_email;
                         return next;
                       });
-                    }
-                    const valTrim = (formData.client_name || "").trim().toLowerCase();
-                    const emailTrim = newEmail.trim().toLowerCase();
-                    const match = customers.find((c) => {
-                      const cName = (c.customer_name || "").trim().toLowerCase();
-                      const cEmail = (c.email || "").trim().toLowerCase();
-                      if (valTrim && emailTrim) {
-                        return cName === valTrim && cEmail === emailTrim;
-                      }
-                      if (!valTrim && emailTrim) {
-                        return cEmail === emailTrim;
-                      }
-                      return false;
-                    });
-                    if (match) {
-                      updateField("customer_id", String(match.customer_id));
-                      if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                    } else if (formData.customer_id) {
-                      const cur = customers.find((c) => String(c.customer_id) === String(formData.customer_id));
-                      if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
-                        updateField("customer_id", "");
-                      }
                     }
                   }}
                 />
@@ -1392,15 +1612,21 @@ export default function QuotationForm({
               <div className="qf-field">
                 <label className="qf-label">
                   <Phone size={13} />
-                  Contact Number
+                  Contact Number <span className="qf-required">*</span>
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   className={`qf-input ${fieldErrors.client_phone ? "qf-input-error" : ""}`}
                   placeholder="e.g. +94 77 123 4567"
                   value={formData.phone}
+                  required
                   onChange={(e) => {
-                    updateField("phone", e.target.value);
+                    const newPhone = e.target.value;
+                    updateField("phone", newPhone);
+                    if (!initialData?.quotation_id) {
+                      updateField("customer_id", "");
+                    }
                     if (fieldErrors.client_phone) {
                       setFieldErrors((prev) => {
                         const next = { ...prev };
@@ -1419,6 +1645,7 @@ export default function QuotationForm({
                 <label className="qf-label">Billing Address</label>
                 <input
                   type="text"
+                  autoComplete="off"
                   className="qf-input"
                   placeholder="e.g. No. 45, Galle Road, Colombo 03"
                   value={formData.address}
@@ -1497,26 +1724,30 @@ export default function QuotationForm({
 
             <div className="qf-field">
               <label className="qf-label">Project Duration</label>
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div className="qf-duration-control-wrap">
                 <input
                   type="number"
                   min="0"
                   step="any"
-                  className={`qf-input ${fieldErrors.estimated_duration ? "qf-input-error" : ""}`}
+                  className={`qf-input qf-duration-input ${fieldErrors.estimated_duration ? "qf-input-error" : ""}`}
                   placeholder="e.g. 4"
                   value={formData.estimated_duration}
                   onChange={(e) => updateField("estimated_duration", e.target.value)}
                 />
-                <select
-                  className="qf-select"
-                  style={{ width: "95px" }}
-                  value={formData.duration_unit}
-                  onChange={(e) => updateField("duration_unit", e.target.value)}
-                >
-                  <option value="Days">Days</option>
-                  <option value="Weeks">Weeks</option>
-                  <option value="Months">Months</option>
-                </select>
+                <div className="qf-duration-unit-picker">
+                  <select
+                    className="qf-duration-unit-select"
+                    value={formData.duration_unit}
+                    onChange={(e) => updateField("duration_unit", e.target.value)}
+                  >
+                    <option value="Days">Days</option>
+                    <option value="Weeks">Weeks</option>
+                    <option value="Months">Months</option>
+                  </select>
+                  <span className="qf-duration-chevron-holder" aria-hidden="true">
+                    <ChevronDown size={14} strokeWidth={2.2} />
+                  </span>
+                </div>
               </div>
               {fieldErrors.estimated_duration && (
                 <span className="qf-error-text">{fieldErrors.estimated_duration}</span>
@@ -1546,11 +1777,6 @@ export default function QuotationForm({
               <Layers size={15} />
               <span>Services / Scope</span>
             </div>
-
-            <button type="button" className="qf-add-btn" onClick={addItem}>
-              <Plus size={14} />
-              Add Service
-            </button>
           </div>
 
           {items.map((item, index) =>
@@ -1590,7 +1816,6 @@ export default function QuotationForm({
                       value={item.item_name}
                       onChange={(e) => updateItem(index, "item_name", e.target.value)}
                       required
-                      autoFocus
                     />
                     {fieldErrors[`item_name_${index}`] && (
                       <span className="qf-error-text">{fieldErrors[`item_name_${index}`]}</span>
@@ -1601,13 +1826,13 @@ export default function QuotationForm({
                     <label className="qf-label">
                       Amount ({formData.currency}) <span className="qf-required">*</span>
                     </label>
-                    <AmountInput
+                    <input
+                      type="text"
+                      className={`qf-input ${fieldErrors[`unit_price_${index}`] ? "qf-input-error" : ""}`}
+                      placeholder="e.g. 0.00 or Free"
                       value={item.unit_price}
-                      onChange={(val) => updateItem(index, "unit_price", val)}
-                      suffix=".00"
-                      placeholder="0"
+                      onChange={(e) => updateItem(index, "unit_price", e.target.value)}
                       required
-                      hasError={Boolean(fieldErrors[`unit_price_${index}`])}
                     />
                     {fieldErrors[`unit_price_${index}`] && (
                       <span className="qf-error-text">{fieldErrors[`unit_price_${index}`]}</span>
@@ -1723,20 +1948,6 @@ export default function QuotationForm({
                     )}
                   </div>
 
-                  {/* Technology Stack */}
-                  <div className="qf-field">
-                    <label className="qf-label">
-                      <Code size={13} /> Technology
-                    </label>
-                    <input
-                      type="text"
-                      className="qf-input"
-                      placeholder="e.g. WordPress CMS / PHP"
-                      value={item.technology}
-                      onChange={(e) => updateItem(index, "technology", e.target.value)}
-                    />
-                  </div>
-
                   {/* Website Type */}
                   <div className="qf-field">
                     <label className="qf-label">
@@ -1751,30 +1962,102 @@ export default function QuotationForm({
                     />
                   </div>
 
+                  {/* Technology Stack */}
+                  <div className="qf-field">
+                    <label className="qf-label">
+                      <Code size={13} /> Technology
+                    </label>
+                    <AutoGrowTextarea
+                      rows={1}
+                      minHeight={38}
+                      className="qf-textarea qf-textarea-compact"
+                      placeholder="e.g. WordPress CMS / PHP"
+                      value={item.technology}
+                      onChange={(e) => updateItem(index, "technology", e.target.value)}
+                    />
+                  </div>
+
                   {/* Hosting & Domain */}
                   <div className="qf-field">
                     <label className="qf-label">
                       <Server size={13} /> Hosting &amp; Domain
                     </label>
-                    <input
-                      type="text"
-                      className="qf-input"
+                    <AutoGrowTextarea
+                      rows={1}
+                      minHeight={38}
+                      className="qf-textarea qf-textarea-compact"
                       placeholder="e.g. Domain and hosting setup assistance included"
                       value={item.hosting_domain}
                       onChange={(e) => updateItem(index, "hosting_domain", e.target.value)}
+                      onKeyDown={(e) => handleHostingKeyDown(e, index)}
                     />
                   </div>
 
                   {/* Description / Deliverables */}
                   <div className="qf-field col-span-3">
-                    <label className="qf-label">Description &amp; Deliverables</label>
+                    <div className="qf-deliverables-toolbar-header">
+                      <label className="qf-label">Description &amp; Deliverables</label>
+                      <div className="qf-deliverables-action-buttons">
+                        <button
+                          type="button"
+                          className="qf-btn-deliverable-action qf-btn-deliverable-primary"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => addDeliverableCustomHeading(index)}
+                          title="Add a new custom bold section heading"
+                        >
+                          <Plus size={11} /> Heading
+                        </button>
+                        <button
+                          type="button"
+                          className="qf-btn-deliverable-action"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => addDeliverableBullet(index)}
+                          title="Add a bullet point (•)"
+                        >
+                          <Plus size={11} /> Point
+                        </button>
+                      </div>
+                    </div>
+
                     <AutoGrowTextarea
+                      ref={(el) => {
+                        deliverablesTextareaRefs.current[index] = el;
+                      }}
                       rows={5}
                       className="qf-textarea qf-textarea-deliverables"
                       placeholder="Detailed deliverables, core features, maintenance support, and SEO setup..."
                       value={item.description}
-                      onChange={(e) => updateItem(index, "description", e.target.value)}
+                      onChange={(e) => {
+                        deliverablesCursorRef.current[index] = {
+                          start: e.target.selectionStart,
+                          end: e.target.selectionEnd,
+                        };
+                        updateItem(index, "description", e.target.value);
+                      }}
+                      onClick={(e) => {
+                        deliverablesCursorRef.current[index] = {
+                          start: e.target.selectionStart,
+                          end: e.target.selectionEnd,
+                        };
+                      }}
+                      onKeyUp={(e) => {
+                        deliverablesCursorRef.current[index] = {
+                          start: e.target.selectionStart,
+                          end: e.target.selectionEnd,
+                        };
+                      }}
+                      onSelect={(e) => {
+                        deliverablesCursorRef.current[index] = {
+                          start: e.target.selectionStart,
+                          end: e.target.selectionEnd,
+                        };
+                      }}
+                      onKeyDown={(e) => handleDeliverablesKeyDown(e, index)}
                     />
+
+                    <div className="qf-deliverables-helper-note">
+                      <span>💡 <strong>Tip:</strong> Any title ending with <strong>:</strong> (e.g. <em>Core Features:</em>) becomes a bold heading separated by a line in the PDF. Press <strong>Enter</strong> to automatically start the next bullet point.</span>
+                    </div>
                   </div>
 
                   {/* Price and Tax */}
@@ -1871,7 +2154,7 @@ export default function QuotationForm({
               <div className="qf-field" style={{ marginBottom: "10px" }}>
                 <label className="qf-label">Terms and Conditions</label>
                 <textarea
-                  rows={4}
+                  rows={6}
                   className="qf-textarea"
                   value={formData.terms_and_conditions}
                   onChange={(e) => updateField("terms_and_conditions", e.target.value)}
@@ -1949,6 +2232,66 @@ export default function QuotationForm({
                 <span className="qf-grand-total">
                   {formatMoney(totals.total)}
                 </span>
+              </div>
+
+              {/* Payment Stage: Title outside and directly above the box */}
+              <div className="qf-payment-stage-header-outer">
+                <div className="qf-payment-stage-title">
+                  <CreditCard size={16} style={{ color: "#2563eb", flexShrink: 0 }} />
+                  <span style={{ whiteSpace: "nowrap" }}>Payment Stage</span>
+                </div>
+              </div>
+
+              {/* Payment Stage Box */}
+              <div className="qf-payment-stage-card">
+                {/* Advance Payment blue badge on its own row */}
+                <div style={{ marginBottom: "10px" }}>
+                  <span className="qf-payment-stage-badge">
+                    Advance Payment
+                  </span>
+                </div>
+
+                {/* Advance Price Input Field */}
+                <div className="qf-field" style={{ marginBottom: "8px" }}>
+                  <label className="qf-label">
+                    Advance Price ({formData.currency})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="qf-input"
+                    placeholder="Enter advance price (e.g. 50000)"
+                    value={formData.advance_price}
+                    onChange={(e) => updateField("advance_price", e.target.value)}
+                    onFocus={(e) => {
+                      if (e.target.value === "0" || e.target.value === "0.00") {
+                        updateField("advance_price", "");
+                      } else {
+                        e.target.select();
+                      }
+                    }}
+                    onWheel={(e) => e.target.blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                    }}
+                  />
+                </div>
+
+                {/* Advance to Pay Display */}
+                <div className="qf-payment-stage-display">
+                  <span className="qf-payment-stage-display-label">
+                    Advance to Pay:
+                  </span>
+                  <span
+                    className={`qf-payment-stage-display-val ${Number(formData.advance_price) > 0 ? "" : "empty"
+                      }`}
+                  >
+                    {Number(formData.advance_price) > 0
+                      ? formatMoney(formData.advance_price)
+                      : `${formData.currency || "LKR"} 0.00`}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -2041,6 +2384,87 @@ export default function QuotationForm({
             </div>
           </div>
         </div>
+        {/* On-Screen Modal for Custom Heading */}
+        {headingModalState.isOpen && (
+          <div
+            className="qf-heading-modal-backdrop"
+            onClick={() =>
+              setHeadingModalState({ isOpen: false, itemIndex: null, value: "", cursorPos: null })
+            }
+          >
+            <div
+              className="qf-heading-modal-dialog"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="qf-heading-modal-header">
+                <h4 className="qf-heading-modal-title">Add Section Heading</h4>
+                <button
+                  type="button"
+                  className="qf-heading-modal-close"
+                  onClick={() =>
+                    setHeadingModalState({ isOpen: false, itemIndex: null, value: "", cursorPos: null })
+                  }
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="qf-heading-modal-body">
+                <label className="qf-heading-modal-label">Heading Name</label>
+                <input
+                  type="text"
+                  autoFocus
+                  className="qf-heading-modal-input"
+                  placeholder="e.g. Additional Features, Payment Gateway, Security"
+                  value={headingModalState.value}
+                  onChange={(e) =>
+                    setHeadingModalState((prev) => ({
+                      ...prev,
+                      value: e.target.value,
+                    }))
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleConfirmAddHeading();
+                    } else if (e.key === "Escape") {
+                      setHeadingModalState({
+                        isOpen: false,
+                        itemIndex: null,
+                        value: "",
+                        cursorPos: null,
+                      });
+                    }
+                  }}
+                />
+                <p className="qf-heading-modal-hint">
+                  This heading will appear in bold with a divider line and bullet points underneath in the PDF.
+                </p>
+              </div>
+
+              <div className="qf-heading-modal-footer">
+                <button
+                  type="button"
+                  className="qf-heading-modal-btn-cancel"
+                  onClick={() =>
+                    setHeadingModalState({ isOpen: false, itemIndex: null, value: "", cursorPos: null })
+                  }
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="qf-heading-modal-btn-submit"
+                  onClick={handleConfirmAddHeading}
+                  disabled={!headingModalState.value?.trim()}
+                >
+                  Add Heading
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </form>
   );

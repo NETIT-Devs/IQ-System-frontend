@@ -17,19 +17,26 @@ export default function ForgotPassword() {
         setMessage("");
         setError("");
 
-        if (!email.trim()) {
+        const trimmedEmail = email.trim();
+        if (!trimmedEmail) {
             setError("Please enter your email address.");
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(trimmedEmail)) {
+            setError("Please enter a valid email address.");
             return;
         }
 
         setLoading(true);
 
         try {
-            const response = await requestPasswordReset(email.trim());
+            const response = await requestPasswordReset(trimmedEmail);
 
             setMessage(
                 response?.message ||
-                "If an account exists with this email, a password reset link will be sent."
+                "If an account exists with this email, a password reset link will be sent to your inbox."
             );
 
             setEmail("");
@@ -90,9 +97,11 @@ export default function ForgotPassword() {
                                 autoComplete="email"
                                 placeholder="Enter your email address"
                                 value={email}
-                                onChange={(event) =>
-                                    setEmail(event.target.value)
-                                }
+                                onChange={(event) => {
+                                    setEmail(event.target.value);
+                                    if (error) setError("");
+                                }}
+                                disabled={loading}
                                 required
                             />
                         </div>
@@ -141,7 +150,7 @@ export default function ForgotPassword() {
                 </div>
 
                 <Link
-                    to="/"
+                    to="/login"
                     className="forgot-back-link"
                 >
                     <ArrowLeft size={18} />

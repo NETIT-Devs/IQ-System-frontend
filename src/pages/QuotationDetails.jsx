@@ -219,13 +219,14 @@ export default function QuotationDetails({
     try {
       setDownloadingPdf(true);
       let activeCompany = companyDetails;
-      if (!activeCompany?.bank_name) {
-        try {
-          activeCompany = await getCompanyDetails();
-          setCompanyDetails(activeCompany);
-        } catch {
-          // ignore error
+      try {
+        const freshCompany = await getCompanyDetails();
+        if (freshCompany) {
+          activeCompany = freshCompany;
+          setCompanyDetails(freshCompany);
         }
+      } catch {
+        // ignore error
       }
       const filename = `${quotation.quotation_number || "Quotation"}.pdf`;
       await downloadQuotationPdf(

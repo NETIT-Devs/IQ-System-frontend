@@ -27,7 +27,9 @@ function FallbackRedirect() {
   if (user) {
     const role = String(user.role || "").trim().toLowerCase();
     const destination =
-      role === "super admin" ? "/super-admin-dashboard" : "/admin-dashboard";
+      role === "super admin"
+        ? "/super-admin-dashboard"
+        : "/admin-dashboard";
     return <Navigate to={destination} replace />;
   }
   return <Navigate to="/login" replace />;
@@ -44,6 +46,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
         {/* Admin dashboard routes. */}
         <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>

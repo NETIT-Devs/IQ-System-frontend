@@ -598,6 +598,28 @@ export async function getCompanyDetails() {
     prepared_by: currentUser?.full_name || currentUser?.email || "Admin",
   };
 
+  let localTemplate = {};
+  try {
+    const rawTpl =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("iq_quotation_template_settings")
+        : null;
+    if (rawTpl) localTemplate = JSON.parse(rawTpl);
+  } catch {
+    // ignore
+  }
+
+  let localBranding = {};
+  try {
+    const rawBrand =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("company_branding")
+        : null;
+    if (rawBrand) localBranding = JSON.parse(rawBrand);
+  } catch {
+    // ignore
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}/api/company-settings`, {
       method: "GET",
@@ -608,42 +630,99 @@ export async function getCompanyDetails() {
     const c = data?.companySettings || data?.company;
 
     if (c) {
-      const resolvedLogo = resolveMediaUrl(c.company_logo);
-      const resolvedSignature = resolveMediaUrl(c.company_signature);
+      const rawLogo = c.company_logo || localBranding.company_logo || localBranding.logo_url;
+      const rawSig = c.company_signature || localBranding.company_signature || localBranding.signature_url;
+      const resolvedLogo = resolveMediaUrl(rawLogo);
+      const resolvedSignature = resolveMediaUrl(rawSig);
 
       return {
         ...defaultDetails,
         setting_id: c.setting_id,
-        company_name: c.company_name || "",
+        company_name: c.company_name || localBranding.company_name || "",
         company_logo: resolvedLogo,
         logo_url: resolvedLogo,
         company_signature: resolvedSignature,
         signature_url: resolvedSignature,
-        company_address: c.company_address || "",
-        contact_number: c.contact_number || "",
-        email_address: c.email_address || "",
-        bank_name: c.bank_name || "",
-        bank_account_name: c.bank_account_name || "",
-        bank_account_number: c.bank_account_number || "",
-        bank_branch: c.bank_branch || "",
-        bank_swift_code: c.bank_swift_code || "",
-        default_terms_and_conditions: c.default_terms_and_conditions || "",
-        pdf_heading: c.pdf_heading || "QUOTATION",
-        pdf_subheading: c.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
-        pdf_custom_lines: c.pdf_custom_lines || "",
-        pdf_footer_note: c.pdf_footer_note || "",
-        pdf_custom_sections: c.pdf_custom_sections || "",
+        company_address: c.company_address || localBranding.company_address || "",
+        contact_number: c.contact_number || localBranding.contact_number || "",
+        email_address: c.email_address || localBranding.email_address || "",
+        bank_name: c.bank_name || localBranding.bank_name || "",
+        bank_account_name: c.bank_account_name || localBranding.bank_account_name || "",
+        bank_account_number: c.bank_account_number || localBranding.bank_account_number || "",
+        bank_branch: c.bank_branch || localBranding.bank_branch || "",
+        bank_swift_code: c.bank_swift_code || localBranding.bank_swift_code || "",
+        default_terms_and_conditions:
+          c.default_terms_and_conditions || localTemplate.default_terms_and_conditions || "",
+        pdf_heading: c.pdf_heading || localTemplate.pdf_heading || "QUOTATION",
+        pdf_subheading:
+          c.pdf_subheading || localTemplate.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
+        pdf_custom_lines: c.pdf_custom_lines || localTemplate.pdf_custom_lines || "",
+        pdf_footer_note: c.pdf_footer_note || localTemplate.pdf_footer_note || "",
+        pdf_custom_sections: c.pdf_custom_sections || localTemplate.pdf_custom_sections || "",
+        quotation_thank_you_title:
+          c.quotation_thank_you_title || localTemplate.quotation_thank_you_title || "Thank You",
+        quotation_thank_you_message:
+          c.quotation_thank_you_message || localTemplate.quotation_thank_you_message || "",
+        quotation_prepared_by:
+          c.quotation_prepared_by || localTemplate.quotation_prepared_by || "NetIT Technology",
+        quotation_prepared_by_services:
+          c.quotation_prepared_by_services ||
+          localTemplate.quotation_prepared_by_services ||
+          "Web Development • Software Solutions • Digital Marketing",
+        quotation_ceo_name:
+          c.quotation_ceo_name || localTemplate.quotation_ceo_name || "D M N K DISSANAYAKA",
+        quotation_ceo_designation:
+          c.quotation_ceo_designation || localTemplate.quotation_ceo_designation || "CEO (NetIT Technology)",
         updated_by: c.updated_by || defaultDetails.updated_by,
         created_at: c.created_at,
         updated_at: c.updated_at,
-        prepared_by: defaultDetails.prepared_by,
-        address: c.company_address || "",
-        phone: c.contact_number || "",
-        email: c.email_address || "",
+        prepared_by:
+          c.quotation_prepared_by || localTemplate.quotation_prepared_by || defaultDetails.prepared_by,
+        address: c.company_address || localBranding.company_address || "",
+        phone: c.contact_number || localBranding.contact_number || "",
+        email: c.email_address || localBranding.email_address || "",
       };
     }
   } catch (err) {
     console.error("Failed to fetch company details from backend:", err);
+    if (localBranding.company_name || localTemplate.pdf_heading) {
+      const rawLogo = localBranding.company_logo || localBranding.logo_url;
+      const rawSig = localBranding.company_signature || localBranding.signature_url;
+      const resolvedLogo = resolveMediaUrl(rawLogo);
+      const resolvedSignature = resolveMediaUrl(rawSig);
+
+      return {
+        ...defaultDetails,
+        company_name: localBranding.company_name || "",
+        company_logo: resolvedLogo,
+        logo_url: resolvedLogo,
+        company_signature: resolvedSignature,
+        signature_url: resolvedSignature,
+        company_address: localBranding.company_address || "",
+        contact_number: localBranding.contact_number || "",
+        email_address: localBranding.email_address || "",
+        bank_name: localBranding.bank_name || "",
+        bank_account_name: localBranding.bank_account_name || "",
+        bank_account_number: localBranding.bank_account_number || "",
+        bank_branch: localBranding.bank_branch || "",
+        bank_swift_code: localBranding.bank_swift_code || "",
+        default_terms_and_conditions: localTemplate.default_terms_and_conditions || "",
+        pdf_heading: localTemplate.pdf_heading || "QUOTATION",
+        pdf_subheading: localTemplate.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
+        pdf_custom_lines: localTemplate.pdf_custom_lines || "",
+        pdf_footer_note: localTemplate.pdf_footer_note || "",
+        pdf_custom_sections: localTemplate.pdf_custom_sections || "",
+        quotation_thank_you_title: localTemplate.quotation_thank_you_title || "Thank You",
+        quotation_thank_you_message: localTemplate.quotation_thank_you_message || "",
+        quotation_prepared_by: localTemplate.quotation_prepared_by || "NetIT Technology",
+        quotation_prepared_by_services: localTemplate.quotation_prepared_by_services || "Web Development • Software Solutions • Digital Marketing",
+        quotation_ceo_name: localTemplate.quotation_ceo_name || "D M N K DISSANAYAKA",
+        quotation_ceo_designation: localTemplate.quotation_ceo_designation || "CEO (NetIT Technology)",
+        address: localBranding.company_address || "",
+        phone: localBranding.contact_number || "",
+        email: localBranding.email_address || "",
+      };
+    }
     throw err;
   }
 

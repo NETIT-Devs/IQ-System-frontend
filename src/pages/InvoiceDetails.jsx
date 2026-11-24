@@ -3,7 +3,6 @@ import {
   X,
   Download,
   CreditCard,
-  Pencil,
 } from "lucide-react";
 import { useCompanyBranding } from "../hooks/useCompanyBranding";
 import { getInvoiceById } from "../services/invoiceService";
@@ -53,7 +52,7 @@ export default function InvoiceDetails({
         .then((fresh) => {
           if (fresh) setDetailedInvoice(fresh);
         })
-        .catch(() => {});
+        .catch(() => { });
     } else {
       setDetailedInvoice(null);
     }
@@ -85,7 +84,7 @@ export default function InvoiceDetails({
   const isApproved =
     invApproval === "approved" ||
     (!["draft", "pending approval", "pending", "rejected", "cancelled"].includes(invStatus) &&
-     !["draft", "pending", "rejected"].includes(invApproval));
+      !["draft", "pending", "rejected"].includes(invApproval));
   const canDownloadPdf = isSuperAdmin || isApproved;
 
   async function handleDownloadPdf() {
@@ -161,19 +160,6 @@ export default function InvoiceDetails({
               </button>
             )}
 
-            {Boolean(onEdit) && (
-              <button
-                type="button"
-                className="inv-tb-btn"
-                onClick={() => {
-                  onEdit?.(currentInvoice);
-                }}
-                title="Edit Invoice"
-              >
-                <Pencil size={15} />
-                <span>Edit</span>
-              </button>
-            )}
 
             <button
               type="button"

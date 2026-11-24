@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
     FileText,
     LockKeyhole,
@@ -19,8 +19,9 @@ import { resetPassword } from "../services/authService";
 import ThemeToggle from "../components/ThemeToggle";
 
 export default function ResetPassword() {
+    const { token: routeToken } = useParams();
     const [searchParams] = useSearchParams();
-    const token = searchParams.get("token") || "";
+    const token = (routeToken || searchParams.get("token") || "").trim();
 
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -72,13 +73,13 @@ export default function ResetPassword() {
     }
 
     return (
-        <main className="min-h-screen w-full bg-slate-100/80 flex items-center justify-center p-3 sm:p-5">
+        <main className="min-h-screen w-full bg-slate-100/80 dark:bg-[#060a14] flex items-center justify-center p-3 sm:p-5">
             <div style={{ position: "fixed", top: "20px", right: "24px", zIndex: 100 }}>
                 <ThemeToggle />
             </div>
             {/* Unified Centered Modern SaaS Card */}
-            <div className="w-full max-w-4xl bg-white rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-                
+            <div className="w-full max-w-4xl bg-white dark:bg-[#0d1527] rounded-2xl shadow-xl shadow-slate-200/70 dark:shadow-[0_20px_50px_rgba(0,0,0,0.7)] border border-slate-200/80 dark:border-[#1c2b47] overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+
                 {/* Left Side: Consistent Enterprise Branding */}
                 <section className="relative hidden lg:flex lg:col-span-5 flex-col justify-between bg-[#081836] p-7 text-white overflow-hidden select-none">
                     <div className="pointer-events-none absolute -right-16 -top-16 h-60 w-60 rounded-full bg-blue-500/15 blur-2xl" />
@@ -147,23 +148,23 @@ export default function ResetPassword() {
                 </section>
 
                 {/* Right Side: Reset Password Card */}
-                <section className="col-span-1 lg:col-span-7 flex flex-col justify-center px-6 py-7 sm:px-9 sm:py-8">
+                <section className="col-span-1 lg:col-span-7 flex flex-col justify-center px-6 py-7 sm:px-9 sm:py-8 bg-white dark:bg-[#0d1527]">
                     <div className="w-full max-w-[360px] mx-auto">
-                        
+
                         {/* Logo */}
                         <div className="flex items-center gap-2 mb-3">
                             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-700 text-white shadow-xs">
                                 <FileText size={15} />
                             </div>
-                            <span className="text-sm font-bold text-slate-900 tracking-tight">InvoiceFlow</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">InvoiceFlow</span>
                         </div>
 
                         {/* Heading */}
                         <div className="mb-4">
-                            <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                                 Set New Password
                             </h2>
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 Enter and confirm your new password below.
                             </p>
                         </div>
@@ -171,25 +172,35 @@ export default function ResetPassword() {
                         {!token && !success && (
                             <div
                                 role="alert"
-                                className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 leading-tight flex items-start gap-1.5"
+                                className="mb-3 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-xs text-amber-900 dark:text-amber-200 leading-tight flex items-start gap-1.5"
                             >
-                                <Info size={14} className="text-amber-700 shrink-0 mt-0.5" />
-                                <span>
-                                    No reset token found in URL. Please click the exact link from your email.
-                                </span>
+                                <Info size={14} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                    <span>
+                                        No reset token found in URL. Please click the complete link sent to your email.
+                                    </span>
+                                    <div className="mt-1.5">
+                                        <Link
+                                            to="/forgot-password"
+                                            className="font-semibold underline hover:opacity-80 transition"
+                                        >
+                                            Request a new reset link
+                                        </Link>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {success ? (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                                <CheckCircle2 size={32} className="text-emerald-600 mx-auto mb-2" />
-                                <h3 className="text-sm font-bold text-emerald-950">Password Updated</h3>
-                                <p className="mt-1 text-xs text-emerald-800">
+                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 p-4 text-center">
+                                <CheckCircle2 size={32} className="text-emerald-600 dark:text-emerald-400 mx-auto mb-2" />
+                                <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">Password Updated</h3>
+                                <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-300">
                                     Your password has been reset successfully. You can now sign in with your new credentials.
                                 </p>
                                 <Link
                                     to="/login"
-                                    className="mt-3.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-emerald-800 transition"
+                                    className="mt-3.5 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-xs transition"
                                 >
                                     Sign In Now <ArrowRight size={13} />
                                 </Link>
@@ -200,7 +211,7 @@ export default function ResetPassword() {
                                 <div>
                                     <label
                                         htmlFor="newPass"
-                                        className="block text-xs font-medium text-slate-700 mb-1"
+                                        className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1"
                                     >
                                         New Password
                                     </label>
@@ -215,15 +226,19 @@ export default function ResetPassword() {
                                             autoComplete="new-password"
                                             placeholder="•••••••••••• (min. 8 characters)"
                                             value={newPassword}
-                                            onChange={(e) => setNewPassword(e.target.value)}
-                                            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8.5 pr-8.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15"
+                                            onChange={(e) => {
+                                                setNewPassword(e.target.value);
+                                                if (error) setError("");
+                                            }}
+                                            disabled={loading}
+                                            className="w-full rounded-lg border border-slate-200 dark:border-[#253655] bg-white dark:bg-[#141f36] py-2 pl-8.5 pr-8.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 disabled:cursor-not-allowed"
                                             required
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword((prev) => !prev)}
                                             aria-label={showPassword ? "Hide password" : "Show password"}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 focus:outline-none"
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 focus:outline-none"
                                         >
                                             {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
@@ -234,7 +249,7 @@ export default function ResetPassword() {
                                 <div>
                                     <label
                                         htmlFor="confirmPass"
-                                        className="block text-xs font-medium text-slate-700 mb-1"
+                                        className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1"
                                     >
                                         Confirm Password
                                     </label>
@@ -249,15 +264,19 @@ export default function ResetPassword() {
                                             autoComplete="new-password"
                                             placeholder="Repeat your new password"
                                             value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-8.5 pr-8.5 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15"
+                                            onChange={(e) => {
+                                                setConfirmPassword(e.target.value);
+                                                if (error) setError("");
+                                            }}
+                                            disabled={loading}
+                                            className="w-full rounded-lg border border-slate-200 dark:border-[#253655] bg-white dark:bg-[#141f36] py-2 pl-8.5 pr-8.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 disabled:cursor-not-allowed"
                                             required
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowConfirmPassword((prev) => !prev)}
                                             aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 focus:outline-none"
+                                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 focus:outline-none"
                                         >
                                             {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                                         </button>
@@ -267,10 +286,20 @@ export default function ResetPassword() {
                                 {error && (
                                     <div
                                         role="alert"
-                                        className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-700 leading-tight flex items-start gap-1.5"
+                                        className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 p-2.5 text-xs text-red-700 dark:text-red-300 leading-tight flex items-start gap-1.5"
                                     >
-                                        <AlertCircle size={14} className="text-red-600 shrink-0 mt-0.5" />
-                                        <span>{error}</span>
+                                        <AlertCircle size={14} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                        <div className="flex-1">
+                                            <span>{error}</span>
+                                            <div className="mt-1">
+                                                <Link
+                                                    to="/forgot-password"
+                                                    className="font-semibold underline hover:opacity-80 transition"
+                                                >
+                                                    Request a new reset link
+                                                </Link>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -288,7 +317,7 @@ export default function ResetPassword() {
                         <div className="mt-4 text-center">
                             <Link
                                 to="/login"
-                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:text-blue-900 transition-colors"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
                             >
                                 <ArrowLeft size={13} /> Back to Sign In
                             </Link>

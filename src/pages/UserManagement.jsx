@@ -23,6 +23,8 @@ import {
   Pencil,
   ChevronDown,
   Check,
+  ArrowRightLeft,
+  AlertTriangle,
 } from "lucide-react";
 import {
   fetchUsers,
@@ -30,6 +32,7 @@ import {
   updateUserAccount,
   toggleUserAccountStatus,
   deleteUserAccount,
+  transferUserAccount,
 } from "../services/userService";
 import { getAuthenticatedUser } from "../utils/authStorage";
 import "./UserManagement.css";
@@ -109,6 +112,16 @@ export default function UserManagement() {
 
   // Status toggle state
   const [togglingId, setTogglingId] = useState(null);
+
+  // Transfer / Merge Account Modal State
+  const [transferModalUser, setTransferModalUser] = useState(null);
+  const [transferStep, setTransferStep] = useState(1); // 1 = details & form, 2 = confirmation
+  const [transferTargetUserId, setTransferTargetUserId] = useState("");
+  const [transferTargetEmail, setTransferTargetEmail] = useState("");
+  const [transferPassword, setTransferPassword] = useState("");
+  const [showTransferPassword, setShowTransferPassword] = useState(false);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferError, setTransferError] = useState("");
 
   async function loadData() {
     setLoading(true);
@@ -336,6 +349,83 @@ export default function UserManagement() {
       setError(err?.message || "Failed to delete user account.");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  // Open Transfer Account / Merge Modal
+  function handleOpenTransfer(user) {
+    setTransferError("");
+    setTransferModalUser(user);
+    setTransferStep(1);
+    setTransferTargetUserId("");
+    setTransferTargetEmail("");
+    setTransferPassword("");
+    setShowTransferPassword(false);
+  }
+
+  function handleTargetUserChange(userId) {
+    setTransferTargetUserId(userId);
+    const found = users.find((u) => String(u.user_id) === String(userId));
+    if (found) {
+      setTransferTargetEmail(found.email || "");
+    }
+  }
+
+  function handleProceedToConfirm(e) {
+    e.preventDefault();
+    setTransferError("");
+
+    if (!transferTargetUserId && !transferTargetEmail.trim()) {
+      setTransferError("Please select an eligible recipient administrator.");
+      return;
+    }
+
+    if (!transferPassword) {
+      setTransferError("Please enter your Super Admin password to authorize this transfer.");
+      return;
+    }
+
+    setTransferStep(2);
+  }
+
+  async function handleExecuteTransfer() {
+    if (!transferModalUser) return;
+
+    try {
+      setTransferSubmitting(true);
+      setTransferError("");
+
+      const res = await transferUserAccount({
+        targetUserId: transferTargetUserId,
+        sourceUserId: transferModalUser.user_id,
+        password: transferPassword,
+        email: transferTargetEmail.trim().toLowerCase(),
+      });
+
+      if (res?.is_self_transfer) {
+        localStorage.removeItem("authToken");
+        sessionStorage.removeItem("authToken");
+        localStorage.removeItem("user");
+        sessionStorage.removeItem("user");
+        window.location.href = "/login?transferred=true";
+        return;
+      }
+
+      const recipientName =
+        users.find((u) => String(u.user_id) === String(transferTargetUserId))?.full_name ||
+        transferTargetEmail;
+
+      setSuccessMsg(
+        res?.message ||
+          `Account data from "${transferModalUser.full_name}" was successfully transferred to "${recipientName}". The source account is now deactivated.`
+      );
+      setTransferModalUser(null);
+      await loadData();
+    } catch (err) {
+      console.error("Transfer error:", err);
+      setTransferError(err?.message || "Failed to transfer account.");
+    } finally {
+      setTransferSubmitting(false);
     }
   }
 
@@ -719,6 +809,22 @@ export default function UserManagement() {
                           >
                             <Trash2 size={15} />
                           </button>
+
+                          {/* Transfer Account / Merge Data — Super Admin only */}
+                          {currentUser?.role === "Super Admin" && (
+                            <button
+                              type="button"
+                              className="um-action-btn transfer"
+                              onClick={() => handleOpenTransfer(user)}
+                              title={
+                                user.role === "Super Admin"
+                                  ? "Transfer Super Admin privileges & account"
+                                  : "Transfer & merge administrator data"
+                              }
+                            >
+                              <ArrowRightLeft size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1045,6 +1151,259 @@ export default function UserManagement() {
                 {deleting ? "Deleting..." : "Yes, Delete"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer / Merge Account Modal */}
+      {transferModalUser && (
+        <div
+          className="um-modal-overlay"
+          onClick={() => !transferSubmitting && setTransferModalUser(null)}
+        >
+          <div
+            className="um-modal-card um-transfer-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="um-modal-header um-transfer-header">
+              <div className="um-modal-header-text">
+                <div className="um-transfer-title-row">
+                  <h3>
+                    {transferStep === 1
+                      ? transferModalUser.role === "Super Admin"
+                        ? "Transfer Super Admin Ownership"
+                        : "Transfer & Merge Admin Data"
+                      : "Confirm Account & Data Transfer"}
+                  </h3>
+                  <span
+                    className={`um-badge ${
+                      transferModalUser.role === "Super Admin"
+                        ? "role-super-admin"
+                        : "role-admin"
+                    }`}
+                  >
+                    {transferModalUser.role}
+                  </span>
+                </div>
+                <p className="um-transfer-subtitle">
+                  {transferStep === 1
+                    ? transferModalUser.role === "Super Admin"
+                      ? "Assign Super Admin control and ownership to an active administrator."
+                      : `Transfer all invoices, quotations, customers, and records of ${transferModalUser.full_name} to another active administrator.`
+                    : "Please review the confirmation warning below before completing this irreversible operation."}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="um-modal-close"
+                disabled={transferSubmitting}
+                onClick={() => setTransferModalUser(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {transferError && (
+              <div className="um-alert error um-transfer-alert">
+                <AlertCircle size={15} />
+                <span>{transferError}</span>
+              </div>
+            )}
+
+            {transferStep === 1 ? (
+              <form className="um-modal-form um-transfer-form" onSubmit={handleProceedToConfirm}>
+                {/* Source Account Slim Banner */}
+                <div className="um-transfer-source-pill">
+                  <span className="um-transfer-pill-tag">From (Source):</span>
+                  <div className="um-transfer-pill-user">
+                    <span className="um-transfer-pill-avatar">
+                      {(transferModalUser.full_name || "AD")
+                        .split(" ")
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .map((w) => w[0].toUpperCase())
+                        .join("")}
+                    </span>
+                    <strong className="um-transfer-pill-name">{transferModalUser.full_name}</strong>
+                    <span className="um-transfer-pill-meta">({transferModalUser.email} &bull; ID: #{transferModalUser.user_id})</span>
+                  </div>
+                  <span className="um-transfer-deact-tag">Will Deactivate</span>
+                </div>
+
+                {/* Recipient Admin */}
+                <div className="um-form-group um-compact-group">
+                  <label>
+                    Recipient Administrator <span className="required">*</span>
+                  </label>
+                  <div className="um-input-wrap">
+                    <User size={15} className="icon-lead" />
+                    <select
+                      className="um-select-input"
+                      required
+                      value={transferTargetUserId}
+                      onChange={(e) => handleTargetUserChange(e.target.value)}
+                    >
+                      <option value="">-- Select Recipient Admin --</option>
+                      {users
+                        .filter(
+                          (u) =>
+                            u.user_id !== transferModalUser.user_id &&
+                            (Number(u.is_active) === 1 || u.is_active === true)
+                        )
+                        .map((target) => (
+                          <option key={target.user_id} value={target.user_id}>
+                            {target.full_name} ({target.email})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Recipient Email Address */}
+                <div className="um-form-group um-compact-group">
+                  <label>
+                    Recipient Email Address <span className="required">*</span>
+                  </label>
+                  <div className="um-input-wrap">
+                    <Mail size={15} className="icon-lead" />
+                    <input
+                      type="email"
+                      required
+                      placeholder="Recipient's registered email"
+                      value={transferTargetEmail}
+                      onChange={(e) => setTransferTargetEmail(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Super Admin Password for Security Authorization */}
+                <div className="um-form-group um-compact-group">
+                  <label>
+                    Super Admin Password (Authorization) <span className="required">*</span>
+                  </label>
+                  <div className="um-input-wrap">
+                    <Lock size={15} className="icon-lead" />
+                    <input
+                      type={showTransferPassword ? "text" : "password"}
+                      required
+                      placeholder="Enter your password to authorize transfer"
+                      value={transferPassword}
+                      onChange={(e) => setTransferPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="pwd-toggle"
+                      onClick={() => setShowTransferPassword(!showTransferPassword)}
+                      tabIndex={-1}
+                    >
+                      {showTransferPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Compact Explanatory Notice */}
+                <div className="um-transfer-compact-notice">
+                  <Info size={15} style={{ flexShrink: 0 }} />
+                  <span>
+                    {transferModalUser.role === "Super Admin"
+                      ? "Super Admin ownership and data will be transferred to the selected Admin. Your account will be deactivated and your active session will end."
+                      : `All invoices, quotations, customers, and payments of ${transferModalUser.full_name} will be merged into the recipient Admin's account, and ${transferModalUser.full_name} will be deactivated.`}
+                  </span>
+                </div>
+
+                <div className="um-modal-actions um-transfer-actions">
+                  <button
+                    type="button"
+                    className="um-btn cancel"
+                    disabled={transferSubmitting}
+                    onClick={() => setTransferModalUser(null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="um-btn primary"
+                    disabled={transferSubmitting}
+                  >
+                    <ArrowRightLeft size={15} />
+                    <span>Review & Proceed</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Step 2: Confirmation Warning Modal */
+              <div className="um-modal-form um-transfer-form">
+                <div className="um-transfer-warning-banner">
+                  <div className="um-warning-icon-wrap">
+                    <AlertTriangle size={22} />
+                  </div>
+                  <div className="um-warning-text">
+                    <h4>අවධානයයි: ගිණුම සහ දත්ත මාරු කිරීම තහවුරු කරන්න</h4>
+                    <p className="um-warning-sinhala">
+                      මෙම Admin ට Super Admin / Admin ගේ දත්ත හා බලතල මාරු වූ පසු මෙම account එක deactivate වේ. සියලුම Invoices, Quotations සහ Dashboard දත්ත නව Admin වෙත මාරු වේ. මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.
+                    </p>
+                    <p className="um-warning-english">
+                      All records (Invoices, Quotations, Customers, and Payments) will be permanently reassigned to the recipient. The source account will be deactivated immediately.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Transfer Flow Visual Summary */}
+                <div className="um-transfer-summary-box">
+                  <div className="um-summary-col">
+                    <span className="summary-title">From Account:</span>
+                    <strong>{transferModalUser.full_name}</strong>
+                    <span>{transferModalUser.email}</span>
+                    <span className="summary-badge source">{transferModalUser.role} (Deactivating)</span>
+                  </div>
+
+                  <div className="um-summary-arrow">
+                    <ArrowRightLeft size={18} />
+                  </div>
+
+                  <div className="um-summary-col">
+                    <span className="summary-title">To Recipient:</span>
+                    <strong>
+                      {users.find((u) => String(u.user_id) === String(transferTargetUserId))?.full_name ||
+                        "Selected Administrator"}
+                    </strong>
+                    <span>{transferTargetEmail}</span>
+                    <span className="summary-badge target">
+                      {transferModalUser.role === "Super Admin" ? "New Super Admin" : "Active Admin (Recipient)"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="um-modal-actions um-transfer-actions">
+                  <button
+                    type="button"
+                    className="um-btn cancel"
+                    disabled={transferSubmitting}
+                    onClick={() => setTransferStep(1)}
+                  >
+                    Back to Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="um-btn danger"
+                    disabled={transferSubmitting}
+                    onClick={handleExecuteTransfer}
+                  >
+                    {transferSubmitting ? (
+                      <>
+                        <RefreshCw size={15} className="um-loading-spinner" />
+                        <span>Transferring Account...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={15} />
+                        <span>Confirm & Transfer Now</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

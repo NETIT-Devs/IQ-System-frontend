@@ -27,6 +27,13 @@ import {
   X,
   Receipt,
   Sparkles,
+  HeartHandshake,
+  UserCheck,
+  PenLine,
+  ChevronDown,
+  Package,
+  Server,
+  Headphones,
 } from "lucide-react";
 import {
   getCompanySettings,
@@ -44,6 +51,18 @@ import {
 } from "../services/quotationService";
 import "./CompanySettings.css";
 import ThemeToggle from "../components/ThemeToggle";
+
+// Helper to format numbered terms on separate rows (e.g. 1. on row 1, 2. on row 2)
+function formatTermsAndConditionsLines(terms) {
+  if (!terms) return "";
+  let text = String(terms);
+  // Unescape literal \r\n, \n, \r if stored escaped in DB or JSON
+  text = text.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\r/g, "\n");
+  text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Separate numbered items (e.g. 1. Payment... 2. Quotation...) into individual rows
+  text = text.replace(/([^\n])\s*(\b\d+[\.\)]\s*)/g, "$1\n$2");
+  return text.trim();
+}
 
 export default function CompanySettings() {
   const { openSidebar } = useOutletContext?.() || {};
@@ -65,11 +84,18 @@ export default function CompanySettings() {
     bank_account_number: "",
     bank_branch: "",
     bank_swift_code: "",
-    default_terms_and_conditions: "",
+    default_terms_and_conditions:
+      "1. Payment terms as agreed.\n2. This quotation is valid until the stated expiry date.",
     pdf_heading: "QUOTATION",
     pdf_subheading: "PROFESSIONAL SERVICES PROPOSAL",
     pdf_custom_lines: "",
     pdf_footer_note: "",
+    quotation_thank_you_title: "Thank You",
+    quotation_thank_you_message: "",
+    quotation_prepared_by: "NetIT Technology",
+    quotation_prepared_by_services: "Web Development • Software Solutions • Digital Marketing",
+    quotation_ceo_name: "D M N K DISSANAYAKA",
+    quotation_ceo_designation: "CEO (NetIT Technology)",
   });
 
   // Custom headings & sub-sections state (e.g. SERVICE SCOPE, DELIVERABLES)
@@ -120,11 +146,17 @@ export default function CompanySettings() {
       tax_display_option: "itemized",
       pdf_heading: "INVOICE",
       pdf_subheading: "OFFICIAL BILLING DOCUMENT",
-      pdf_footer_note:
-        "Thank you for your business! Please reference the invoice number on your payment slip.",
       default_notes: "",
       default_terms:
         "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest.",
+      thank_you_title: "Thank You",
+      thank_you_message:
+        "We appreciate the opportunity to work with your business.",
+      prepared_by: "NetIT Technology",
+      prepared_by_services:
+        "Web Development • Software Solutions • Digital Marketing",
+      ceo_name: "D M N K DISSANAYAKA",
+      ceo_designation: "CEO (NetIT Technology)",
     };
   });
   const [savingInvoice, setSavingInvoice] = useState(false);
@@ -140,6 +172,23 @@ export default function CompanySettings() {
     try {
       setLoading(true);
       setError("");
+
+      let localTemplate = {};
+      try {
+        const rawTpl = localStorage.getItem("iq_quotation_template_settings");
+        if (rawTpl) localTemplate = JSON.parse(rawTpl);
+      } catch {
+        // ignore
+      }
+
+      let localBranding = {};
+      try {
+        const rawBrand = localStorage.getItem("company_branding");
+        if (rawBrand) localBranding = JSON.parse(rawBrand);
+      } catch {
+        // ignore
+      }
+
       const data = await getCompanySettings();
 
       if (data) {
@@ -153,32 +202,59 @@ export default function CompanySettings() {
           bank_account_number: data.bank_account_number || "",
           bank_branch: data.bank_branch || "",
           bank_swift_code: data.bank_swift_code || "",
-          default_terms_and_conditions: data.default_terms_and_conditions || "",
-          pdf_heading: data.pdf_heading || "QUOTATION",
+          default_terms_and_conditions: formatTermsAndConditionsLines(
+            data.default_terms_and_conditions ||
+            localTemplate.default_terms_and_conditions ||
+            "1. Payment terms as agreed.\n2. This quotation is valid until the stated expiry date."
+          ),
+          pdf_heading: data.pdf_heading || localTemplate.pdf_heading || "QUOTATION",
           pdf_subheading:
-            data.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
-          pdf_custom_lines: data.pdf_custom_lines || "",
-          pdf_footer_note: data.pdf_footer_note || "",
+            data.pdf_subheading || localTemplate.pdf_subheading || "PROFESSIONAL SERVICES PROPOSAL",
+          pdf_custom_lines: data.pdf_custom_lines || localTemplate.pdf_custom_lines || "",
+          pdf_footer_note: data.pdf_footer_note || localTemplate.pdf_footer_note || "",
+          quotation_thank_you_title:
+            data.quotation_thank_you_title !== undefined && data.quotation_thank_you_title !== null
+              ? data.quotation_thank_you_title
+              : (localTemplate.quotation_thank_you_title || "Thank You"),
+          quotation_thank_you_message:
+            data.quotation_thank_you_message !== undefined && data.quotation_thank_you_message !== null
+              ? data.quotation_thank_you_message
+              : (localTemplate.quotation_thank_you_message || ""),
+          quotation_prepared_by:
+            data.quotation_prepared_by !== undefined && data.quotation_prepared_by !== null
+              ? data.quotation_prepared_by
+              : (localTemplate.quotation_prepared_by || "NetIT Technology"),
+          quotation_prepared_by_services:
+            data.quotation_prepared_by_services !== undefined && data.quotation_prepared_by_services !== null
+              ? data.quotation_prepared_by_services
+              : (localTemplate.quotation_prepared_by_services || "Web Development • Software Solutions • Digital Marketing"),
+          quotation_ceo_name:
+            data.quotation_ceo_name || data.authorized_person || data.contact_person || localTemplate.quotation_ceo_name || "D M N K DISSANAYAKA",
+          quotation_ceo_designation:
+            data.quotation_ceo_designation || data.designation || localTemplate.quotation_ceo_designation || "CEO (NetIT Technology)",
         });
 
-        setLogoUrl(data.logo_url || "");
-        setSignatureUrl(data.signature_url || "");
+        const activeLogo = data.logo_url || data.company_logo || localBranding.logo_url || localBranding.company_logo || "";
+        const activeSig = data.signature_url || data.company_signature || localBranding.signature_url || localBranding.company_signature || "";
+        if (activeLogo) setLogoUrl(activeLogo);
+        if (activeSig) setSignatureUrl(activeSig);
 
         // Parse custom headings / sections if available
         let loadedSections = [];
-        if (data.pdf_custom_sections) {
+        const rawSections = data.pdf_custom_sections || localTemplate.pdf_custom_sections;
+        if (rawSections) {
           try {
             loadedSections =
-              typeof data.pdf_custom_sections === "string"
-                ? JSON.parse(data.pdf_custom_sections)
-                : data.pdf_custom_sections;
+              typeof rawSections === "string"
+                ? JSON.parse(rawSections)
+                : rawSections;
           } catch {
             loadedSections = [];
           }
         }
         setCustomSections(Array.isArray(loadedSections) ? loadedSections : []);
 
-        // Sync invoice default notes from company bank info if not customized
+        // Sync invoice default notes & settings from company info if not customized
         try {
           const rawInv = localStorage.getItem("iq_invoice_settings");
           if (rawInv) {
@@ -186,18 +262,48 @@ export default function CompanySettings() {
             setInvoiceSettings((prev) => ({
               ...prev,
               ...parsed,
+              thank_you_title:
+                parsed.thank_you_title !== undefined && parsed.thank_you_title !== null
+                  ? parsed.thank_you_title
+                  : (data?.quotation_thank_you_title || prev.thank_you_title),
+              thank_you_message:
+                parsed.thank_you_message !== undefined && parsed.thank_you_message !== null
+                  ? parsed.thank_you_message
+                  : (data?.quotation_thank_you_message || prev.thank_you_message),
+              prepared_by:
+                parsed.prepared_by !== undefined && parsed.prepared_by !== null
+                  ? parsed.prepared_by
+                  : (data?.quotation_prepared_by || prev.prepared_by),
+              prepared_by_services:
+                parsed.prepared_by_services !== undefined && parsed.prepared_by_services !== null
+                  ? parsed.prepared_by_services
+                  : (data?.quotation_prepared_by_services || prev.prepared_by_services),
+              ceo_name:
+                parsed.ceo_name !== undefined && parsed.ceo_name !== null
+                  ? parsed.ceo_name
+                  : (data?.quotation_ceo_name || prev.ceo_name),
+              ceo_designation:
+                parsed.ceo_designation !== undefined && parsed.ceo_designation !== null
+                  ? parsed.ceo_designation
+                  : (data?.quotation_ceo_designation || prev.ceo_designation),
               default_notes:
                 parsed.default_notes ||
                 (data?.bank_name
                   ? `Please remit payment via bank transfer to ${data.bank_name} (A/C: ${data.bank_account_number || "—"}, Beneficiary: ${data.bank_account_name || data.company_name || "—"}). Reference the invoice number on your payment slip.`
                   : prev.default_notes),
             }));
-          } else if (data?.bank_name) {
+          } else {
             setInvoiceSettings((prev) => ({
               ...prev,
-              default_notes:
-                prev.default_notes ||
-                `Please remit payment via bank transfer to ${data.bank_name} (A/C: ${data.bank_account_number || "—"}, Beneficiary: ${data.bank_account_name || data.company_name || "—"}). Reference the invoice number on your payment slip.`,
+              thank_you_title: data?.quotation_thank_you_title || prev.thank_you_title,
+              thank_you_message: data?.quotation_thank_you_message || prev.thank_you_message,
+              prepared_by: data?.quotation_prepared_by || prev.prepared_by,
+              prepared_by_services: data?.quotation_prepared_by_services || prev.prepared_by_services,
+              ceo_name: data?.quotation_ceo_name || prev.ceo_name,
+              ceo_designation: data?.quotation_ceo_designation || prev.ceo_designation,
+              default_notes: data?.bank_name
+                ? `Please remit payment via bank transfer to ${data.bank_name} (A/C: ${data.bank_account_number || "—"}, Beneficiary: ${data.bank_account_name || data.company_name || "—"}). Reference the invoice number on your payment slip.`
+                : prev.default_notes,
             }));
           }
         } catch {
@@ -233,6 +339,22 @@ export default function CompanySettings() {
     loadSettings();
     loadServices();
   }, []);
+
+  // Auto-format terms & conditions so numbered bullet points (1. and 2.) are rendered on separate rows in UI
+  useEffect(() => {
+    if (
+      formData.default_terms_and_conditions &&
+      formData.default_terms_and_conditions.includes("2.") &&
+      !formData.default_terms_and_conditions.includes("\n")
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        default_terms_and_conditions: formatTermsAndConditionsLines(
+          prev.default_terms_and_conditions
+        ),
+      }));
+    }
+  }, [formData.default_terms_and_conditions]);
 
   /**
    * Handle text and textarea input updates
@@ -388,9 +510,14 @@ export default function CompanySettings() {
         pdf_heading:
           String(invoiceSettings.pdf_heading || "INVOICE").trim() || "INVOICE",
         pdf_subheading: String(invoiceSettings.pdf_subheading || "").trim(),
-        pdf_footer_note: String(invoiceSettings.pdf_footer_note || "").trim(),
         default_notes: String(invoiceSettings.default_notes || "").trim(),
         default_terms: String(invoiceSettings.default_terms || "").trim(),
+        thank_you_title: String(invoiceSettings.thank_you_title || "Thank You").trim(),
+        thank_you_message: String(invoiceSettings.thank_you_message || "").trim(),
+        prepared_by: String(invoiceSettings.prepared_by || "").trim(),
+        prepared_by_services: String(invoiceSettings.prepared_by_services || "").trim(),
+        ceo_name: String(invoiceSettings.ceo_name || "").trim(),
+        ceo_designation: String(invoiceSettings.ceo_designation || "").trim(),
       };
       setInvoiceSettings(cleaned);
       localStorage.setItem("iq_invoice_settings", JSON.stringify(cleaned));
@@ -422,13 +549,17 @@ export default function CompanySettings() {
           tax_display_option: "itemized",
           pdf_heading: "INVOICE",
           pdf_subheading: "OFFICIAL BILLING DOCUMENT",
-          pdf_footer_note:
-            "Thank you for your business! Please reference the invoice number on your payment slip.",
           default_notes: formData.bank_name
             ? `Please remit payment via bank transfer to ${formData.bank_name} (A/C: ${formData.bank_account_number || "—"}, Beneficiary: ${formData.bank_account_name || formData.company_name || "—"}). Reference the invoice number on your payment slip.`
             : "",
           default_terms:
             "Payment is strictly due within 14 calendar days of issuance.\nOverdue accounts may be subject to interest.",
+          thank_you_title: formData.quotation_thank_you_title || "Thank You",
+          thank_you_message: formData.quotation_thank_you_message || "",
+          prepared_by: formData.quotation_prepared_by || "NetIT Technology",
+          prepared_by_services: formData.quotation_prepared_by_services || "Web Development • Software Solutions • Digital Marketing",
+          ceo_name: formData.quotation_ceo_name || "D M N K DISSANAYAKA",
+          ceo_designation: formData.quotation_ceo_designation || "CEO (NetIT Technology)",
         });
         setSuccess("Invoice settings restored to system defaults.");
       }
@@ -443,9 +574,9 @@ export default function CompanySettings() {
     const d = new Date();
     d.setDate(
       d.getDate() +
-        (Number.isNaN(previewDueDays) || previewDueDays <= 0
-          ? 14
-          : previewDueDays)
+      (Number.isNaN(previewDueDays) || previewDueDays <= 0
+        ? 14
+        : previewDueDays)
     );
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
@@ -487,6 +618,15 @@ export default function CompanySettings() {
 
       if (newLogoPath) {
         setLogoUrl(newLogoPath);
+        try {
+          const raw = localStorage.getItem("company_branding");
+          const brandObj = raw ? JSON.parse(raw) : {};
+          brandObj.company_logo = newLogoPath;
+          brandObj.logo_url = newLogoPath;
+          localStorage.setItem("company_branding", JSON.stringify(brandObj));
+        } catch {
+          // ignore
+        }
       }
       setSuccess("Company logo updated successfully! All sidebars, login page, and PDF documents now reflect the new logo.");
       await loadSettings();
@@ -521,6 +661,15 @@ export default function CompanySettings() {
 
       if (newSignaturePath) {
         setSignatureUrl(newSignaturePath);
+        try {
+          const raw = localStorage.getItem("company_branding");
+          const brandObj = raw ? JSON.parse(raw) : {};
+          brandObj.company_signature = newSignaturePath;
+          brandObj.signature_url = newSignaturePath;
+          localStorage.setItem("company_branding", JSON.stringify(brandObj));
+        } catch {
+          // ignore
+        }
       }
       setSuccess("Digital signature uploaded successfully! All generated quotation PDFs will now include this authorized signature.");
       await loadSettings();
@@ -542,6 +691,15 @@ export default function CompanySettings() {
       setUploadingLogo(true);
       await removeCompanyLogo();
       setLogoUrl("");
+      try {
+        const raw = localStorage.getItem("company_branding");
+        const brandObj = raw ? JSON.parse(raw) : {};
+        brandObj.company_logo = "";
+        brandObj.logo_url = "";
+        localStorage.setItem("company_branding", JSON.stringify(brandObj));
+      } catch {
+        // ignore
+      }
       setSuccess("Company logo removed. System default branding restored.");
       await loadSettings();
     } catch (err) {
@@ -560,6 +718,15 @@ export default function CompanySettings() {
       setUploadingSignature(true);
       await removeCompanySignature();
       setSignatureUrl("");
+      try {
+        const raw = localStorage.getItem("company_branding");
+        const brandObj = raw ? JSON.parse(raw) : {};
+        brandObj.company_signature = "";
+        brandObj.signature_url = "";
+        localStorage.setItem("company_branding", JSON.stringify(brandObj));
+      } catch {
+        // ignore
+      }
       setSuccess("Digital signature removed from PDF generation.");
       await loadSettings();
     } catch (err) {
@@ -598,6 +765,75 @@ export default function CompanySettings() {
     try {
       setSaving(true);
 
+      // Persist quotation template settings locally so headings, sections & notes are immediately saved and never lost
+      const cleanedQuotationTemplate = {
+        pdf_heading: formData.pdf_heading.trim(),
+        pdf_subheading: formData.pdf_subheading.trim(),
+        pdf_custom_lines: formData.pdf_custom_lines.trim(),
+        pdf_footer_note: formData.pdf_footer_note.trim(),
+        default_terms_and_conditions: formatTermsAndConditionsLines(
+          formData.default_terms_and_conditions
+        ),
+        quotation_thank_you_title: (formData.quotation_thank_you_title || "").trim(),
+        quotation_thank_you_message: (formData.quotation_thank_you_message || "").trim(),
+        quotation_prepared_by: (formData.quotation_prepared_by || "").trim(),
+        quotation_prepared_by_services: (formData.quotation_prepared_by_services || "").trim(),
+        quotation_ceo_name: (formData.quotation_ceo_name || "").trim(),
+        quotation_ceo_designation: (formData.quotation_ceo_designation || "").trim(),
+        pdf_custom_sections: cleanedSections.length > 0 ? cleanedSections : null,
+      };
+      localStorage.setItem("iq_quotation_template_settings", JSON.stringify(cleanedQuotationTemplate));
+
+      // Persist company profile branding locally for instant access across both PDFs
+      const cleanedBranding = {
+        company_name: formData.company_name.trim(),
+        email_address: formData.email_address.trim(),
+        contact_number: formData.contact_number.trim(),
+        company_address: formData.company_address.trim(),
+        bank_name: formData.bank_name.trim(),
+        bank_account_name: formData.bank_account_name.trim(),
+        bank_account_number: formData.bank_account_number.trim(),
+        bank_branch: formData.bank_branch.trim(),
+        bank_swift_code: formData.bank_swift_code.trim(),
+        company_logo: logoUrl,
+        logo_url: logoUrl,
+        company_signature: signatureUrl,
+        signature_url: signatureUrl,
+      };
+      localStorage.setItem("company_branding", JSON.stringify(cleanedBranding));
+
+      // Persist invoice settings to local storage whenever settings are saved
+      try {
+        const cleanedInv = {
+          invoice_prefix:
+            String(invoiceSettings.invoice_prefix || "INV").trim().toUpperCase() ||
+            "INV",
+          default_due_days:
+            String(invoiceSettings.default_due_days || "14").trim() || "14",
+          default_currency:
+            String(invoiceSettings.default_currency || "LKR").trim() || "LKR",
+          tax_display_option: invoiceSettings.tax_display_option || "itemized",
+          pdf_heading:
+            String(invoiceSettings.pdf_heading || "INVOICE").trim() || "INVOICE",
+          pdf_subheading: String(invoiceSettings.pdf_subheading || "").trim(),
+          default_notes: String(invoiceSettings.default_notes || "").trim(),
+          default_terms: String(invoiceSettings.default_terms || "").trim(),
+          thank_you_title: String(invoiceSettings.thank_you_title || "Thank You").trim(),
+          thank_you_message: String(invoiceSettings.thank_you_message || "").trim(),
+          prepared_by: String(invoiceSettings.prepared_by || "").trim(),
+          prepared_by_services: String(invoiceSettings.prepared_by_services || "").trim(),
+          ceo_name: String(invoiceSettings.ceo_name || "").trim(),
+          ceo_designation: String(invoiceSettings.ceo_designation || "").trim(),
+        };
+        setInvoiceSettings(cleanedInv);
+        localStorage.setItem("iq_invoice_settings", JSON.stringify(cleanedInv));
+        window.dispatchEvent(
+          new CustomEvent("invoice-settings-updated", { detail: cleanedInv })
+        );
+      } catch (err) {
+        console.warn("Could not sync invoice settings to localStorage:", err);
+      }
+
       await updateCompanySettings({
         company_name: formData.company_name.trim(),
         email_address: formData.email_address.trim(),
@@ -608,11 +844,19 @@ export default function CompanySettings() {
         bank_account_number: formData.bank_account_number.trim(),
         bank_branch: formData.bank_branch.trim(),
         bank_swift_code: formData.bank_swift_code.trim(),
-        default_terms_and_conditions: formData.default_terms_and_conditions.trim(),
+        default_terms_and_conditions: formatTermsAndConditionsLines(
+          formData.default_terms_and_conditions
+        ),
         pdf_heading: formData.pdf_heading.trim(),
         pdf_subheading: formData.pdf_subheading.trim(),
         pdf_custom_lines: formData.pdf_custom_lines.trim(),
         pdf_footer_note: formData.pdf_footer_note.trim(),
+        quotation_thank_you_title: (formData.quotation_thank_you_title || "").trim(),
+        quotation_thank_you_message: (formData.quotation_thank_you_message || "").trim(),
+        quotation_prepared_by: (formData.quotation_prepared_by || "").trim(),
+        quotation_prepared_by_services: (formData.quotation_prepared_by_services || "").trim(),
+        quotation_ceo_name: (formData.quotation_ceo_name || "").trim(),
+        quotation_ceo_designation: (formData.quotation_ceo_designation || "").trim(),
         pdf_custom_sections: cleanedSections.length > 0 ? cleanedSections : null,
       });
 
@@ -1281,95 +1525,149 @@ export default function CompanySettings() {
                             <textarea
                               id="default_terms_and_conditions"
                               name="default_terms_and_conditions"
-                              rows={3}
-                              placeholder="1. Payment terms as agreed upon...\n2. Quotation validity period is 30 days..."
+                              className="cs-default-terms-textarea"
+                              rows={4}
+                              placeholder={"1. Payment terms as agreed.\n2. This quotation is valid until the stated expiry date."}
                               value={formData.default_terms_and_conditions}
                               onChange={handleInputChange}
+                              onBlur={(e) => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  default_terms_and_conditions: formatTermsAndConditionsLines(e.target.value),
+                                }));
+                              }}
                             />
                             <small>Whenever Admin or Super Admin creates a quotation, these terms are loaded by default.</small>
                           </div>
                         </div>
                       </section>
 
-                      {/* CARD 3: Custom Headings & Scope Sections */}
+                      {/* CARD 3: Quotation Closing & Thank You Message */}
                       <section className="cs-section-card cs-template-card">
                         <div className="cs-section-header">
                           <div className="cs-section-icon accent">
-                            <Layers size={18} />
+                            <HeartHandshake size={18} />
                           </div>
-                          <div className="cs-section-header-text">
-                            <h3>Custom PDF Headings &amp; Sub-Sections</h3>
+                          <div>
+                            <h3>Quotation Closing &amp; Thank You Note</h3>
                             <p>
-                              Extra custom sections (e.g. SERVICE SCOPE, DELIVERABLES, WARRANTY) printed on quotation PDFs.
+                              Title and appreciative closing paragraph printed right after Terms &amp; Conditions on quotation PDFs.
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            className="cs-add-section-btn"
-                            onClick={handleAddCustomSection}
-                          >
-                            <Plus size={14} />
-                            <span>Add Heading / Section</span>
-                          </button>
                         </div>
 
-                        <div className="cs-sections-box-inner">
-                          {customSections.length === 0 ? (
-                            <div className="cs-empty-sections-note">
-                              <FileText size={26} style={{ opacity: 0.35, marginBottom: 6 }} />
-                              <p>No custom headings added yet.</p>
-                              <small>Click &quot;Add Heading / Section&quot; above to include custom scope sections on the quotation PDF.</small>
-                            </div>
-                          ) : (
-                            <div className="cs-sections-list">
-                              {customSections.map((sec, index) => (
-                                <div key={sec.id || index} className="cs-section-card-item">
-                                  <div className="cs-section-card-head">
-                                    <div className="cs-section-card-head-left">
-                                      <span className="cs-section-idx-badge">{index + 1}</span>
-                                      <span className="cs-section-title-text">
-                                        {sec.heading ? sec.heading.toUpperCase() : "UNTITLED HEADING"}
-                                      </span>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="cs-section-delete-btn"
-                                      onClick={() => handleDeleteCustomSection(index)}
-                                      title="Delete this heading section"
-                                    >
-                                      <Trash2 size={13} />
-                                      <span>Delete</span>
-                                    </button>
-                                  </div>
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group cs-full-width">
+                            <label htmlFor="quotation_thank_you_title">Thank You Heading Title</label>
+                            <input
+                              id="quotation_thank_you_title"
+                              name="quotation_thank_you_title"
+                              type="text"
+                              placeholder="e.g. Thank You"
+                              value={formData.quotation_thank_you_title}
+                              onChange={handleInputChange}
+                            />
+                            <small>Bold title rendered directly under the Terms &amp; Conditions list.</small>
+                          </div>
 
-                                  <div className="cs-section-fields">
-                                    <div className="cs-section-field">
-                                      <label>Section Heading Title</label>
-                                      <input
-                                        type="text"
-                                        placeholder="e.g. SERVICE SCOPE, WORK DELIVERABLES"
-                                        value={sec.heading}
-                                        onChange={(e) =>
-                                          handleUpdateCustomSection(index, "heading", e.target.value)
-                                        }
-                                      />
-                                    </div>
-                                    <div className="cs-section-field">
-                                      <label>Section Sub-Text / Description Line</label>
-                                      <textarea
-                                        rows={2}
-                                        placeholder="Enter the details or scope lines that will appear underneath this navy blue heading..."
-                                        value={sec.sub_text}
-                                        onChange={(e) =>
-                                          handleUpdateCustomSection(index, "sub_text", e.target.value)
-                                        }
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          <div className="cs-field-group cs-full-width">
+                            <label htmlFor="quotation_thank_you_message">Thank You Message / Appreciation Paragraph</label>
+                            <textarea
+                              id="quotation_thank_you_message"
+                              name="quotation_thank_you_message"
+                              rows={4}
+                              placeholder="e.g. We appreciate the opportunity to work with your business. NetIT Technology is committed to delivering modern, scalable, and professional platforms..."
+                              value={formData.quotation_thank_you_message}
+                              onChange={handleInputChange}
+                            />
+                            <small>Comprehensive closing note conveying gratitude, service vision, and business commitment.</small>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* CARD 4: Prepared By & Company Services */}
+                      <section className="cs-section-card cs-template-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon secondary">
+                            <FileCheck size={18} />
+                          </div>
+                          <div>
+                            <h3>Prepared By &amp; Services Description</h3>
+                            <p>
+                              Agency / company name and service lines printed below the Thank You section in bold text.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group">
+                            <label htmlFor="quotation_prepared_by">Prepared By (Entity / Company)</label>
+                            <input
+                              id="quotation_prepared_by"
+                              name="quotation_prepared_by"
+                              type="text"
+                              placeholder="e.g. NetIT Technology"
+                              value={formData.quotation_prepared_by}
+                              onChange={handleInputChange}
+                            />
+                            <small>Displayed on row 2 of the Prepared by block in bold black font.</small>
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label htmlFor="quotation_prepared_by_services">Services &amp; Specializations Line</label>
+                            <input
+                              id="quotation_prepared_by_services"
+                              name="quotation_prepared_by_services"
+                              type="text"
+                              placeholder="e.g. Web Development • Software Solutions • Digital Marketing"
+                              value={formData.quotation_prepared_by_services}
+                              onChange={handleInputChange}
+                            />
+                            <small>Displayed on row 3 directly underneath the company name.</small>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* CARD 5: Authorized Signatory (CEO Signature & Designation) */}
+                      <section className="cs-section-card cs-template-card">
+                        <div className="cs-section-header">
+                          <div className="cs-section-icon">
+                            <UserCheck size={18} />
+                          </div>
+                          <div>
+                            <h3>Authorized Signatory (Executive Signature)</h3>
+                            <p>
+                              Executive name and designation rendered centered directly beneath the left-aligned signature.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="cs-fields-grid">
+                          <div className="cs-field-group">
+                            <label htmlFor="quotation_ceo_name">Signatory / CEO Full Name</label>
+                            <input
+                              id="quotation_ceo_name"
+                              name="quotation_ceo_name"
+                              type="text"
+                              placeholder="e.g. D M N K DISSANAYAKA"
+                              value={formData.quotation_ceo_name}
+                              onChange={handleInputChange}
+                            />
+                            <small>Centered bold signatory name below the signature line.</small>
+                          </div>
+
+                          <div className="cs-field-group">
+                            <label htmlFor="quotation_ceo_designation">Official Designation / Title</label>
+                            <input
+                              id="quotation_ceo_designation"
+                              name="quotation_ceo_designation"
+                              type="text"
+                              placeholder="e.g. CEO (NetIT Technology)"
+                              value={formData.quotation_ceo_designation}
+                              onChange={handleInputChange}
+                            />
+                            <small>Centered official title underneath the signatory&apos;s name.</small>
+                          </div>
                         </div>
                       </section>
 
@@ -1438,11 +1736,19 @@ export default function CompanySettings() {
                               </div>
                             )}
 
+                            {/* Reference Information Mockup */}
+                            <div className="cs-pdf-mock-ref-grid">
+                              <div><strong>Quotation No:</strong> QTN-2026-0001</div>
+                              <div><strong>Date:</strong> 19 Nov 2026</div>
+                              <div><strong>Prepared For:</strong> Sampath Bandara</div>
+                              <div><strong>Valid Until:</strong> 19 Dec 2026</div>
+                            </div>
+
                             {/* Sample Table Preview Mockup */}
                             <div className="cs-pdf-mock-table">
                               <div className="cs-mock-th">
                                 <span>#</span>
-                                <span>SERVICE SCOPE</span>
+                                <span>SERVICE SCOPE / DELIVERABLES</span>
                                 <span>UNIT PRICE</span>
                                 <span>TOTAL</span>
                               </div>
@@ -1454,42 +1760,80 @@ export default function CompanySettings() {
                               </div>
                             </div>
 
-                            {/* Custom Template Sections Live Preview */}
-                            {customSections.length > 0 && (
-                              <div className="cs-pdf-preview-sections-wrap">
-                                {customSections.map((sec, idx) => {
-                                  if (!sec.heading && !sec.sub_text) return null;
-                                  return (
-                                    <div key={idx} className="cs-pdf-preview-section">
-                                      {sec.heading && (
-                                        <div className="cs-pdf-section-banner">
-                                          {sec.heading.toUpperCase()}
-                                        </div>
-                                      )}
-                                      {sec.sub_text && (
-                                        <div className="cs-pdf-section-body">
-                                          {sec.sub_text}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
+                            {/* Payment terms & Total summary */}
+                            <div className="cs-pdf-mock-summary-row">
+                              <div className="cs-pdf-mock-bank-info">
+                                <strong>Payment &amp; Bank Details:</strong>
+                                <span>{formData.bank_name || "Commercial Bank"} - Acc: {formData.bank_account_number || "1000123456"}</span>
+                              </div>
+                              <div className="cs-pdf-mock-total-box">
+                                <span>Total Amount:</span>
+                                <strong>LKR 75,000.00</strong>
+                              </div>
+                            </div>
+
+                            {/* Default Terms Preview snippet */}
+                            {formData.default_terms_and_conditions && (
+                              <div className="cs-pdf-terms-preview-box">
+                                <strong>Terms &amp; Conditions:</strong>
+                                <p>{formData.default_terms_and_conditions}</p>
                               </div>
                             )}
+
+                            {/* Thank You Section Live Preview */}
+                            {(formData.quotation_thank_you_title || formData.quotation_thank_you_message) && (
+                              <div className="cs-pdf-thank-you-box">
+                                {formData.quotation_thank_you_title && (
+                                  <div className="cs-pdf-thank-you-title">
+                                    {formData.quotation_thank_you_title}
+                                  </div>
+                                )}
+                                {formData.quotation_thank_you_message && (
+                                  <div className="cs-pdf-thank-you-msg">
+                                    {formData.quotation_thank_you_message}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Prepared By Section Live Preview */}
+                            {(formData.quotation_prepared_by || formData.quotation_prepared_by_services) && (
+                              <div className="cs-pdf-prepared-by-box">
+                                <div className="cs-pdf-prepared-label">Prepared by:</div>
+                                {formData.quotation_prepared_by && (
+                                  <div className="cs-pdf-prepared-company">
+                                    {formData.quotation_prepared_by}
+                                  </div>
+                                )}
+                                {formData.quotation_prepared_by_services && (
+                                  <div className="cs-pdf-prepared-services">
+                                    {formData.quotation_prepared_by_services}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Left-Aligned Signature Block with CEO Name & Designation Live Preview */}
+                            <div className="cs-pdf-signature-preview">
+                              <div className="cs-pdf-sig-label">Authorized Signature</div>
+                              {signatureUrl ? (
+                                <img src={signatureUrl} alt="Signature" className="cs-pdf-sig-img" />
+                              ) : (
+                                <div className="cs-pdf-sig-line" />
+                              )}
+                              <div className="cs-pdf-sig-name">
+                                {formData.quotation_ceo_name || "D M N K DISSANAYAKA"}
+                              </div>
+                              <div className="cs-pdf-sig-desig">
+                                {formData.quotation_ceo_designation || "CEO (NetIT Technology)"}
+                              </div>
+                            </div>
 
                             {/* Footer Notice Preview */}
                             {formData.pdf_footer_note && (
                               <div className="cs-pdf-footer-box">
                                 <strong>Important Notice / Declaration:</strong>
                                 <p>{formData.pdf_footer_note}</p>
-                              </div>
-                            )}
-
-                            {/* Default Terms Preview snippet */}
-                            {formData.default_terms_and_conditions && (
-                              <div className="cs-pdf-terms-preview-box">
-                                <strong>Default Terms Preview:</strong>
-                                <p>{formData.default_terms_and_conditions}</p>
                               </div>
                             )}
                           </div>
@@ -1610,134 +1954,240 @@ export default function CompanySettings() {
                     </section>
                   ) : (
                     /* Create / Edit Service Option Form */
-                    <form onSubmit={handleSaveService} className="cs-form-body">
-                      <section className="cs-section-card">
-                        <div className="cs-section-header">
-                          <div className="cs-section-icon">
-                            <Layers size={18} />
+                    <form onSubmit={handleSaveService} className="cs-form-body cs-service-edit-form">
+                      <section className="cs-section-card cs-modern-service-card">
+                        <div className="cs-section-header cs-modern-card-header">
+                          <div className="cs-section-icon accent">
+                            <Layers size={20} />
                           </div>
-                          <div>
-                            <h3>
-                              {editingServiceId === "new"
-                                ? "Add New Service Option"
-                                : `Edit Service: ${serviceForm.item_name}`}
-                            </h3>
+                          <div className="cs-header-content">
+                            <div className="cs-header-top-row">
+                              <h3>
+                                {editingServiceId === "new"
+                                  ? "Add New Service Option"
+                                  : `Edit Service: ${serviceForm.item_name || "Catalog Item"}`}
+                              </h3>
+                              <span className={`cs-modern-status-badge ${serviceForm.is_active ? "active" : "inactive"}`}>
+                                <span className="cs-status-indicator-dot" />
+                                {serviceForm.is_active ? "Active in Catalog" : "Inactive / Hidden"}
+                              </span>
+                            </div>
                             <p>
-                              Configure service details and default scope descriptions for the quotation form.
+                              Configure service specifications, baseline pricing, and rich scope templates for quotations.
                             </p>
                           </div>
                         </div>
 
-                        <div className="cs-fields-grid">
-                          <div className="cs-field-group cs-full-width">
-                            <label>
-                              Service / Item Name <span className="cs-required">*</span>
+                        <div className="cs-modern-form-content">
+                          {/* Row 1: Service / Item Name & Default Price */}
+                          <div className="cs-form-row-grid cs-grid-2-col">
+                            {/* Service / Item Name */}
+                            <div className="cs-modern-field-group">
+                              <label className="cs-modern-label">
+                                <span>Service / Item Name</span>
+                                <span className="cs-required">*</span>
+                              </label>
+                              <div className="cs-modern-input-wrap">
+                                <Package size={16} className="cs-input-leading-icon" />
+                                <input
+                                  type="text"
+                                  required
+                                  className="cs-modern-input cs-with-icon"
+                                  placeholder="e.g. Real Estate Portal, E-Commerce Platform, Cloud Infrastructure"
+                                  value={serviceForm.item_name}
+                                  onChange={(e) =>
+                                    setServiceForm({ ...serviceForm, item_name: e.target.value })
+                                  }
+                                />
+                              </div>
+                              <small className="cs-modern-hint">
+                                Appears in the quotation service selection dropdown for quick selection.
+                              </small>
+                            </div>
+
+                            {/* Default Price */}
+                            <div className="cs-modern-field-group">
+                              <label className="cs-modern-label">
+                                <span>Default Price (LKR)</span>
+                              </label>
+                              <div className="cs-modern-input-wrap cs-currency-wrap">
+                                <span className="cs-currency-prefix">LKR</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  className="cs-modern-input cs-currency-input"
+                                  placeholder="0.00"
+                                  value={serviceForm.default_price}
+                                  onChange={(e) =>
+                                    setServiceForm({ ...serviceForm, default_price: e.target.value })
+                                  }
+                                />
+                              </div>
+                              <small className="cs-modern-hint">
+                                Optional baseline unit price auto-filled in the quotation item row (0.00 for custom).
+                              </small>
+                            </div>
+                          </div>
+
+                          {/* Row 2: Modern Status Dropdown & Quick Selector */}
+                          <div className="cs-modern-field-group cs-status-control-section">
+                            <label className="cs-modern-label">
+                              <span>Service Availability Status</span>
+                              <span className="cs-label-subnote">Controls visibility on quotation creation forms</span>
                             </label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="e.g. Mobile App Development, E-Commerce Portal, Cloud Infrastructure"
-                              value={serviceForm.item_name}
-                              onChange={(e) =>
-                                setServiceForm({ ...serviceForm, item_name: e.target.value })
-                              }
-                            />
-                            <small>This name will appear in the service dropdown when creating quotations.</small>
+
+                            <div className="cs-status-dual-control">
+                              {/* Modern Styled Dropdown */}
+                              <div className="cs-modern-dropdown-box">
+                                <div className={`cs-dropdown-dot-indicator ${serviceForm.is_active ? "active" : "inactive"}`} />
+                                <select
+                                  id="service_is_active"
+                                  className="cs-modern-dropdown-select"
+                                  value={serviceForm.is_active}
+                                  onChange={(e) =>
+                                    setServiceForm({
+                                      ...serviceForm,
+                                      is_active: Number(e.target.value),
+                                    })
+                                  }
+                                >
+                                  <option value={1}>Active (Available on quotation form)</option>
+                                  <option value={0}>Inactive (Hidden from creation dropdown)</option>
+                                </select>
+                                <ChevronDown size={17} className="cs-dropdown-arrow-icon" />
+                              </div>
+
+                              {/* Modern Segmented Quick-Toggle Pills */}
+                              <div className="cs-status-segmented-pills">
+                                <button
+                                  type="button"
+                                  className={`cs-status-pill-toggle ${serviceForm.is_active === 1 ? "selected active" : ""}`}
+                                  onClick={() => setServiceForm({ ...serviceForm, is_active: 1 })}
+                                >
+                                  <span className="cs-pill-dot active" />
+                                  <span>Active</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`cs-status-pill-toggle ${serviceForm.is_active === 0 ? "selected inactive" : ""}`}
+                                  onClick={() => setServiceForm({ ...serviceForm, is_active: 0 })}
+                                >
+                                  <span className="cs-pill-dot inactive" />
+                                  <span>Inactive</span>
+                                </button>
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="cs-field-group">
-                            <label>Default Price (LKR)</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              placeholder="0.00 (leave 0 for variable/custom price)"
-                              value={serviceForm.default_price}
-                              onChange={(e) =>
-                                setServiceForm({ ...serviceForm, default_price: e.target.value })
-                              }
-                            />
-                            <small>Optional baseline unit price auto-filled in the quotation item row.</small>
-                          </div>
-
-                          <div className="cs-field-group">
-                            <label>Status</label>
-                            <select
-                              value={serviceForm.is_active}
-                              onChange={(e) =>
-                                setServiceForm({
-                                  ...serviceForm,
-                                  is_active: Number(e.target.value),
-                                })
-                              }
-                            >
-                              <option value={1}>Active (Available on quotation form)</option>
-                              <option value={0}>Inactive (Hidden from dropdown)</option>
-                            </select>
-                          </div>
-
-                          <div className="cs-field-group cs-full-width">
-                            <label>Default Description / Scope</label>
+                          {/* Large Box 1: Default Description / Scope */}
+                          <div className="cs-modern-field-group cs-full-width">
+                            <div className="cs-label-with-meta">
+                              <label className="cs-modern-label">
+                                <span>Default Description / Project Scope</span>
+                              </label>
+                              <span className="cs-textarea-badge">Large Text Area</span>
+                            </div>
                             <textarea
-                              rows={2}
-                              placeholder="e.g. Design, development, testing, and deployment of responsive application."
+                              rows={5}
+                              className="cs-modern-textarea cs-large-textbox"
+                              placeholder={"e.g.\n• Complete UI/UX design matching modern brand guidelines\n• Responsive web platform compatible with Mobile, Tablet & Desktop\n• Secure administrative dashboard with role-based permissions\n• High performance API integration and database optimization"}
                               value={serviceForm.description}
                               onChange={(e) =>
                                 setServiceForm({ ...serviceForm, description: e.target.value })
                               }
                             />
+                            <small className="cs-modern-hint">
+                              This rich scope automatically populates the description area when creating a quotation.
+                            </small>
                           </div>
 
-                          <div className="cs-field-group">
-                            <label>Default Hosting &amp; Domain Policy</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. 1 Year Free VPS Hosting & .COM Domain"
-                              value={serviceForm.hosting_domain}
-                              onChange={(e) =>
-                                setServiceForm({
-                                  ...serviceForm,
-                                  hosting_domain: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
+                          {/* Two Large Boxes: Hosting & Domain Policy and Maintenance & Support Term */}
+                          <div className="cs-form-row-grid cs-grid-2-col">
+                            {/* Large Box 2: Hosting & Domain Policy */}
+                            <div className="cs-modern-field-group">
+                              <div className="cs-label-with-meta">
+                                <label className="cs-modern-label">
+                                  <Server size={14} className="cs-label-icon" />
+                                  <span>Default Hosting &amp; Domain Policy</span>
+                                </label>
+                                <span className="cs-textarea-badge">Large Text Box</span>
+                              </div>
+                              <textarea
+                                rows={4}
+                                className="cs-modern-textarea cs-large-textbox"
+                                placeholder={"e.g.\n• 1 Year Free NVMe High-Speed Cloud VPS Hosting\n• 1 Free .COM or .LK Domain Name Registration\n• Free Lifetime SSL Certificate with Auto-Renewal\n• Business Email Accounts Setup (info@domain.com)"}
+                                value={serviceForm.hosting_domain}
+                                onChange={(e) =>
+                                  setServiceForm({
+                                    ...serviceForm,
+                                    hosting_domain: e.target.value,
+                                  })
+                                }
+                              />
+                              <small className="cs-modern-hint">
+                                Hosting and domain inclusions auto-filled in quotation items.
+                              </small>
+                            </div>
 
-                          <div className="cs-field-group">
-                            <label>Maintenance &amp; Support Term</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. 6 Months Free SLA Support"
-                              value={serviceForm.maintenance_support}
-                              onChange={(e) =>
-                                setServiceForm({
-                                  ...serviceForm,
-                                  maintenance_support: e.target.value,
-                                })
-                              }
-                            />
+                            {/* Large Box 3: Maintenance & Support Term */}
+                            <div className="cs-modern-field-group">
+                              <div className="cs-label-with-meta">
+                                <label className="cs-modern-label">
+                                  <Headphones size={14} className="cs-label-icon" />
+                                  <span>Maintenance &amp; Support Term</span>
+                                </label>
+                                <span className="cs-textarea-badge">Large Text Box</span>
+                              </div>
+                              <textarea
+                                rows={4}
+                                className="cs-modern-textarea cs-large-textbox"
+                                placeholder={"e.g.\n• 6 Months Comprehensive SLA Technical Support\n• 24/7 Security Health & Performance Monitoring\n• Regular Database Backups & Critical Security Patches\n• Priority Bug Fixes & Technical Consultation"}
+                                value={serviceForm.maintenance_support}
+                                onChange={(e) =>
+                                  setServiceForm({
+                                    ...serviceForm,
+                                    maintenance_support: e.target.value,
+                                  })
+                                }
+                              />
+                              <small className="cs-modern-hint">
+                                Service Level Agreement (SLA) and maintenance terms printed in quotation specs.
+                              </small>
+                            </div>
                           </div>
                         </div>
                       </section>
 
-                      <div className="cs-action-bar">
+                      {/* Action Bar */}
+                      <div className="cs-action-bar cs-modern-action-bar">
                         <button
                           type="button"
-                          className="cs-btn-secondary"
+                          className="cs-modern-btn-cancel"
                           onClick={() => {
                             setIsEditingService(false);
                             setEditingServiceId(null);
                           }}
                         >
-                          Cancel
+                          <X size={15} />
+                          <span>Cancel</span>
                         </button>
                         <button
                           type="submit"
-                          className="cs-btn-save"
+                          className="cs-btn-save cs-btn-save-primary"
                           disabled={saving}
                         >
-                          <Save size={16} />
-                          <span>{saving ? "Saving..." : "Save Service Option"}</span>
+                          {saving ? (
+                            <>
+                              <RefreshCw size={15} className="cs-spin" />
+                              <span>Saving Service...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save size={15} />
+                              <span>Save Service Option</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </form>
@@ -1753,23 +2203,23 @@ export default function CompanySettings() {
               <div className="cs-template-layout-grid">
                 {/* Left Column: 3 Modern Curved Settings Cards */}
                 <div className="cs-template-cards-col">
-                  {/* CARD 1: Numbering & Billing Defaults */}
+                  {/* CARD 1: Numbering Defaults */}
                   <section className="cs-section-card cs-template-card">
                     <div className="cs-section-header">
                       <div className="cs-section-icon secondary">
                         <Receipt size={18} />
                       </div>
                       <div className="cs-section-header-text">
-                        <h3>Invoice Numbering &amp; Billing Defaults</h3>
+                        <h3>Invoice Numbering Defaults</h3>
                         <p>
-                          Configure auto-numbering prefixes, payment window periods, and billing currency defaults.
+                          Configure auto-numbering prefix for newly generated invoice documents.
                         </p>
                       </div>
                       <span className="cs-badge-active">Active</span>
                     </div>
 
                     <div className="cs-fields-grid">
-                      <div className="cs-field-group">
+                      <div className="cs-field-group cs-full-width">
                         <label htmlFor="inv_prefix_input">
                           Invoice Number Prefix <span className="cs-required">*</span>
                         </label>
@@ -1787,60 +2237,6 @@ export default function CompanySettings() {
                           }
                         />
                         <small>e.g. {previewInvoiceNumber} (Sequential numbering format)</small>
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="inv_due_days_input">Default Payment Window (Days)</label>
-                        <select
-                          id="inv_due_days_input"
-                          value={invoiceSettings.default_due_days}
-                          onChange={(e) =>
-                            handleInvoiceSettingsChange("default_due_days", e.target.value)
-                          }
-                        >
-                          <option value="7">7 Days (Net 7)</option>
-                          <option value="14">14 Days (Net 14 - Standard)</option>
-                          <option value="21">21 Days (Net 21)</option>
-                          <option value="30">30 Days (Net 30)</option>
-                          <option value="45">45 Days (Net 45)</option>
-                          <option value="60">60 Days (Net 60)</option>
-                        </select>
-                        <small>Auto-computes due date ({previewDueDateStr}) for new invoices.</small>
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="inv_currency_input">Default Billing Currency</label>
-                        <select
-                          id="inv_currency_input"
-                          value={invoiceSettings.default_currency}
-                          onChange={(e) =>
-                            handleInvoiceSettingsChange("default_currency", e.target.value)
-                          }
-                        >
-                          <option value="LKR">LKR - Sri Lankan Rupee (රු)</option>
-                          <option value="USD">USD - US Dollar ($)</option>
-                          <option value="EUR">EUR - Euro (€)</option>
-                          <option value="GBP">GBP - British Pound (£)</option>
-                          <option value="AUD">AUD - Australian Dollar (A$)</option>
-                          <option value="SGD">SGD - Singapore Dollar (S$)</option>
-                          <option value="AED">AED - UAE Dirham (د.إ)</option>
-                        </select>
-                        <small>Applied automatically to newly created client invoices.</small>
-                      </div>
-
-                      <div className="cs-field-group">
-                        <label htmlFor="inv_tax_display_input">Tax &amp; Discount Breakdown</label>
-                        <select
-                          id="inv_tax_display_input"
-                          value={invoiceSettings.tax_display_option}
-                          onChange={(e) =>
-                            handleInvoiceSettingsChange("tax_display_option", e.target.value)
-                          }
-                        >
-                          <option value="itemized">Itemized Breakdown (Subtotal + VAT / Tax)</option>
-                          <option value="consolidated">Consolidated Total (Tax-Inclusive Pricing)</option>
-                        </select>
-                        <small>Controls taxation display across invoice documents.</small>
                       </div>
                     </div>
                   </section>
@@ -1890,74 +2286,31 @@ export default function CompanySettings() {
                         />
                         <small>Sub-title line directly beneath the main document heading.</small>
                       </div>
-
-                      <div className="cs-field-group cs-full-width">
-                        <label htmlFor="inv_footer_note_input">Footer Acknowledgement / Thank You Note</label>
-                        <textarea
-                          id="inv_footer_note_input"
-                          rows={2}
-                          placeholder="e.g. Thank you for your business! Please reference the invoice number on your payment slip."
-                          value={invoiceSettings.pdf_footer_note}
-                          onChange={(e) =>
-                            handleInvoiceSettingsChange("pdf_footer_note", e.target.value)
-                          }
-                        />
-                        <small>Rendered at the footer of the invoice as a professional appreciation line.</small>
-                      </div>
                     </div>
                   </section>
 
-                  {/* CARD 3: Remittance Notice & Terms */}
+                  {/* CARD 3: Default Payment Terms */}
                   <section className="cs-section-card cs-template-card">
                     <div className="cs-section-header">
                       <div className="cs-section-icon accent">
-                        <Landmark size={18} />
+                        <FileCheck size={18} />
                       </div>
                       <div className="cs-section-header-text">
-                        <h3>Default Remittance Notes &amp; Payment Terms</h3>
+                        <h3>Default Payment Terms &amp; Conditions</h3>
                         <p>
-                          Payment wire instructions and terms loaded automatically on new invoices.
+                          Default legal and billing terms loaded automatically on new invoices.
                         </p>
                       </div>
-                      {formData.bank_name && (
-                        <button
-                          type="button"
-                          className="cs-add-section-btn"
-                          onClick={handleFillBankIntoInvoiceNotes}
-                          title="Import bank details from Company Profile"
-                        >
-                          <Landmark size={14} />
-                          <span>Import Bank Info</span>
-                        </button>
-                      )}
                     </div>
 
                     <div className="cs-fields-grid">
-                      <div className="cs-field-group cs-full-width">
-                        <label htmlFor="inv_default_notes_input">
-                          Default Client Remittance Notice (Bank &amp; Payment Details)
-                        </label>
-                        <textarea
-                          id="inv_default_notes_input"
-                          rows={3}
-                          placeholder="Please remit payment via direct bank transfer to..."
-                          value={invoiceSettings.default_notes}
-                          onChange={(e) =>
-                            handleInvoiceSettingsChange("default_notes", e.target.value)
-                          }
-                        />
-                        <small>
-                          Auto-filled into the &quot;Notes&quot; section of newly created invoices.
-                        </small>
-                      </div>
-
                       <div className="cs-field-group cs-full-width">
                         <label htmlFor="inv_default_terms_input">
                           Default Payment Terms &amp; Conditions
                         </label>
                         <textarea
                           id="inv_default_terms_input"
-                          rows={3}
+                          rows={4}
                           placeholder="Payment is strictly due within 14 calendar days of issuance..."
                           value={invoiceSettings.default_terms}
                           onChange={(e) =>
@@ -1967,6 +2320,141 @@ export default function CompanySettings() {
                         <small>
                           Default legal and billing policies automatically applied to invoices.
                         </small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* CARD 4: Thank You Heading & Appreciation Note */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon secondary">
+                        <HeartHandshake size={18} />
+                      </div>
+                      <div>
+                        <h3>Thank You Heading &amp; Appreciation Note</h3>
+                        <p>
+                          Closing appreciation statement printed on the bottom left of the invoice PDF.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group cs-full-width">
+                        <label htmlFor="inv_thank_you_title">Thank You Heading Title</label>
+                        <input
+                          id="inv_thank_you_title"
+                          type="text"
+                          placeholder="e.g. Thank You"
+                          value={invoiceSettings.thank_you_title}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("thank_you_title", e.target.value)
+                          }
+                        />
+                        <small>Bold title rendered directly under the Terms &amp; Conditions list.</small>
+                      </div>
+
+                      <div className="cs-field-group cs-full-width">
+                        <label htmlFor="inv_thank_you_message">Thank You Message / Appreciation Paragraph</label>
+                        <textarea
+                          id="inv_thank_you_message"
+                          rows={4}
+                          placeholder="e.g. We appreciate the opportunity to work with your business. NetIT Technology is committed to delivering modern, scalable, and professional platforms..."
+                          value={invoiceSettings.thank_you_message}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("thank_you_message", e.target.value)
+                          }
+                        />
+                        <small>Comprehensive closing note conveying gratitude, service vision, and business commitment.</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* CARD 5: Prepared By & Company Services */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon secondary">
+                        <FileCheck size={18} />
+                      </div>
+                      <div>
+                        <h3>Prepared By &amp; Services Description</h3>
+                        <p>
+                          Agency / company name and service lines printed below the Thank You section in bold text.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_prepared_by">Prepared By (Entity / Company)</label>
+                        <input
+                          id="inv_prepared_by"
+                          type="text"
+                          placeholder="e.g. NetIT Technology"
+                          value={invoiceSettings.prepared_by}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("prepared_by", e.target.value)
+                          }
+                        />
+                        <small>Displayed on row 2 of the Prepared by block in bold black font.</small>
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_prepared_by_services">Services &amp; Specializations Line</label>
+                        <input
+                          id="inv_prepared_by_services"
+                          type="text"
+                          placeholder="e.g. Web Development • Software Solutions • Digital Marketing"
+                          value={invoiceSettings.prepared_by_services}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("prepared_by_services", e.target.value)
+                          }
+                        />
+                        <small>Displayed on row 3 directly underneath the company name.</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* CARD 6: Authorized Signatory (CEO Signature & Designation) */}
+                  <section className="cs-section-card cs-template-card">
+                    <div className="cs-section-header">
+                      <div className="cs-section-icon">
+                        <UserCheck size={18} />
+                      </div>
+                      <div>
+                        <h3>Authorized Signatory (Executive Signature)</h3>
+                        <p>
+                          Executive name and designation rendered centered directly beneath the left-aligned signature.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="cs-fields-grid">
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_ceo_name">Signatory / CEO Full Name</label>
+                        <input
+                          id="inv_ceo_name"
+                          type="text"
+                          placeholder="e.g. D M N K DISSANAYAKA"
+                          value={invoiceSettings.ceo_name}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("ceo_name", e.target.value)
+                          }
+                        />
+                        <small>Centered bold signatory name below the signature line.</small>
+                      </div>
+
+                      <div className="cs-field-group">
+                        <label htmlFor="inv_ceo_designation">Official Designation / Title</label>
+                        <input
+                          id="inv_ceo_designation"
+                          type="text"
+                          placeholder="e.g. CEO (NetIT Technology)"
+                          value={invoiceSettings.ceo_designation}
+                          onChange={(e) =>
+                            handleInvoiceSettingsChange("ceo_designation", e.target.value)
+                          }
+                        />
+                        <small>Centered official title underneath the signatory&apos;s name.</small>
                       </div>
                     </div>
                   </section>
@@ -2064,78 +2552,62 @@ export default function CompanySettings() {
                         <table className="cs-inv-table">
                           <thead>
                             <tr>
-                              <th>Description</th>
-                              <th style={{ width: "38px", textAlign: "center" }}>Qty</th>
-                              <th className="text-right">Unit Price</th>
-                              <th className="text-right">Total</th>
+                              <th style={{ width: "24px", textAlign: "center" }}>#</th>
+                              <th>SERVICE / ITEM</th>
+                              <th className="text-right">PRICE ({invoiceSettings.default_currency || "LKR"})</th>
+                              <th style={{ width: "42px", textAlign: "center" }}>TAX</th>
+                              <th className="text-right">LINE TOTAL ({invoiceSettings.default_currency || "LKR"})</th>
                             </tr>
                           </thead>
                           <tbody>
                             <tr>
+                              <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>1</td>
                               <td>
                                 <strong>Enterprise Cloud Portal Deployment</strong>
                                 <div style={{ fontSize: "8.5px", color: "#64748b" }}>
                                   Core infrastructure and authentication service
                                 </div>
                               </td>
-                              <td style={{ textAlign: "center" }}>1</td>
                               <td className="text-right">150,000.00</td>
-                              <td className="text-right">150,000.00</td>
+                              <td style={{ textAlign: "center", color: "#64748b" }}>0%</td>
+                              <td className="text-right" style={{ fontWeight: 600 }}>150,000.00</td>
                             </tr>
                             <tr>
+                              <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600 }}>2</td>
                               <td>
                                 <strong>Annual SLA Maintenance &amp; 24/7 Monitoring</strong>
                                 <div style={{ fontSize: "8.5px", color: "#64748b" }}>
                                   Guaranteed 99.9% uptime and security updates
                                 </div>
                               </td>
-                              <td style={{ textAlign: "center" }}>1</td>
                               <td className="text-right">45,000.00</td>
-                              <td className="text-right">45,000.00</td>
+                              <td style={{ textAlign: "center", color: "#64748b" }}>0%</td>
+                              <td className="text-right" style={{ fontWeight: 600 }}>45,000.00</td>
                             </tr>
                           </tbody>
                         </table>
 
                         {/* Totals Summary */}
-                        <div className="cs-inv-totals-box">
-                          {invoiceSettings.tax_display_option === "itemized" ? (
-                            <>
-                              <div className="cs-inv-total-row">
-                                <span>Subtotal:</span>
-                                <span>{invoiceSettings.default_currency} 195,000.00</span>
-                              </div>
-                              <div className="cs-inv-total-row">
-                                <span>Estimated VAT / Tax (8%):</span>
-                                <span>{invoiceSettings.default_currency} 15,600.00</span>
-                              </div>
-                              <div className="cs-inv-total-row grand">
-                                <span>Total Due:</span>
-                                <span>{invoiceSettings.default_currency} 210,600.00</span>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="cs-inv-total-row">
-                                <span>Subtotal (Taxes Included):</span>
-                                <span>{invoiceSettings.default_currency} 210,600.00</span>
-                              </div>
-                              <div className="cs-inv-total-row grand">
-                                <span>Total Due:</span>
-                                <span>{invoiceSettings.default_currency} 210,600.00</span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Remittance Instructions Preview */}
-                        <div className="cs-inv-notes-preview-box">
-                          <div className="cs-inv-notes-preview-head">
-                            <Landmark size={11} />
-                            <span>Payment &amp; Remittance Notice</span>
+                        <div className="cs-inv-totals-box" style={{ padding: "6px 8px" }}>
+                          <div className="cs-inv-total-row" style={{ width: "100%", padding: "0 4px" }}>
+                            <span>Subtotal</span>
+                            <span style={{ fontWeight: 600 }}>{invoiceSettings.default_currency || "LKR"} 195,000.00</span>
                           </div>
-                          <div className="cs-inv-notes-preview-text">
-                            {invoiceSettings.default_notes ||
-                              "Please remit payment via direct bank transfer referencing the invoice number on your deposit slip."}
+                          <div className="cs-inv-total-row" style={{ width: "100%", padding: "0 4px", color: "#16a34a" }}>
+                            <span>Discount (-)</span>
+                            <span style={{ fontWeight: 600 }}>- {invoiceSettings.default_currency || "LKR"} 10,000.00</span>
+                          </div>
+                          <div className="cs-inv-total-row grand" style={{ background: "#1e3a8a", color: "#ffffff", padding: "4px 8px", borderRadius: "4px", width: "100%", border: "none", marginTop: "3px" }}>
+                            <span style={{ fontSize: "8.5px", color: "#bfdbfe" }}>GRAND TOTAL</span>
+                            <span style={{ fontSize: "10.5px", fontWeight: 800 }}>{invoiceSettings.default_currency || "LKR"} 185,000.00</span>
+                          </div>
+                          <div className="cs-inv-total-row" style={{ marginTop: "4px", width: "100%", padding: "0 4px" }}>
+                            <span style={{ color: "#15803d", fontWeight: 600 }}>Paid Amount</span>
+                            <span style={{ color: "#15803d", fontWeight: 700 }}>- {invoiceSettings.default_currency || "LKR"} 50,000.00</span>
+                          </div>
+                          <div className="cs-inv-total-row" style={{ width: "100%", padding: "0 4px" }}>
+                            <span style={{ color: "#1e3a8a", fontWeight: 700 }}>Balance Due</span>
+                            <span style={{ color: "#b91c1c", fontWeight: 800 }}>{invoiceSettings.default_currency || "LKR"} 135,000.00</span>
                           </div>
                         </div>
 
@@ -2149,37 +2621,59 @@ export default function CompanySettings() {
                           </div>
                         )}
 
-                        {/* Footer Note Preview */}
-                        {invoiceSettings.pdf_footer_note && (
-                          <div className="cs-inv-footer-line">
-                            {invoiceSettings.pdf_footer_note}
+                        {/* Thank You Section Live Preview */}
+                        {(invoiceSettings.thank_you_title || invoiceSettings.thank_you_message) && (
+                          <div className="cs-pdf-thank-you-box">
+                            {invoiceSettings.thank_you_title && (
+                              <div className="cs-pdf-thank-you-title">
+                                {invoiceSettings.thank_you_title}
+                              </div>
+                            )}
+                            {invoiceSettings.thank_you_message && (
+                              <div className="cs-pdf-thank-you-msg">
+                                {invoiceSettings.thank_you_message}
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        {/* Authorized Signature preview */}
-                        <div className="cs-pdf-signature-preview-wrap" style={{ marginTop: "12px" }}>
+                        {/* Prepared By Section Live Preview */}
+                        {(invoiceSettings.prepared_by || invoiceSettings.prepared_by_services) && (
+                          <div className="cs-pdf-prepared-by-box">
+                            <div className="cs-pdf-prepared-label">Prepared by:</div>
+                            {invoiceSettings.prepared_by && (
+                              <div className="cs-pdf-prepared-company">
+                                {invoiceSettings.prepared_by}
+                              </div>
+                            )}
+                            {invoiceSettings.prepared_by_services && (
+                              <div className="cs-pdf-prepared-services">
+                                {invoiceSettings.prepared_by_services}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Left-Aligned Signature Block with CEO Name & Designation Live Preview */}
+                        <div className="cs-pdf-signature-preview" style={{ marginTop: "12px" }}>
+                          <div className="cs-pdf-sig-label">Authorized Signature</div>
                           {signatureUrl ? (
-                            <div className="cs-pdf-sig-box">
-                              <img
-                                src={signatureUrl}
-                                alt="Signature"
-                                className="cs-pdf-sig-img"
-                              />
-                              <div className="cs-pdf-sig-line" />
-                              <span className="cs-pdf-sig-label">Authorized Signature</span>
-                            </div>
+                            <img src={signatureUrl} alt="Signature" className="cs-pdf-sig-img" />
                           ) : (
-                            <div className="cs-pdf-sig-box placeholder">
-                              <div className="cs-pdf-sig-line" />
-                              <span className="cs-pdf-sig-label">Authorized Signature</span>
-                            </div>
+                            <div className="cs-pdf-sig-line" />
                           )}
+                          <div className="cs-pdf-sig-name">
+                            {invoiceSettings.ceo_name || "D M N K DISSANAYAKA"}
+                          </div>
+                          <div className="cs-pdf-sig-desig">
+                            {invoiceSettings.ceo_designation || "CEO (NetIT Technology)"}
+                          </div>
                         </div>
                       </div>
 
                       <div className="cs-preview-footnote">
                         <small>
-                          Live preview reflects your saved billing prefix, due dates, currency, and document layout.
+                          Live preview reflects your saved billing prefix, document titles, payment terms, and closing signature block.
                         </small>
                       </div>
                     </div>

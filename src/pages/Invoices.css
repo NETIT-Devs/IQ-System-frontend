@@ -1001,6 +1001,18 @@
   color: #34445d;
 }
 
+.inv-cust-phone {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 1px;
+  letter-spacing: 0.1px;
+}
+
 .inv-cust-company {
   max-width: 150px;
   overflow: hidden;
@@ -1103,6 +1115,12 @@
   background: #fffbeb;
   color: #b45309;
   border: 1px solid #fde68a;
+}
+
+.inv-badge.advanced {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1px solid #ddd6fe;
 }
 
 .inv-badge.pending-approval {
@@ -1431,6 +1449,20 @@
   color: #64748b;
   margin: 0 0 20px 0;
   line-height: 1.5;
+}
+
+.inv-modal-card.confirm-delete .inv-modal-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+}
+
+.inv-modal-card.confirm-delete .inv-modal-actions button {
+  min-width: 110px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .inv-modal-header {
@@ -1865,6 +1897,10 @@
   color: #f1f5f9;
 }
 
+[data-theme="dark"] .inv-cust-phone {
+  color: #94a3b8;
+}
+
 [data-theme="dark"] .inv-cust-company {
   color: #94a3b8;
 }
@@ -1918,6 +1954,12 @@
   background: rgba(245, 158, 11, 0.16);
   color: #fbbf24;
   border-color: rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .inv-badge.advanced {
+  background: rgba(139, 92, 246, 0.18);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.38);
 }
 
 [data-theme="dark"] .inv-badge.draft,

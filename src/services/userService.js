@@ -84,3 +84,25 @@ export async function deleteUserAccount(userId) {
   });
   return await handleResponse(response);
 }
+
+export async function transferUserAccount({
+  targetUserId,
+  sourceUserId,
+  password,
+  email,
+}) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/users/${targetUserId}/transfer-super-admin`,
+    {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        target_user_id: targetUserId,
+        source_user_id: sourceUserId,
+        password,
+        email,
+      }),
+    }
+  );
+  return await handleResponse(response);
+}

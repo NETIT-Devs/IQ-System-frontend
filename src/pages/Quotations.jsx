@@ -22,6 +22,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Phone,
 } from "lucide-react";
 import QuotationForm from "./QuotationForm";
 import QuotationDetails from "./QuotationDetails";
@@ -274,10 +275,13 @@ export default function Quotations() {
           ...q,
           id: q.quotation_number || "—",
           clientName: q.customer_name || "—",
+          clientPhone: q.phone || q.customer_phone || "",
           project: q.items?.[0]?.item_name || "—",
           issuedDate: resolveIssuedDate(q),
           validUntil: toLocalDateStr(q.valid_until),
           total: Number(q.total_amount ?? 0),
+          advance_price: Number(q.advance_price ?? q.advance_amount ?? 0),
+          advance_amount: Number(q.advance_price ?? q.advance_amount ?? 0),
           status: displayStatus,
           rejection_reason: q.rejection_reason || null,
         };
@@ -358,6 +362,9 @@ export default function Quotations() {
         [
           quotation.id,
           quotation.clientName,
+          quotation.clientPhone,
+          quotation.phone,
+          quotation.customer_phone,
           quotation.project,
           quotation.status,
           getCreatorRole(quotation),
@@ -454,8 +461,39 @@ export default function Quotations() {
   const [deleteError, setDeleteError] = useState("");
 
   // Open edit screen
-  function openEditModal(quotation) {
-    setSelectedQuotation(quotation);
+  async function openEditModal(quotation) {
+    let fullQuotation = quotation;
+    try {
+      const qId = quotation?.quotation_id || quotation?.id;
+      if (qId && typeof qId === "number") {
+        const fetched = await getQuotationById(qId);
+        if (fetched) {
+          fullQuotation = fetched;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch full quotation details for editing:", err);
+    }
+
+    try {
+      const rawAdvances = localStorage.getItem("iq_quotation_advances");
+      if (rawAdvances) {
+        const advMap = JSON.parse(rawAdvances);
+        const val = Number(
+          advMap[String(fullQuotation.quotation_id)] ??
+          advMap[String(fullQuotation.quotation_number)] ??
+          advMap[String(fullQuotation.id)] ??
+          0
+        );
+        if (val > 0 && !fullQuotation.advance_price) {
+          fullQuotation = { ...fullQuotation, advance_price: val, advance_amount: val };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    setSelectedQuotation(fullQuotation);
     setShowFormModal(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -527,17 +565,65 @@ export default function Quotations() {
   }
 
   // Duplicate quotation
-  function handleDuplicate(quotation) {
+  async function handleDuplicate(quotation) {
+    let fullQuotation = quotation;
+    try {
+      const qId = quotation?.quotation_id || quotation?.id;
+      if (qId && typeof qId === "number") {
+        const fetched = await getQuotationById(qId);
+        if (fetched) {
+          fullQuotation = fetched;
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch full quotation details for duplicate:", err);
+    }
+
+    let advancePrice = fullQuotation.advance_price;
+    try {
+      const rawAdvances = localStorage.getItem("iq_quotation_advances");
+      if (rawAdvances) {
+        const advMap = JSON.parse(rawAdvances);
+        const val = Number(
+          advMap[String(fullQuotation.quotation_id)] ??
+          advMap[String(fullQuotation.quotation_number)] ??
+          advMap[String(fullQuotation.id)] ??
+          0
+        );
+        if (val > 0 && !advancePrice) {
+          advancePrice = val;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    const nextNum = getNextQuotationNumber(quotations);
+
     const duplicated = {
-      ...quotation,
+      ...fullQuotation,
       quotation_id: undefined,
-      quotation_number: getNextQuotationNumber(quotations),
+      id: undefined,
+      customer_id: undefined, // Clear existing customer_id so duplicate never overwrites the original customer
+      quotation_number: nextNum,
       status: "Draft",
+      approval_status: "Not Required",
+      customer_status: "Not Sent",
       quotation_date: new Date().toISOString().slice(0, 10),
+      advance_price: advancePrice || "",
+      advance_amount: advancePrice || "",
+      isDuplicate: true,
+      items: (fullQuotation.items || []).map((it) => ({
+        ...it,
+        quotation_item_id: undefined,
+        quotation_id: undefined,
+      })),
     };
 
+    setNewQuotationNumber(nextNum);
     setSelectedQuotation(duplicated);
     setShowFormModal(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // Open in-app delete confirmation modal (no native browser confirm)
@@ -613,7 +699,60 @@ export default function Quotations() {
         openSidebar={openSidebar}
         initialData={selectedQuotation}
         quotationNumber={newQuotationNumber}
-        onSave={async () => {
+        onSave={async (savedQuotation) => {
+          if (savedQuotation) {
+            setQuotations((prev) => {
+              const existingIndex = prev.findIndex((q) =>
+                (savedQuotation.quotation_id && (q.quotation_id === savedQuotation.quotation_id || q.id === savedQuotation.quotation_id)) ||
+                (savedQuotation.quotation_number && (q.quotation_number === savedQuotation.quotation_number || q.id === savedQuotation.quotation_number))
+              );
+
+              const updatedClientName = savedQuotation.customer_name || savedQuotation.clientName || "—";
+              const updatedClientPhone = savedQuotation.phone || savedQuotation.clientPhone || savedQuotation.customer_phone || "";
+
+              if (existingIndex >= 0) {
+                // Update existing row
+                const updated = [...prev];
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  ...savedQuotation,
+                  clientName: updatedClientName,
+                  customer_name: updatedClientName,
+                  clientPhone: updatedClientPhone,
+                  phone: updatedClientPhone,
+                  customer_phone: updatedClientPhone,
+                  project: savedQuotation.items?.[0]?.item_name || updated[existingIndex].project,
+                  total: Number(savedQuotation.total_amount ?? savedQuotation.total ?? updated[existingIndex].total),
+                  total_amount: Number(savedQuotation.total_amount ?? savedQuotation.total ?? updated[existingIndex].total_amount),
+                  advance_price: Number(savedQuotation.advance_price ?? updated[existingIndex].advance_price ?? 0),
+                };
+                return updated;
+              } else {
+                // Brand new quotation row (from Duplicate or Create)!
+                // All existing rows remain completely unchanged.
+                const newRow = {
+                  ...savedQuotation,
+                  id: savedQuotation.quotation_number || savedQuotation.id || "—",
+                  quotation_id: savedQuotation.quotation_id,
+                  quotation_number: savedQuotation.quotation_number,
+                  clientName: updatedClientName,
+                  customer_name: updatedClientName,
+                  clientPhone: updatedClientPhone,
+                  phone: updatedClientPhone,
+                  customer_phone: updatedClientPhone,
+                  project: savedQuotation.items?.[0]?.item_name || "—",
+                  issuedDate: savedQuotation.quotation_date || new Date().toISOString().slice(0, 10),
+                  validUntil: savedQuotation.valid_until || "",
+                  total: Number(savedQuotation.total_amount ?? savedQuotation.total ?? 0),
+                  total_amount: Number(savedQuotation.total_amount ?? savedQuotation.total ?? 0),
+                  status: savedQuotation.status || "Draft",
+                  customer_status: savedQuotation.customer_status || "Not Sent",
+                  advance_price: Number(savedQuotation.advance_price ?? 0),
+                };
+                return [newRow, ...prev];
+              }
+            });
+          }
           setShowFormModal(false);
           setSelectedQuotation(null);
           await loadQuotations();
@@ -713,7 +852,7 @@ export default function Quotations() {
 
                 <input
                   type="search"
-                  placeholder="Search ID, client or project..."
+                  placeholder="Search ID, client, phone, or project..."
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                 />
@@ -985,7 +1124,7 @@ export default function Quotations() {
                 <thead>
                   <tr>
                     <th>QUOTATION ID</th>
-                    <th>CLIENT</th>
+                    <th className="client-column">CLIENT</th>
                     <th>PROJECT</th>
                     <th>CREATED BY</th>
                     <th className="amount-column">TOTAL</th>
@@ -1026,20 +1165,54 @@ export default function Quotations() {
                           </div>
                         </td>
 
-                        <td>
-                          <div
-                            className="quotation-client"
-                            style={{ cursor: "pointer" }}
-                            onClick={() => openDetailsModal(quotation)}
-                          >
-                            <div className="client-avatar">
-                              {quotation.clientName
-                                .charAt(0)
-                                .toUpperCase()}
-                            </div>
+                        <td className="client-column">
+                          {(() => {
+                            const rawName = String(quotation.customer_name || quotation.clientName || "").trim();
+                            const rawPhone = String(quotation.clientPhone || quotation.phone || quotation.customer_phone || "").trim();
+                            const cleanName = (rawName && rawName !== "—" && rawName.toLowerCase() !== "not specified") ? rawName : "";
+                            const hasPhone = Boolean(rawPhone);
+                            const hasRealName = Boolean(cleanName && cleanName !== rawPhone);
 
-                            <span>{quotation.clientName}</span>
-                          </div>
+                            let primaryText = "—";
+                            let secondaryText = null;
+                            let avatarContent = "?";
+
+                            if (hasRealName && hasPhone) {
+                              // Both Name and Phone entered: show Name on top, Phone below
+                              primaryText = cleanName;
+                              secondaryText = rawPhone;
+                              avatarContent = cleanName.charAt(0).toUpperCase();
+                            } else if (hasPhone && !hasRealName) {
+                              // Only Phone number entered: show Phone number only
+                              primaryText = rawPhone;
+                              secondaryText = null;
+                              avatarContent = <Phone size={13} />;
+                            } else if (hasRealName && !hasPhone) {
+                              // Only Name entered: show Name only
+                              primaryText = cleanName;
+                              secondaryText = null;
+                              avatarContent = cleanName.charAt(0).toUpperCase();
+                            }
+
+                            return (
+                              <div
+                                className="quotation-client"
+                                style={{ cursor: "pointer" }}
+                                onClick={() => openDetailsModal(quotation)}
+                              >
+                                <div className="client-avatar">
+                                  {avatarContent}
+                                </div>
+
+                                <div className="quotation-client-meta">
+                                  <span className="quotation-client-name" title={primaryText}>{primaryText}</span>
+                                  {secondaryText && (
+                                    <span className="quotation-client-phone" title={secondaryText}>{secondaryText}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         <td>
@@ -1071,7 +1244,15 @@ export default function Quotations() {
                         </td>
 
                         <td className="amount-column quotation-amount">
-                          {formatCurrency(quotation.total, quotation.currency)}
+                          <div className="quotation-total-cell">
+                            <span className="quotation-total-currency">{quotation.currency || "LKR"}</span>
+                            <span className="quotation-total-value">
+                              {new Intl.NumberFormat("en-LK", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }).format(Number(quotation.total) || 0)}
+                            </span>
+                          </div>
                         </td>
 
                         <td>
@@ -1288,9 +1469,7 @@ export default function Quotations() {
           }}
           onEdit={(q) => {
             setShowDetailsModal(false);
-            setSelectedQuotation(q);
-            setShowFormModal(true);
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            openEditModal(q);
           }}
         />
       )}

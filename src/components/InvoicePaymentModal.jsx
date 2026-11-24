@@ -39,6 +39,12 @@ const PAYMENT_METHOD_OPTIONS = [
   { value: "Other", label: "Other", icon: Wallet, tone: "slate" },
 ];
 
+const SETTLEMENT_TYPE_OPTIONS = [
+  { value: "Advanced", label: "Advanced", icon: Wallet, tone: "purple" },
+  { value: "Partial", label: "Partial", icon: Clock3, tone: "amber" },
+  { value: "Paid", label: "Paid", icon: CheckCircle2, tone: "green" },
+];
+
 function formatCurrency(amount, currency = "LKR") {
   const code = /^[A-Z]{3}$/.test(String(currency || "")) ? currency : "LKR";
   return `${code} ${(Number(amount) || 0).toLocaleString("en-LK", {
@@ -104,6 +110,9 @@ export default function InvoicePaymentModal({
   const [paymentMethod, setPaymentMethod] = useState("Bank Transfer");
   const [methodMenuOpen, setMethodMenuOpen] = useState(false);
   const methodMenuRef = useRef(null);
+  const [paymentType, setPaymentType] = useState("Advanced");
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const typeMenuRef = useRef(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(
     new Date().toISOString().slice(0, 10)
@@ -139,15 +148,18 @@ export default function InvoicePaymentModal({
   }, []);
 
   useEffect(() => {
-    if (!methodMenuOpen) return;
+    if (!methodMenuOpen && !typeMenuOpen) return;
     function handleOutside(e) {
       if (methodMenuRef.current && !methodMenuRef.current.contains(e.target)) {
         setMethodMenuOpen(false);
       }
+      if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) {
+        setTypeMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
-  }, [methodMenuOpen]);
+  }, [methodMenuOpen, typeMenuOpen]);
 
   useEffect(() => {
     if (!isOpen || !invoice?.invoice_id) return;
@@ -331,6 +343,7 @@ export default function InvoicePaymentModal({
       fd.append("payment_date", paymentDate);
       fd.append("amount", String(Number(numericAmount.toFixed(2))));
       fd.append("payment_method", paymentMethod);
+      fd.append("payment_type", paymentType);
       fd.append("reference_number", referenceNumber.trim());
       fd.append("description", description.trim());
       if (slipFile) {
@@ -554,70 +567,160 @@ export default function InvoicePaymentModal({
                 <span>Add Payment Settlement</span>
               </div>
 
-              {/* Payment Method Modern Dropdown */}
-              <div className="ipm-field">
-                <label className="ipm-label">Payment Method</label>
-                <div className="ipm-dropdown-wrap" ref={methodMenuRef}>
-                  {(() => {
-                    const currentOpt =
-                      PAYMENT_METHOD_OPTIONS.find(
-                        (o) => o.value === paymentMethod
-                      ) || PAYMENT_METHOD_OPTIONS[0];
-                    const CurrentIcon = currentOpt.icon;
-                    return (
-                      <button
-                        type="button"
-                        className={`ipm-dropdown-btn ${
-                          methodMenuOpen ? "open" : ""
-                        }`}
-                        onClick={() => setMethodMenuOpen((prev) => !prev)}
-                        aria-expanded={methodMenuOpen}
-                        aria-haspopup="listbox"
-                      >
-                        <span className="ipm-dropdown-btn-left">
-                          <CurrentIcon size={13} />
-                          <span>{currentOpt.label}</span>
-                        </span>
-                        <ChevronDown
-                          size={14}
-                          className={`ipm-dropdown-chevron ${
+              {/* Payment Method & Settlement Type Side-by-Side */}
+              <div className="ipm-grid-2">
+                <div className="ipm-field">
+                  <label className="ipm-label">Payment Method</label>
+                  <div className="ipm-dropdown-wrap" ref={methodMenuRef}>
+                    {(() => {
+                      const currentOpt =
+                        PAYMENT_METHOD_OPTIONS.find(
+                          (o) => o.value === paymentMethod
+                        ) || PAYMENT_METHOD_OPTIONS[0];
+                      const CurrentIcon = currentOpt.icon;
+                      return (
+                        <button
+                          type="button"
+                          className={`ipm-dropdown-btn ${
                             methodMenuOpen ? "open" : ""
                           }`}
-                        />
-                      </button>
-                    );
-                  })()}
+                          onClick={() => {
+                            setMethodMenuOpen((prev) => !prev);
+                            setTypeMenuOpen(false);
+                          }}
+                          aria-expanded={methodMenuOpen}
+                          aria-haspopup="listbox"
+                        >
+                          <span className="ipm-dropdown-btn-left">
+                            <span className={`ipm-icon-badge ${currentOpt.tone || "blue"}`}>
+                              <CurrentIcon size={12} />
+                            </span>
+                            <span className="ipm-dropdown-text">{currentOpt.label}</span>
+                          </span>
+                          <ChevronDown
+                            size={14}
+                            className={`ipm-dropdown-chevron ${
+                              methodMenuOpen ? "open" : ""
+                            }`}
+                          />
+                        </button>
+                      );
+                    })()}
 
-                  {methodMenuOpen && (
-                    <div className="ipm-dropdown-menu" role="listbox">
-                      {PAYMENT_METHOD_OPTIONS.map(
-                        ({ value, label, icon: Icon }) => {
-                          const isSelected = paymentMethod === value;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              className={`ipm-dropdown-item ${
-                                isSelected ? "selected" : ""
-                              }`}
-                              onClick={() => {
-                                setPaymentMethod(value);
-                                setMethodMenuOpen(false);
-                              }}
-                            >
-                              <span className="ipm-dropdown-item-left">
-                                <Icon size={13} />
-                                <span>{label}</span>
-                              </span>
-                              {isSelected && (
-                                <Check size={13} className="ipm-dropdown-check" />
-                              )}
-                            </button>
-                          );
-                        }
-                      )}
-                    </div>
-                  )}
+                    {methodMenuOpen && (
+                      <div className="ipm-dropdown-menu" role="listbox">
+                        {PAYMENT_METHOD_OPTIONS.map(
+                          ({ value, label, icon: Icon, tone }) => {
+                            const isSelected = paymentMethod === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                className={`ipm-dropdown-item ${
+                                  isSelected ? "selected" : ""
+                                }`}
+                                onClick={() => {
+                                  setPaymentMethod(value);
+                                  setMethodMenuOpen(false);
+                                }}
+                              >
+                                <span className="ipm-dropdown-item-left">
+                                  <span className={`ipm-icon-badge ${tone || "blue"}`}>
+                                    <Icon size={12} />
+                                  </span>
+                                  <span className="ipm-item-text">{label}</span>
+                                </span>
+                                {isSelected && (
+                                  <Check size={13} className="ipm-dropdown-check" />
+                                )}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ipm-field">
+                  <label className="ipm-label">Payment Type</label>
+                  <div className="ipm-dropdown-wrap" ref={typeMenuRef}>
+                    {(() => {
+                      const currentOpt =
+                        SETTLEMENT_TYPE_OPTIONS.find(
+                          (o) => o.value === paymentType
+                        ) || SETTLEMENT_TYPE_OPTIONS[0];
+                      const CurrentIcon = currentOpt.icon;
+                      return (
+                        <button
+                          type="button"
+                          className={`ipm-dropdown-btn ${
+                            typeMenuOpen ? "open" : ""
+                          }`}
+                          onClick={() => {
+                            setTypeMenuOpen((prev) => !prev);
+                            setMethodMenuOpen(false);
+                          }}
+                          aria-expanded={typeMenuOpen}
+                          aria-haspopup="listbox"
+                        >
+                          <span className="ipm-dropdown-btn-left">
+                            <span className={`ipm-icon-badge ${currentOpt.tone || "purple"}`}>
+                              <CurrentIcon size={12} />
+                            </span>
+                            <span className="ipm-dropdown-text">{currentOpt.label}</span>
+                          </span>
+                          <ChevronDown
+                            size={14}
+                            className={`ipm-dropdown-chevron ${
+                              typeMenuOpen ? "open" : ""
+                            }`}
+                          />
+                        </button>
+                      );
+                    })()}
+
+                    {typeMenuOpen && (
+                      <div className="ipm-dropdown-menu" role="listbox">
+                        {SETTLEMENT_TYPE_OPTIONS.map(
+                          ({ value, label, icon: Icon, tone }) => {
+                            const isSelected = paymentType === value;
+                            return (
+                              <button
+                                key={value}
+                                type="button"
+                                className={`ipm-dropdown-item ${
+                                  isSelected ? "selected" : ""
+                                }`}
+                                onClick={() => {
+                                  setPaymentType(value);
+                                  setTypeMenuOpen(false);
+                                  if (
+                                    value === "Paid" &&
+                                    (!paymentAmount || Number(paymentAmount) <= 0)
+                                  ) {
+                                    setPaymentAmount(
+                                      String(metrics.balanceRemaining.toFixed(2))
+                                    );
+                                  }
+                                }}
+                              >
+                                <span className="ipm-dropdown-item-left">
+                                  <span className={`ipm-icon-badge ${tone || "purple"}`}>
+                                    <Icon size={12} />
+                                  </span>
+                                  <span className="ipm-item-text">{label}</span>
+                                </span>
+                                {isSelected && (
+                                  <Check size={13} className="ipm-dropdown-check" />
+                                )}
+                              </button>
+                            );
+                          }
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

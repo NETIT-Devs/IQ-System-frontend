@@ -56,7 +56,7 @@ export default function Login() {
                 );
             }
 
-            // Allow access only to authorized administrative roles.
+            // Allow access to authorized roles.
             const role = String(user.role || "")
                 .trim()
                 .toLowerCase();
@@ -85,7 +85,7 @@ export default function Login() {
         } catch (err) {
             setError(
                 err.message ||
-                    "Unable to sign in. Please check your email and password."
+                "Unable to sign in. Please check your email and password."
             );
         } finally {
             setLoading(false);

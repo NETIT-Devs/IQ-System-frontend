@@ -131,6 +131,97 @@ function parseDueDateToIso(val) {
   return iso;
 }
 
+function normalizePhoneNumber(phone) {
+  if (!phone) return "";
+  return String(phone).replace(/\D/g, "");
+}
+
+function isPhoneMatch(phone1, phone2) {
+  const p1 = String(phone1 || "").trim();
+  const p2 = String(phone2 || "").trim();
+  if (!p1 || !p2) return false;
+  if (p1.toLowerCase() === p2.toLowerCase()) return true;
+
+  const d1 = normalizePhoneNumber(p1);
+  const d2 = normalizePhoneNumber(p2);
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+
+  if (d1.endsWith(d2) || d2.endsWith(d1)) return true;
+
+  const minLen = Math.min(d1.length, d2.length);
+  if (minLen >= 3 && (d1.startsWith(d2) || d2.startsWith(d1))) {
+    return true;
+  }
+
+  if (minLen >= 4) {
+    if (minLen >= 9 && d1.slice(-9) === d2.slice(-9)) return true;
+    if (minLen >= 7 && d1.slice(-7) === d2.slice(-7)) return true;
+  }
+
+  return false;
+}
+
+function extractQuotationAdvancePrice(q) {
+  if (!q) return 0;
+  // 1. Direct advance fields on quotation object
+  const direct = Number(
+    q.advance_price ??
+    q.advance_amount ??
+    q.advancePrice ??
+    q.advanceAmount ??
+    0
+  );
+  if (Number.isFinite(direct) && direct > 0) return direct;
+
+  // 2. Check local storage records (iq_quotation_advances or iq_quotations)
+  try {
+    const rawAdvances = localStorage.getItem("iq_quotation_advances");
+    if (rawAdvances) {
+      const advMap = JSON.parse(rawAdvances);
+      const val = Number(
+        advMap[String(q.quotation_id)] ??
+        advMap[String(q.quotation_number)] ??
+        0
+      );
+      if (Number.isFinite(val) && val > 0) return val;
+    }
+    const rawQuotations = localStorage.getItem("iq_quotations");
+    if (rawQuotations) {
+      const qList = JSON.parse(rawQuotations);
+      const found = qList.find(
+        (item) =>
+          String(item.quotation_id) === String(q.quotation_id) ||
+          String(item.quotation_number) === String(q.quotation_number)
+      );
+      if (found) {
+        const foundVal = Number(found.advance_price ?? found.advance_amount ?? 0);
+        if (Number.isFinite(foundVal) && foundVal > 0) return foundVal;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. Check payments associated with quotation
+  if (Array.isArray(q.payments) && q.payments.length > 0) {
+    const pSum = q.payments
+      .filter((p) => String(p.status || "").toLowerCase() !== "rejected")
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    if (pSum > 0) return pSum;
+  }
+
+  // 4. Check notes / terms / description for advance payment
+  const texts = [q.notes, q.terms_and_conditions].filter(Boolean).join(" ");
+  const match = texts.match(/advance(?:\s+payment)?(?:\s*price)?(?:\s*[:=-])?\s*(?:[A-Z]{3}\s*)?([0-9,]+(?:\.[0-9]{1,2})?)/i);
+  if (match && match[1]) {
+    const v = Number(match[1].replace(/,/g, ""));
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+
+  return 0;
+}
+
 export default function InvoiceForm({
   initialData,
   invoiceToEdit,
@@ -242,7 +333,14 @@ export default function InvoiceForm({
       const name = (c.customer_name || "").toLowerCase();
       const email = (c.email || "").toLowerCase();
       const company = (c.company_name || "").toLowerCase();
-      return name.includes(q) || email.includes(q) || company.includes(q);
+      const phone = (c.phone || "").toLowerCase();
+      return (
+        name.includes(q) ||
+        email.includes(q) ||
+        company.includes(q) ||
+        phone.includes(q) ||
+        isPhoneMatch(c.phone, q)
+      );
     });
   }, [customersList, customerSearchQuery, selectedCustomerId]);
 
@@ -305,17 +403,33 @@ export default function InvoiceForm({
   });
 
   // Payment details
-  const [paymentMethod, setPaymentMethod] = useState("Bank Transfer");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentSlipFile, setPaymentSlipFile] = useState(null);
-  const paymentSlipInputRef = useRef(null);
+  const [paymentMethod, setPaymentMethod] = useState(data?.payment_method || "Bank Transfer");
 
   // Notes & terms
-  const [notes, setNotes] = useState(
-    data?.notes ||
-    savedInvSettings?.default_notes ||
-    "Please deposit payments into our registered commercial account and email payment slips to accounts@company.lk."
-  );
+  const [notes, setNotes] = useState(() => {
+    if (data?.notes) {
+      const trimmed = String(data.notes).trim();
+      if (
+        !trimmed.toLowerCase().includes("please deposit payments into our registered commercial") &&
+        !trimmed.toLowerCase().includes("accounts@company.lk")
+      ) {
+        return trimmed;
+      }
+    }
+    if (savedInvSettings?.default_notes) {
+      return savedInvSettings.default_notes;
+    }
+    try {
+      const rawBrand = localStorage.getItem("company_branding");
+      if (rawBrand) {
+        const brand = JSON.parse(rawBrand);
+        if (brand?.bank_name) {
+          return `Please remit payment via bank transfer to ${brand.bank_name} (A/C: ${brand.bank_account_number || "—"}, Beneficiary: ${brand.bank_account_name || brand.company_name || "—"}). Reference the invoice number on your payment slip.`;
+        }
+      }
+    } catch {}
+    return "";
+  });
   const [terms, setTerms] = useState(
     data?.terms_and_conditions ||
     savedInvSettings?.default_terms ||
@@ -341,8 +455,46 @@ export default function InvoiceForm({
         ]);
         const normalizedInvoices = Array.isArray(invList) ? invList : [];
         setInvoicesList(normalizedInvoices);
-        setQuotationsList(Array.isArray(qList) ? qList : []);
-        if (compDetails) setCompanyDetails(compDetails);
+        let normalizedQuotations = Array.isArray(qList) ? [...qList] : [];
+        try {
+          const localRaw = localStorage.getItem("iq_quotations");
+          if (localRaw) {
+            const localQ = JSON.parse(localRaw);
+            if (Array.isArray(localQ)) {
+              const existingIds = new Set(
+                normalizedQuotations.map((q) => String(q.quotation_id || q.id))
+              );
+              localQ.forEach((lq) => {
+                if (
+                  lq &&
+                  (lq.quotation_id || lq.id) &&
+                  !existingIds.has(String(lq.quotation_id || lq.id))
+                ) {
+                  normalizedQuotations.push(lq);
+                }
+              });
+            }
+          }
+        } catch {
+          // ignore
+        }
+        setQuotationsList(normalizedQuotations);
+        if (compDetails) {
+          setCompanyDetails(compDetails);
+          setNotes((prevNotes) => {
+            const trimmed = String(prevNotes || "").trim();
+            if (
+              !trimmed ||
+              trimmed.toLowerCase().includes("please deposit payments into our registered commercial") ||
+              trimmed.toLowerCase().includes("accounts@company.lk")
+            ) {
+              if (compDetails.bank_name) {
+                return `Please remit payment via bank transfer to ${compDetails.bank_name} (A/C: ${compDetails.bank_account_number || "—"}, Beneficiary: ${compDetails.bank_account_name || compDetails.company_name || "—"}). Reference the invoice number on your payment slip.`;
+              }
+            }
+            return prevNotes;
+          });
+        }
 
         // Build combined customers list so all customers with quotations or invoices in the system appear
         const customerMap = new Map();
@@ -423,6 +575,7 @@ export default function InvoiceForm({
       if (!isEditing) {
         isManualInvoiceNumber.current = false;
         setInvoiceNumber(getNextInvoiceNumber(invoicesList, invoiceDate, defaultPrefix));
+        setPaymentAmount("");
       }
       return;
     }
@@ -451,18 +604,23 @@ export default function InvoiceForm({
       if (foundQ.notes) setNotes(foundQ.notes);
       if (foundQ.terms_and_conditions) setTerms(foundQ.terms_and_conditions);
 
-      // Auto-populate items from quotation
+      // Auto-populate items from quotation according to Quotation structure
       if (Array.isArray(foundQ.items) && foundQ.items.length > 0) {
         setItems(
-          foundQ.items.map((it) => ({
-            id: Math.random(),
-            item_name: it.item_name || "",
-            description: it.description || "",
-            price: Number(it.Price ?? it.unit_price ?? it.price ?? 0),
-            tax_rate: Number(it.tax_rate ?? 0),
-          }))
+          foundQ.items.map((it) => {
+            const unitPrice = Number(it.Price ?? it.unit_price ?? it.price ?? 0);
+            return {
+              id: Math.random(),
+              item_name: it.item_name || it.service_name || it.name || "",
+              description: it.description || "",
+              price: unitPrice > 0 ? unitPrice : "",
+              tax_rate: Number(it.tax_rate ?? 0),
+            };
+          })
         );
       }
+
+
     }
   }
 
@@ -580,26 +738,17 @@ export default function InvoiceForm({
   }, [items, selectedQuotationObj, data]);
 
   const existingPaid = Number(data?.amount_paid) || 0;
-  const rawPaymentNum = Number(paymentAmount);
-  const validPaymentAmount =
-    Number.isFinite(rawPaymentNum) && rawPaymentNum > 0
-      ? Number(rawPaymentNum.toFixed(2))
-      : 0;
-  const maxPayableAmount = Math.max(
-    0,
-    Number((totalAmount - existingPaid).toFixed(2))
-  );
-  const paymentExceedsBalance = validPaymentAmount > maxPayableAmount + 0.0001;
   const totalPaidPreview = Number(
-    (existingPaid + Math.min(validPaymentAmount, maxPayableAmount)).toFixed(2)
+    Math.min(existingPaid, totalAmount).toFixed(2)
   );
   const remainingBalance = Math.max(
     0,
     Number((totalAmount - totalPaidPreview).toFixed(2))
   );
+
   const paymentPreviewStatus =
     totalAmount > 0 && remainingBalance <= 0
-      ? "Full Paid"
+      ? "Paid"
       : totalPaidPreview > 0
         ? "Partial"
         : "Unpaid";
@@ -612,17 +761,15 @@ export default function InvoiceForm({
     const trimmedNumber = invoiceNumber.trim();
     const trimmedCust = customerName.trim();
     const trimmedEmail = (email || "").trim();
+    const trimmedPhone = (phone || "").trim();
     const isoDueDate = parseDueDateToIso(dueDate);
 
-    if (!trimmedCust) {
-      errors.customerName = true;
-      if (!firstErrorMsg) firstErrorMsg = "Customer name is required.";
+    if (!trimmedPhone) {
+      errors.phone = true;
+      if (!firstErrorMsg) firstErrorMsg = "Phone number is required.";
     }
 
-    if (!trimmedEmail) {
-      errors.email = true;
-      if (!firstErrorMsg) firstErrorMsg = "Email address is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       errors.email = true;
       if (!firstErrorMsg) firstErrorMsg = "Please enter a valid email address.";
     }
@@ -665,21 +812,7 @@ export default function InvoiceForm({
       }
     }
 
-    if (!isDownload) {
-      if (
-        paymentAmount !== "" &&
-        (!Number.isFinite(Number(paymentAmount)) || Number(paymentAmount) < 0)
-      ) {
-        if (!firstErrorMsg) firstErrorMsg = "Please enter a valid payment amount.";
-      } else if (paymentExceedsBalance) {
-        if (!firstErrorMsg) {
-          firstErrorMsg = `Payment amount cannot exceed remaining balance (${currency} ${maxPayableAmount.toLocaleString(
-            "en-LK",
-            { minimumFractionDigits: 2 }
-          )}).`;
-        }
-      }
-    }
+
 
     setFieldErrors(errors);
 
@@ -703,18 +836,6 @@ export default function InvoiceForm({
       return;
     }
 
-    if (validPaymentAmount > 0 && saveStatus === "Draft") {
-      setErrorMessage(
-        "Immediate payment cannot be saved with a Draft invoice. Clear the payment amount to save as Draft."
-      );
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      const modalBody = document.querySelector(".inv-modal-body");
-      if (modalBody) {
-        modalBody.scrollTo({ top: 0, behavior: "smooth" });
-      }
-      return;
-    }
-
     const hasQuotation = Boolean(selectedQuotationId);
     const trimmedNumber = invoiceNumber.trim();
     const trimmedCust = customerName.trim();
@@ -725,9 +846,11 @@ export default function InvoiceForm({
       setSaving(true);
 
       const resolvedStatus =
-        saveStatus ||
-        data?.status ||
-        (isSuperAdmin ? "Unpaid" : "Pending Approval");
+        saveStatus === "Draft"
+          ? "Draft"
+          : saveStatus === "Pending Approval"
+            ? "Pending Approval"
+            : data?.status || (isSuperAdmin ? "Unpaid" : "Pending Approval");
 
       const resolvedApprovalStatus =
         resolvedStatus === "Pending Approval"
@@ -739,30 +862,63 @@ export default function InvoiceForm({
               : "Approved";
 
       let effectiveCustId = selectedCustomerId ? Number(selectedCustomerId) : null;
+      const emailTrim = (email || "").trim().toLowerCase();
+      const phoneTrim = (phone || "").trim();
+      const valTrim = trimmedCust.toLowerCase();
+
+      // Auto-identify customer by email, phone, or name if not explicitly selected
       if (!effectiveCustId) {
-        const valTrim = trimmedCust.toLowerCase();
-        const emailTrim = email.trim().toLowerCase();
-        const found = customersList.find((c) => {
-          const cName = (c.customer_name || "").trim().toLowerCase();
-          const cEmail = (c.email || "").trim().toLowerCase();
-          if (valTrim && emailTrim) {
-            return cName === valTrim && cEmail === emailTrim;
-          }
-          if (valTrim && !emailTrim) {
-            return cName === valTrim && !cEmail;
-          }
-          return false;
-        });
+        let found = null;
+        if (emailTrim) {
+          found = customersList.find((c) => (c.email || "").trim().toLowerCase() === emailTrim);
+        }
+        if (!found && phoneTrim) {
+          found = customersList.find((c) => isPhoneMatch(c.phone, phoneTrim));
+        }
+        if (!found && valTrim) {
+          found = customersList.find((c) => (c.customer_name || "").trim().toLowerCase() === valTrim);
+        }
         if (found && found.customer_id) {
           effectiveCustId = Number(found.customer_id);
         }
       }
 
+      // Update customer row details in local storage so Customers page reflects changes immediately
+      if (effectiveCustId) {
+        try {
+          const rawEdits = localStorage.getItem("iq_customer_edits_v1");
+          const curEdits = rawEdits ? JSON.parse(rawEdits) : {};
+          const prevCust = customersList.find((c) => Number(c.customer_id) === Number(effectiveCustId)) || {};
+          const prevEdit = curEdits[effectiveCustId] || {};
+          const updatedRecord = {
+            customer_name: trimmedCust || prevEdit.customer_name || prevCust.customer_name || phoneTrim || emailTrim || "Customer",
+            company_name: companyName.trim() || prevEdit.company_name || prevCust.company_name || "",
+            email: email.trim() || prevEdit.email || prevCust.email || "",
+            phone: phoneTrim || prevEdit.phone || prevCust.phone || "",
+            address: address.trim() || prevEdit.address || prevCust.address || "",
+            city: prevEdit.city || prevCust.city || "",
+            notes: prevEdit.notes || prevCust.notes || "",
+            status: prevEdit.status || prevCust.status || "Active",
+          };
+          curEdits[effectiveCustId] = updatedRecord;
+          localStorage.setItem("iq_customer_edits_v1", JSON.stringify(curEdits));
+        } catch {
+          // ignore
+        }
+      }
+
+      const resolvedCustName =
+        trimmedCust ||
+        (effectiveCustId ? customersList.find((c) => Number(c.customer_id) === Number(effectiveCustId))?.customer_name : "") ||
+        phoneTrim ||
+        email.trim() ||
+        "Client";
+
       const payload = {
         invoice_number: trimmedNumber,
         quotation_id: selectedQuotationId ? Number(selectedQuotationId) : null,
         customer_id: effectiveCustId,
-        customer_name: trimmedCust,
+        customer_name: resolvedCustName,
         company_name: companyName.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
@@ -778,14 +934,17 @@ export default function InvoiceForm({
         discount_amount: discountAmount,
         tax_amount: taxAmount,
         total_amount: totalAmount,
-        amount_paid: Number(data?.amount_paid) || 0,
-        balance_due: Math.max(0, totalAmount - (Number(data?.amount_paid) || 0)),
+        advance_price: 0,
+        advance_amount: 0,
+        amount_paid: totalPaidPreview,
+        balance_due: remainingBalance,
         notes: notes.trim(),
         terms_and_conditions: terms.trim(),
         items: validItems.map((it) => ({
           item_name: it.item_name.trim(),
           description: it.description?.trim() || "",
           price: Number(it.price) || 0,
+          unit_price: Number(it.price) || 0,
           tax_rate: Number(it.tax_rate) || 0,
           line_total: Number(
             (
@@ -811,26 +970,7 @@ export default function InvoiceForm({
         data?.status ||
         (isSuperAdmin ? "Unpaid" : "Pending Approval");
 
-      if (
-        validPaymentAmount > 0 &&
-        savedInvoice?.invoice_id &&
-        !["Draft", "Pending Approval", "Rejected", "Cancelled"].includes(
-          finalStatus
-        )
-      ) {
-        const fd = new FormData();
-        fd.append("invoice_id", String(savedInvoice.invoice_id));
-        fd.append(
-          "payment_date",
-          invoiceDate || new Date().toISOString().slice(0, 10)
-        );
-        fd.append("amount", String(validPaymentAmount));
-        fd.append("payment_method", paymentMethod);
-        if (paymentSlipFile) {
-          fd.append("payment_slip", paymentSlipFile);
-        }
-        await createPayment(fd);
-      }
+
 
       if (finalStatus === "Pending Approval") {
         const invNum =
@@ -885,10 +1025,13 @@ export default function InvoiceForm({
     try {
       setDownloadingPdf(true);
       let activeCompany = companyDetails;
-      if (!activeCompany) {
-        activeCompany = await getCompanyDetails().catch(() => ({}));
-        if (activeCompany) setCompanyDetails(activeCompany);
-      }
+      try {
+        const freshCompany = await getCompanyDetails().catch(() => null);
+        if (freshCompany) {
+          activeCompany = freshCompany;
+          setCompanyDetails(freshCompany);
+        }
+      } catch {}
 
       const matchedQuotation = selectedQuotationId
         ? quotationsList.find(
@@ -906,7 +1049,7 @@ export default function InvoiceForm({
         currency,
         quotation_number:
           matchedQuotation?.quotation_number || data?.quotation_number || "",
-        customer_name: trimmedCust,
+        customer_name: trimmedCust || phone.trim() || email.trim() || "Client",
         company_name: companyName.trim(),
         email: email.trim(),
         phone: phone.trim(),
@@ -915,6 +1058,7 @@ export default function InvoiceForm({
           item_name: it.item_name.trim(),
           description: it.description?.trim() || "",
           price: Number(it.price) || 0,
+          unit_price: Number(it.price) || 0,
           tax_rate: Number(it.tax_rate) || 0,
           line_total: Number(
             (
@@ -927,6 +1071,8 @@ export default function InvoiceForm({
         tax_amount: taxAmount,
         discount_amount: discountAmount,
         total_amount: totalAmount,
+        advance_price: 0,
+        advance_amount: 0,
         amount_paid: totalPaidPreview,
         balance_due: remainingBalance,
         status: paymentPreviewStatus,
@@ -990,128 +1136,15 @@ export default function InvoiceForm({
         <div className="inv-form-section">
           <div className="inv-section-title">
             <User size={15} />
-            <span>1. Select Customer</span>
-          </div>
-
-          <div
-            className="inv-form-field"
-            ref={customerSearchRef}
-            style={{ position: "relative", marginBottom: "14px" }}
-          >
-            <label>Select Customer</label>
-            <div className="inv-customer-search-wrap">
-              <Search size={15} className="inv-customer-search-icon" />
-              <input
-                type="text"
-                className={`inv-input inv-customer-search-input ${fieldErrors.customerName ? "inv-input-error" : ""
-                  }`}
-                placeholder="Search customer by name or email..."
-                value={customerSearchQuery}
-                onFocus={() => setCustomerSearchOpen(true)}
-                onClick={() => setCustomerSearchOpen(true)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setCustomerSearchQuery(val);
-                  setCustomerSearchOpen(true);
-                  if (fieldErrors.customerName) {
-                    setFieldErrors((prev) => ({ ...prev, customerName: false }));
-                  }
-                  const match = customersList.find(
-                    (c) =>
-                      c.customer_name?.toLowerCase() === val.trim().toLowerCase() ||
-                      (c.email && c.email.toLowerCase() === val.trim().toLowerCase())
-                  );
-                  if (match) {
-                    selectCustomerById(match.customer_id);
-                  } else if (!val.trim()) {
-                    selectCustomerById("");
-                  }
-                }}
-                autoComplete="off"
-              />
-              <div className="inv-customer-search-actions">
-                {customerSearchQuery && (
-                  <button
-                    type="button"
-                    className="inv-customer-search-clear"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCustomerSearchQuery("");
-                      selectCustomerById("");
-                      setCustomerSearchOpen(true);
-                    }}
-                    title="Clear customer selection"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="inv-search-toggle-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCustomerSearchOpen((prev) => !prev);
-                  }}
-                  title="Toggle customer list"
-                >
-                  <ChevronDown size={15} className={customerSearchOpen ? "open" : ""} />
-                </button>
-              </div>
-
-              {customerSearchOpen && (
-                <div className="inv-customer-dropdown-menu">
-                  {filteredRegisteredCustomers.length > 0 ? (
-                    filteredRegisteredCustomers.map((c) => {
-                      const isSelected = String(selectedCustomerId) === String(c.customer_id);
-                      return (
-                        <div
-                          key={c.customer_id}
-                          className={`inv-customer-dropdown-item ${isSelected ? "selected" : ""}`}
-                          onClick={() => {
-                            selectCustomerById(c.customer_id);
-                            setCustomerSearchQuery(c.customer_name || "");
-                            setCustomerSearchOpen(false);
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                            }}
-                          >
-                            <div className="inv-customer-dropdown-name">
-                              {c.customer_name} {c.company_name ? `(${c.company_name})` : ""}
-                            </div>
-                            {isSelected && (
-                              <span style={{ color: "#3b82f6", fontSize: "12px", fontWeight: 700 }}>
-                                ✓
-                              </span>
-                            )}
-                          </div>
-                          {c.email && (
-                            <div className="inv-customer-dropdown-meta">
-                              <span>{c.email}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="inv-customer-dropdown-empty">
-                      No customers match your search
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <span>1. Client Information</span>
           </div>
 
           <div className="inv-grid-2">
             <div className="inv-form-field">
-              <label>Customer / Contact Name *</label>
+              <label>Client Name</label>
               <input
                 type="text"
+                autoComplete="off"
                 className={fieldErrors.customerName ? "inv-input-error" : ""}
                 placeholder="e.g. Acme Corporation or John Doe"
                 value={customerName}
@@ -1121,30 +1154,7 @@ export default function InvoiceForm({
                   if (fieldErrors.customerName) {
                     setFieldErrors((prev) => ({ ...prev, customerName: false }));
                   }
-                  const valTrim = newName.trim().toLowerCase();
-                  const emailTrim = (email || "").trim().toLowerCase();
-                  const match = customersList.find((c) => {
-                    const cName = (c.customer_name || "").trim().toLowerCase();
-                    const cEmail = (c.email || "").trim().toLowerCase();
-                    if (valTrim && emailTrim) {
-                      return cName === valTrim && cEmail === emailTrim;
-                    }
-                    if (valTrim && !emailTrim) {
-                      return cName === valTrim && !cEmail;
-                    }
-                    return false;
-                  });
-                  if (match) {
-                    setSelectedCustomerId(String(match.customer_id));
-                    if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                  } else if (selectedCustomerId) {
-                    const cur = customersList.find((c) => String(c.customer_id) === String(selectedCustomerId));
-                    if (cur && cur.customer_name?.trim().toLowerCase() !== newName.trim().toLowerCase()) {
-                      setSelectedCustomerId("");
-                    }
-                  }
                 }}
-                required
               />
             </div>
 
@@ -1152,6 +1162,7 @@ export default function InvoiceForm({
               <label>Company Name (Optional)</label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="e.g. Acme Lanka Pvt Ltd"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
@@ -1159,9 +1170,10 @@ export default function InvoiceForm({
             </div>
 
             <div className="inv-form-field">
-              <label>Email Address *</label>
+              <label>Email Address</label>
               <input
                 type="email"
+                autoComplete="off"
                 className={fieldErrors.email ? "inv-input-error" : ""}
                 placeholder="billing@example.com"
                 value={email}
@@ -1171,40 +1183,28 @@ export default function InvoiceForm({
                   if (fieldErrors.email) {
                     setFieldErrors((prev) => ({ ...prev, email: false }));
                   }
-                  const valTrim = (customerName || "").trim().toLowerCase();
-                  const emailTrim = newEmail.trim().toLowerCase();
-                  const match = customersList.find((c) => {
-                    const cName = (c.customer_name || "").trim().toLowerCase();
-                    const cEmail = (c.email || "").trim().toLowerCase();
-                    if (valTrim && emailTrim) {
-                      return cName === valTrim && cEmail === emailTrim;
-                    }
-                    if (!valTrim && emailTrim) {
-                      return cEmail === emailTrim;
-                    }
-                    return false;
-                  });
-                  if (match) {
-                    setSelectedCustomerId(String(match.customer_id));
-                    if (!customerSearchQuery) setCustomerSearchQuery(match.customer_name || "");
-                  } else if (selectedCustomerId) {
-                    const cur = customersList.find((c) => String(c.customer_id) === String(selectedCustomerId));
-                    if (cur && (cur.email || "").trim().toLowerCase() !== emailTrim) {
-                      setSelectedCustomerId("");
-                    }
-                  }
                 }}
-                required
               />
             </div>
 
             <div className="inv-form-field">
-              <label>Phone Number</label>
+              <label>
+                Contact Number <span style={{ color: "#ef4444" }}>*</span>
+              </label>
               <input
                 type="text"
+                autoComplete="off"
+                className={fieldErrors.phone ? "inv-input-error" : ""}
                 placeholder="+94 77 123 4567"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => {
+                  const newPhone = e.target.value;
+                  setPhone(newPhone);
+                  if (fieldErrors.phone) {
+                    setFieldErrors((prev) => ({ ...prev, phone: false }));
+                  }
+                }}
+                required
               />
             </div>
 
@@ -1212,6 +1212,7 @@ export default function InvoiceForm({
               <label>Billing Address</label>
               <input
                 type="text"
+                autoComplete="off"
                 placeholder="e.g. No. 45, Galle Road, Colombo 03"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
@@ -1242,6 +1243,12 @@ export default function InvoiceForm({
                   const role = String(q.created_by_role || "").toLowerCase();
                   const status = String(q.status || "").toLowerCase();
                   const approval = String(q.approval_status || "").toLowerCase();
+                  const custStatus = String(q.customer_status || "").trim().toLowerCase();
+
+                  // Keep already linked quotation selectable on edit mode
+                  if (selectedQuotationId && String(q.quotation_id) === String(selectedQuotationId)) {
+                    return true;
+                  }
 
                   // Must not be draft, rejected, cancelled, expired, or pending approval
                   if (
@@ -1255,97 +1262,131 @@ export default function InvoiceForm({
                     return false;
                   }
 
-                  // Approved check: must be approved / accepted or created by Super Admin
-                  const isApproved =
+                  // 1. Super Admin Approved: must be approved by Super Admin (or created by Super Admin)
+                  const isSuperAdminApproved =
                     approval === "approved" ||
                     status === "approved" ||
-                    status === "accepted" ||
                     role.includes("super");
 
-                  if (!isApproved) {
+                  if (!isSuperAdminApproved) {
                     return false;
                   }
 
-                  // If a customer is selected (by ID, Name, or Email), show all approved quotations for this customer
-                  const hasSelectedCustomer = Boolean(
-                    selectedCustomerId ||
-                    customerName?.trim() ||
-                    email?.trim()
-                  );
+                  // 2. Customer Accepted: customer must have accepted the quotation
+                  const isCustomerAccepted =
+                    custStatus === "customer accepted" ||
+                    custStatus === "accepted";
 
-                  if (hasSelectedCustomer) {
-                    const selectedCust = selectedCustomerId
-                      ? customersList.find(
-                        (c) =>
-                          String(c.customer_id) ===
-                          String(selectedCustomerId)
-                      )
-                      : customersList.find((c) => {
-                        const valTrim = (customerName || "").trim().toLowerCase();
-                        const emailTrim = (email || "").trim().toLowerCase();
-                        const cName = (c.customer_name || "").trim().toLowerCase();
-                        const cEmail = (c.email || "").trim().toLowerCase();
-                        if (valTrim && emailTrim) {
-                          return cName === valTrim && cEmail === emailTrim;
-                        }
-                        if (valTrim && !emailTrim) {
-                          return cName === valTrim && !cEmail;
-                        }
-                        return false;
-                      });
-
-                    const targetId = selectedCust
-                      ? String(selectedCust.customer_id)
-                      : String(selectedCustomerId || "");
-                    const targetName = (
-                      selectedCust?.customer_name ||
-                      customerName ||
-                      ""
-                    )
-                      .trim()
-                      .toLowerCase();
-                    const targetEmail = (
-                      selectedCust?.email ||
-                      email ||
-                      ""
-                    )
-                      .trim()
-                      .toLowerCase();
-
-                    const qCustId =
-                      q.customer_id != null ? String(q.customer_id) : "";
-                    const qCustName = (
-                      q.customer_name ||
-                      q.clientName ||
-                      ""
-                    )
-                      .trim()
-                      .toLowerCase();
-                    const qCustEmail = (
-                      q.email ||
-                      q.customer_email ||
-                      customersList.find(
-                        (c) => String(c.customer_id) === String(q.customer_id)
-                      )?.email ||
-                      ""
-                    )
-                      .trim()
-                      .toLowerCase();
-
-                    const matchesId = Boolean(
-                      targetId && qCustId && qCustId === targetId
-                    );
-                    const matchesName = Boolean(
-                      targetName && qCustName && qCustName === targetName
-                    );
-                    const matchesEmail = Boolean(
-                      targetEmail && qCustEmail && qCustEmail === targetEmail
-                    );
-
-                    return matchesId || matchesName || matchesEmail;
+                  if (!isCustomerAccepted) {
+                    return false;
                   }
 
-                  return true;
+                  // Match ONLY quotations that belong to the client details entered
+                  const typedPhone = (phone || "").trim();
+                  const typedEmail = (email || "").trim().toLowerCase();
+                  const typedName = (customerName || "").trim().toLowerCase();
+
+                  const qCustId = q.customer_id != null ? String(q.customer_id) : "";
+                  const linkedCust = qCustId
+                    ? customersList.find((c) => String(c.customer_id) === qCustId)
+                    : null;
+
+                  // 1. If contact number is typed, identify client and match their quotation(s)
+                  if (typedPhone) {
+                    const candidatePhones = [
+                      q.phone,
+                      q.customer_phone,
+                      q.client_phone,
+                      q.customer?.phone,
+                      q.customer?.customer_phone,
+                      linkedCust?.phone,
+                      linkedCust?.customer_phone,
+                    ].filter(Boolean);
+
+                    const hasDirectPhoneMatch = candidatePhones.some((cp) =>
+                      isPhoneMatch(typedPhone, cp)
+                    );
+                    if (hasDirectPhoneMatch) return true;
+
+                    // Match via registered/known customers with this contact number
+                    const matchingCusts = customersList.filter((c) =>
+                      isPhoneMatch(typedPhone, c.phone || c.customer_phone)
+                    );
+                    if (matchingCusts.length > 0) {
+                      const matchesCustId =
+                        qCustId &&
+                        matchingCusts.some((c) => String(c.customer_id) === qCustId);
+                      if (matchesCustId) return true;
+
+                      const matchesCustName = matchingCusts.some((c) => {
+                        const cName = (c.customer_name || "").trim().toLowerCase();
+                        const qName = (
+                          q.customer_name ||
+                          q.clientName ||
+                          q.client_name ||
+                          ""
+                        )
+                          .trim()
+                          .toLowerCase();
+                        return cName && qName && cName === qName;
+                      });
+                      if (matchesCustName) return true;
+
+                      const matchesCustEmail = matchingCusts.some((c) => {
+                        const cEmail = (c.email || "").trim().toLowerCase();
+                        const qEmail = (
+                          q.email ||
+                          q.customer_email ||
+                          q.client_email ||
+                          ""
+                        )
+                          .trim()
+                          .toLowerCase();
+                        return cEmail && qEmail && cEmail === qEmail;
+                      });
+                      if (matchesCustEmail) return true;
+                    }
+
+                    return false;
+                  }
+
+                  // 2. If phone is not entered, but email is entered, match ONLY by exact email
+                  if (typedEmail) {
+                    const candidateEmails = [
+                      q.email,
+                      q.customer_email,
+                      q.client_email,
+                      q.customer?.email,
+                      linkedCust?.email,
+                    ].filter(Boolean);
+
+                    return candidateEmails.some(
+                      (ce) => String(ce).trim().toLowerCase() === typedEmail
+                    );
+                  }
+
+                  // 3. If phone and email are not entered, but name is entered, match ONLY by exact name
+                  if (typedName) {
+                    const candidateNames = [
+                      q.customer_name,
+                      q.clientName,
+                      q.client_name,
+                      q.customer?.customer_name,
+                      linkedCust?.customer_name,
+                    ].filter(Boolean);
+
+                    return candidateNames.some(
+                      (cn) => String(cn).trim().toLowerCase() === typedName
+                    );
+                  }
+
+                  // 4. If only selectedCustomerId is set
+                  if (selectedCustomerId && qCustId && qCustId === String(selectedCustomerId)) {
+                    return true;
+                  }
+
+                  // If no client details are entered or none match: show NO other quotations!
+                  return false;
                 })
                 .map((q) => (
                   <option
@@ -1383,17 +1424,20 @@ export default function InvoiceForm({
             <table className="inv-items-table">
               <thead>
                 <tr>
-                  <th style={{ width: "30%" }}>Item / Service *</th>
-                  <th style={{ width: "27%" }}>Description / Scope</th>
-                  <th style={{ width: "16%" }}>Price ({currency}) *</th>
-                  <th style={{ width: "8%" }}>Tax %</th>
-                  <th style={{ width: "14%", textAlign: "right" }}>Total ({currency})</th>
-                  <th style={{ width: "5%" }}></th>
+                  <th style={{ width: "4%", textAlign: "center" }}>#</th>
+                  <th style={{ width: "48%" }}>Service / Item *</th>
+                  <th style={{ width: "18%" }}>Unit Price ({currency}) *</th>
+                  <th style={{ width: "12%" }}>Tax %</th>
+                  <th style={{ width: "14%", textAlign: "right" }}>Line Total ({currency})</th>
+                  <th style={{ width: "4%" }}></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, idx) => (
                   <tr key={item.id}>
+                    <td style={{ textAlign: "center", fontWeight: "600", color: "#64748b" }}>
+                      {idx + 1}
+                    </td>
                     <td>
                       <input
                         type="text"
@@ -1413,17 +1457,7 @@ export default function InvoiceForm({
                         required
                       />
                     </td>
-                    <td>
-                      <input
-                        type="text"
-                        className="inv-table-input"
-                        placeholder="Brief description..."
-                        value={item.description}
-                        onChange={(e) =>
-                          handleItemChange(idx, "description", e.target.value)
-                        }
-                      />
-                    </td>
+
                     <td>
                       <input
                         type="number"
@@ -1488,6 +1522,7 @@ export default function InvoiceForm({
           {/* Total & Payment Calculation */}
           <div className="inv-calc-container">
             <div className="inv-calc-left">
+              {/* Services & Scope Overview */}
               <div className="inv-overview-card">
                 <div className="inv-overview-card-head">
                   <Receipt size={14} />
@@ -1542,28 +1577,27 @@ export default function InvoiceForm({
                 <span>Subtotal:</span>
                 <strong>{currency} {subtotal.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
               </div>
-              {taxAmount > 0 && (
-                <div className="inv-calc-row">
-                  <span>Tax:</span>
-                  <strong>+{currency} {taxAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
-                </div>
-              )}
-              {discountAmount > 0 && (
-                <div className="inv-calc-row" style={{ color: "#15803d" }}>
-                  <span>Discount:</span>
-                  <strong>-{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
-                </div>
-              )}
+              <div className="inv-calc-row">
+                <span>Tax:</span>
+                <strong>{currency} {taxAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
+              </div>
+              <div className="inv-calc-row" style={{ color: discountAmount > 0 ? "#15803d" : "inherit" }}>
+                <span>Discount:</span>
+                <strong>
+                  {discountAmount > 0 ? `- ` : ""}{currency} {discountAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}
+                </strong>
+              </div>
               <div className="inv-calc-total">
-                <span>Grand Total:</span>
+                <span>GRAND TOTAL:</span>
                 <strong>{currency} {totalAmount.toLocaleString("en-LK", { minimumFractionDigits: 2 })}</strong>
               </div>
               <div className="inv-calc-row inv-calc-paid">
                 <span>Paid Amount:</span>
                 <strong>
-                  -{currency}{" "}
-                  {totalPaidPreview.toLocaleString("en-LK", {
+                  - {currency}{" "}
+                  {existingPaid.toLocaleString("en-LK", {
                     minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}
                 </strong>
               </div>
@@ -1579,6 +1613,7 @@ export default function InvoiceForm({
                   {currency}{" "}
                   {remainingBalance.toLocaleString("en-LK", {
                     minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
                   })}
                 </strong>
               </div>
@@ -1718,9 +1753,9 @@ export default function InvoiceForm({
 
             <div className="inv-form-field inv-col-span-2">
               <label>Payment / Bank Notes</label>
-              <input
-                type="text"
-                placeholder="e.g. Bank: Commercial Bank, Acc: 12345678, Branch: Kollupitiya"
+              <textarea
+                rows={2}
+                placeholder="e.g. Please remit payment via bank transfer to..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />

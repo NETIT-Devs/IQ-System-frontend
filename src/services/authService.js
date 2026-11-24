@@ -25,7 +25,7 @@ export async function loginUser(email, password) {
         if (error instanceof TypeError) {
             throw new Error(
                 "Cannot connect to the server. Please check that the backend is running at " +
-                    API_BASE_URL
+                API_BASE_URL
             );
         }
         throw error;
@@ -64,7 +64,7 @@ export async function registerUser({
         if (!response.ok || !data?.success) {
             throw new Error(
                 data?.message ||
-                    "Registration failed. Please check your information and try again."
+                "Registration failed. Please check your information and try again."
             );
         }
 
@@ -89,16 +89,16 @@ export async function requestPasswordReset(email) {
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ email }),
+                body: JSON.stringify({ email: email.trim() }),
             }
         );
 
         const data = await response.json().catch(() => null);
 
-        if (!response.ok || !data?.success) {
+        if (!response.ok || data?.success === false) {
             throw new Error(
                 data?.message ||
-                    "Password reset request failed. Please try again later."
+                "Password reset request failed. Please try again later."
             );
         }
 
@@ -131,16 +131,17 @@ export async function resetPassword({
                     token,
                     newPassword,
                     confirmPassword,
+                    password: newPassword,
                 }),
             }
         );
 
         const data = await response.json().catch(() => null);
 
-        if (!response.ok || !data?.success) {
+        if (!response.ok || data?.success === false) {
             throw new Error(
                 data?.message ||
-                    "Password reset failed. The link may be invalid or expired."
+                "Password reset failed. The link may be invalid or expired."
             );
         }
 

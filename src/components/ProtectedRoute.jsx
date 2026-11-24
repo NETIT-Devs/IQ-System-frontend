@@ -15,7 +15,9 @@ export default function ProtectedRoute({ allowedRoles }) {
 
   if (!authorizedRoles.includes(role)) {
     const destination =
-      role === "super admin" ? "/super-admin-dashboard" : "/admin-dashboard";
+      role === "super admin"
+        ? "/super-admin-dashboard"
+        : "/admin-dashboard";
     return <Navigate to={destination} replace />;
   }
 

@@ -761,6 +761,27 @@
   border-color: #fca5a5;
 }
 
+.um-action-btn.transfer {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #ffffff;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.22);
+}
+
+.um-action-btn.transfer:hover {
+  background: #b91c1c;
+  border-color: #991b1b;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(185, 28, 28, 0.35);
+  transform: translateY(-1px);
+}
+
+.um-action-btn.transfer:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(185, 28, 28, 0.2);
+}
+
 .um-action-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1424,3 +1445,300 @@
     line-height: 1.25;
   }
 }
+
+/* Transfer Account / Data Modal Styles (Compact & User-Friendly) */
+.um-transfer-card {
+  max-width: 520px;
+  width: 92%;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  overflow: hidden;
+}
+
+.um-transfer-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.um-transfer-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.um-transfer-title-row h3 {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.um-transfer-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.um-transfer-alert {
+  margin: 10px 20px 0;
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+
+.um-transfer-form {
+  padding: 14px 20px 18px !important;
+}
+
+/* Source Account Slim Pill */
+.um-transfer-source-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.um-transfer-pill-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.um-transfer-pill-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.um-transfer-pill-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.um-transfer-pill-name {
+  font-size: 13px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.um-transfer-pill-meta {
+  font-size: 11.5px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.um-transfer-deact-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #dc2626;
+  white-space: nowrap;
+}
+
+/* 2-Column Grid for Recipient & Email */
+.um-transfer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 540px) {
+  .um-transfer-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}
+
+.um-compact-group {
+  margin-bottom: 12px !important;
+}
+
+.um-compact-group label {
+  font-size: 12px !important;
+  margin-bottom: 5px !important;
+}
+
+.um-compact-group .um-input-wrap input,
+.um-compact-group .um-input-wrap select {
+  height: 36px !important;
+  font-size: 13px !important;
+}
+
+.um-select-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px 0 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.um-select-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.um-transfer-compact-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  padding: 8px 12px;
+  border-radius: 7px;
+  color: #166534;
+  font-size: 11.5px;
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.um-transfer-actions {
+  margin-top: 14px !important;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* Step 2 Confirmation Banner (Compact) */
+.um-transfer-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.um-warning-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 6px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.um-warning-text h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.um-warning-sinhala {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #78350f;
+}
+
+.um-warning-english {
+  margin: 0;
+  font-size: 11px;
+  color: #92400e;
+  line-height: 1.35;
+}
+
+.um-transfer-summary-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 6px;
+}
+
+.um-summary-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.um-summary-col .summary-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.4px;
+}
+
+.um-summary-col strong {
+  font-size: 12.5px;
+  color: #0f172a;
+}
+
+.um-summary-col span {
+  font-size: 11.5px;
+  color: #475569;
+}
+
+.um-summary-arrow {
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.summary-badge {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.summary-badge.source {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.summary-badge.target {
+  background: #dcfce7;
+  color: #15803d;
+}
+

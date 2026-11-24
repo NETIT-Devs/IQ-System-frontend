@@ -1178,6 +1178,15 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
+/* Height and spacing specifically for Default Terms & Conditions box */
+textarea#default_terms_and_conditions.cs-default-terms-textarea,
+#default_terms_and_conditions {
+  min-height: 110px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  resize: vertical;
+}
+
 /* Custom Sections Inner List */
 .cs-sections-box-inner {
   width: 100%;
@@ -1612,6 +1621,149 @@
   line-height: 1.4;
 }
 
+.cs-pdf-mock-ref-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 9px;
+  margin: 8px 0;
+  font-size: 8px;
+  color: #475569;
+}
+
+.cs-pdf-mock-ref-grid strong {
+  color: #0f172a;
+}
+
+.cs-pdf-mock-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.cs-pdf-mock-bank-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 8px;
+  color: #475569;
+}
+
+.cs-pdf-mock-bank-info strong {
+  color: #0f172a;
+  font-size: 8px;
+}
+
+.cs-pdf-mock-total-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 8px;
+  color: #64748b;
+}
+
+.cs-pdf-mock-total-box strong {
+  font-size: 9.5px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.cs-pdf-thank-you-box {
+  margin-top: 10px;
+  padding: 4px 0 2px 0;
+}
+
+.cs-pdf-thank-you-title {
+  font-weight: 700;
+  font-size: 9px;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+.cs-pdf-thank-you-msg {
+  font-size: 8px;
+  color: #334155;
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
+.cs-pdf-prepared-by-box {
+  margin-top: 8px;
+  padding-top: 2px;
+}
+
+.cs-pdf-prepared-label {
+  font-weight: 700;
+  font-size: 8.2px;
+  color: #0f172a;
+}
+
+.cs-pdf-prepared-company {
+  font-weight: 700;
+  font-size: 8.8px;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+.cs-pdf-prepared-services {
+  font-size: 7.8px;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+.cs-pdf-signature-preview {
+  margin-top: 22px;
+  width: 140px;
+  text-align: center;
+}
+
+.cs-pdf-sig-label {
+  font-size: 8px;
+  font-weight: 700;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.cs-pdf-sig-img {
+  height: 26px;
+  max-width: 120px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto 3px auto;
+}
+
+.cs-pdf-sig-line {
+  border-top: 1px solid #94a3b8;
+  width: 100%;
+  margin: 8px 0 4px 0;
+}
+
+.cs-pdf-sig-name {
+  font-weight: 700;
+  font-size: 8px;
+  color: #0f172a;
+  text-align: center;
+  margin-top: 2px;
+}
+
+.cs-pdf-sig-desig {
+  font-size: 7.5px;
+  color: #475569;
+  text-align: center;
+  margin-top: 1px;
+}
+
 .cs-preview-footnote {
   display: flex;
   align-items: center;
@@ -1769,6 +1921,561 @@
   font-size: 12.5px;
   background: #f8fafc;
   border: 1px dashed #cbd5e1;
+}
+
+/* ========================================================
+   MODERN QUOTATION SERVICE OPTION EDIT FORM
+======================================================== */
+.cs-service-edit-form {
+  max-width: 960px;
+}
+
+.cs-modern-service-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+}
+
+.cs-modern-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.cs-header-content {
+  flex: 1;
+}
+
+.cs-header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.cs-header-top-row h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.cs-modern-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.cs-modern-status-badge.active {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.cs-modern-status-badge.inactive {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.cs-status-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cs-modern-status-badge.active .cs-status-indicator-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.cs-modern-status-badge.inactive .cs-status-indicator-dot {
+  background: #94a3b8;
+}
+
+.cs-modern-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cs-form-row-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.cs-grid-2-col {
+  grid-template-columns: 1fr 1fr;
+}
+
+.cs-modern-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cs-modern-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.1px;
+}
+
+.cs-label-icon {
+  color: #2563eb;
+}
+
+.cs-label-subnote {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #64748b;
+  margin-left: 6px;
+}
+
+.cs-label-with-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cs-textarea-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.cs-modern-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cs-input-leading-icon {
+  position: absolute;
+  left: 13px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.cs-modern-input {
+  width: 100%;
+  height: 44px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cs-modern-input.cs-with-icon {
+  padding-left: 40px;
+}
+
+.cs-currency-wrap {
+  position: relative;
+}
+
+.cs-currency-prefix {
+  position: absolute;
+  left: 10px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cs-modern-input.cs-currency-input {
+  padding-left: 60px;
+  font-weight: 600;
+}
+
+.cs-modern-input:focus,
+.cs-modern-dropdown-select:focus,
+.cs-modern-textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  background: #ffffff;
+}
+
+/* Status Dual Control (Modern Dropdown + Quick Pills) */
+.cs-status-control-section {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+
+.cs-status-dual-control {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.cs-modern-dropdown-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 250px;
+}
+
+.cs-dropdown-dot-indicator {
+  position: absolute;
+  left: 14px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.cs-dropdown-dot-indicator.active {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+.cs-dropdown-dot-indicator.inactive {
+  background: #94a3b8;
+}
+
+.cs-modern-dropdown-select {
+  width: 100%;
+  height: 44px;
+  padding: 8px 36px 8px 34px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  appearance: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+
+.cs-dropdown-arrow-icon {
+  position: absolute;
+  right: 12px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.cs-status-segmented-pills {
+  display: inline-flex;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 10px;
+  gap: 4px;
+}
+
+.cs-status-pill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cs-status-pill-toggle:hover:not(.selected) {
+  color: #0f172a;
+}
+
+.cs-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.cs-pill-dot.active {
+  background: #10b981;
+}
+
+.cs-pill-dot.inactive {
+  background: #94a3b8;
+}
+
+.cs-status-pill-toggle.selected.active {
+  background: #ffffff;
+  color: #065f46;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.cs-status-pill-toggle.selected.active .cs-pill-dot.active {
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.cs-status-pill-toggle.selected.inactive {
+  background: #ffffff;
+  color: #475569;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Modern Large Textboxes */
+.cs-modern-textarea.cs-large-textbox {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.cs-modern-textarea[rows="5"] {
+  min-height: 135px;
+}
+
+.cs-modern-textarea[rows="4"] {
+  min-height: 110px;
+}
+
+.cs-modern-hint {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.cs-modern-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.cs-modern-btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.cs-modern-btn-cancel:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.08);
+  transform: translateY(-1px);
+}
+
+.cs-modern-btn-cancel:active {
+  transform: translateY(0);
+}
+
+.cs-modern-btn-cancel svg {
+  transition: transform 0.2s ease;
+}
+
+.cs-modern-btn-cancel:hover svg {
+  transform: rotate(90deg);
+}
+
+.cs-modern-action-bar .cs-btn-save-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: #1e3a8a;
+  color: #ffffff;
+  border: 1px solid #1e3a8a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(30, 58, 138, 0.2);
+}
+
+.cs-modern-action-bar .cs-btn-save-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+  transform: translateY(-1px);
+}
+
+.cs-modern-action-bar .cs-btn-save-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .cs-grid-2-col {
+    grid-template-columns: 1fr;
+  }
+  .cs-status-dual-control {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cs-status-segmented-pills {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .cs-status-pill-toggle {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Dark Mode Support for Modern Service Edit Form */
+[data-theme="dark"] .cs-modern-service-card {
+  background: #111c30;
+  border-color: #1e2e48;
+}
+
+[data-theme="dark"] .cs-modern-card-header {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-header-top-row h3,
+[data-theme="dark"] .cs-modern-label {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-status-control-section {
+  background: #0b1220;
+  border-color: #1e2e48;
+}
+
+[data-theme="dark"] .cs-modern-input,
+[data-theme="dark"] .cs-modern-dropdown-select,
+[data-theme="dark"] .cs-modern-textarea {
+  background: #070d18;
+  border-color: #1e2e48;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-modern-input:focus,
+[data-theme="dark"] .cs-modern-dropdown-select:focus,
+[data-theme="dark"] .cs-modern-textarea:focus {
+  background: #0b1220;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .cs-currency-prefix {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .cs-textarea-badge {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .cs-status-segmented-pills {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .cs-status-pill-toggle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-status-pill-toggle.selected.active {
+  background: #0f172a;
+  color: #4ade80;
+}
+
+[data-theme="dark"] .cs-status-pill-toggle.selected.inactive {
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-modern-status-badge.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .cs-modern-status-badge.inactive {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-modern-action-bar {
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .cs-modern-btn-cancel {
+  background: #0f172a;
+  border-color: #1e2e48;
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .cs-modern-btn-cancel:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
 }
 
 
@@ -1946,6 +2653,33 @@
 [data-theme="dark"] .cs-preview-footnote {
   border-color: #1e293b;
   color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-pdf-mock-ref-grid,
+[data-theme="dark"] .cs-pdf-mock-summary-row {
+  background: #0f172a;
+  border-color: #1e293b;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .cs-pdf-mock-ref-grid strong,
+[data-theme="dark"] .cs-pdf-mock-bank-info strong,
+[data-theme="dark"] .cs-pdf-mock-total-box strong,
+[data-theme="dark"] .cs-pdf-thank-you-title,
+[data-theme="dark"] .cs-pdf-prepared-label,
+[data-theme="dark"] .cs-pdf-prepared-company,
+[data-theme="dark"] .cs-pdf-prepared-services,
+[data-theme="dark"] .cs-pdf-sig-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cs-pdf-thank-you-msg,
+[data-theme="dark"] .cs-pdf-sig-desig {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .cs-pdf-sig-line {
+  border-color: #475569;
 }
 
 /* ========================================================

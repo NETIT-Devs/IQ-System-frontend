@@ -554,3 +554,261 @@
   }
 }
 
+/* ==========================================================================
+   Dark Mode Overrides
+   ========================================================================== */
+[data-theme="dark"] .invoice-document {
+  background: #111c34;
+  color: #cbd5e1;
+  border: 1px solid #1e2c4a;
+}
+
+[data-theme="dark"] .invoice-doc-company h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-company p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-eyebrow {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .invoice-doc-heading h1 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-divider {
+  background: #1e2c4a;
+  border-bottom: 2px solid #3b82f6;
+}
+
+[data-theme="dark"] .invoice-doc-ref-grid {
+  background: #162238;
+  border-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-ref-item + .invoice-doc-ref-item {
+  border-left-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-ref-item span {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-ref-item strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .invoice-doc-section-title {
+  color: #60a5fa;
+  border-bottom-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-client-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-client-company {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .invoice-doc-section > p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-overview {
+  border-left-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-overview-row {
+  border-bottom-color: #1e2c4a;
+}
+
+[data-theme="dark"] .invoice-doc-overview-row span {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-overview-row strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .invoice-doc-overview-row strong.paid {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .invoice-doc-items-eyebrow {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .invoice-doc-items-head h2 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-item-count {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="dark"] .invoice-doc-table {
+  border-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-table th {
+  background: #162238;
+  color: #e2e8f0;
+  border-bottom: 1px solid #263554;
+}
+
+[data-theme="dark"] .invoice-doc-table td {
+  border-bottom-color: #1e293b;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .invoice-doc-table tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .invoice-doc-table .col-num {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-table .col-tax {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-table td.total {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-item-name {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-item-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-empty {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-thanks-heading {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-text-block h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-text-block p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-summary {
+  background: #162238;
+  border-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-summary h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-summary-row {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-summary-row.paid {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .invoice-doc-grand-total {
+  background: #1e2c4a;
+  color: #ffffff;
+  border: 1px solid #334155;
+}
+
+[data-theme="dark"] .invoice-doc-grand-total span {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .invoice-doc-grand-total strong {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .invoice-doc-balance-row {
+  border-top-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-balance-row.due strong {
+  color: #f87171;
+}
+
+[data-theme="dark"] .invoice-doc-balance-row.settled strong {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .invoice-doc-footer {
+  border-top-color: #263554;
+}
+
+[data-theme="dark"] .invoice-doc-thanks h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-thanks p {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-signature strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .invoice-doc-signature span {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-sig-line {
+  border-top-color: #475569;
+}
+
+[data-theme="dark"] .invoice-doc-footer-bar {
+  border-top-color: #263554;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .invoice-doc-status.paid,
+[data-theme="dark"] .invoice-doc-status.full-paid {
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+[data-theme="dark"] .invoice-doc-status.partial,
+[data-theme="dark"] .invoice-doc-status.partially-paid {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .invoice-doc-status.unpaid {
+  background: rgba(239, 68, 68, 0.16);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .invoice-doc-status.advanced {
+  background: rgba(139, 92, 246, 0.18);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.38);
+}
+
+[data-theme="dark"] .invoice-doc-status.draft {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+

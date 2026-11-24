@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
   TrendingUp,
   RefreshCw,
+  Phone,
 } from "lucide-react";
 import ThemeToggle from "../components/ThemeToggle";
 import NotificationBell from "../components/NotificationBell";
@@ -54,6 +55,7 @@ const statusFilterOptions = [
   { label: "Paid", value: "Paid", color: "#16a34a" },
   { label: "Unpaid", value: "Unpaid", color: "#2563eb" },
   { label: "Partial", value: "Partial", color: "#d97706" },
+  { label: "Advanced", value: "Advanced", color: "#8b5cf6" },
   { label: "Overdue", value: "Overdue", color: "#ef4444" },
   { label: "Pending Approval", value: "Pending Approval", color: "#f59e0b" },
   { label: "Draft", value: "Draft", color: "#64748b" },
@@ -139,8 +141,9 @@ function getInvoicePaymentStatus(inv) {
   const bal = Number(inv?.balance_due ?? (total - paid));
 
   if (bal <= 0 && total > 0) return "Paid";
+  if (s === "advanced" || String(inv?.payment_status || "").trim().toLowerCase() === "advanced") return "Advanced";
   if (inv?.due_date && new Date(inv.due_date) < new Date() && bal > 0) return "Overdue";
-  if (s === "partially paid" || s === "partial" || (paid > 0 && bal > 0)) return "Partially Paid";
+  if (s === "partially paid" || s === "partial" || (paid > 0 && bal > 0)) return "Partial";
   return "Unpaid";
 }
 
@@ -262,13 +265,46 @@ export default function Invoices() {
     return invoices.filter((inv) => {
       // Search
       const term = searchTerm.trim().toLowerCase();
+      const cleanTermDigits = term.replace(/\D/g, "");
+      const custObj = inv.customer_id
+        ? customers.find((c) => Number(c.customer_id) === Number(inv.customer_id))
+        : null;
+      const rawPhone = String(
+        inv.phone || inv.customer_phone || inv.clientPhone || custObj?.phone || ""
+      ).trim();
+      const cleanPhoneDigits = rawPhone.replace(/\D/g, "");
+
+      const matchesPhone = Boolean(
+        rawPhone &&
+        (rawPhone.toLowerCase().includes(term) ||
+          (cleanTermDigits &&
+            cleanPhoneDigits &&
+            (cleanPhoneDigits.includes(cleanTermDigits) ||
+              cleanTermDigits.includes(cleanPhoneDigits) ||
+              (cleanPhoneDigits.length >= 7 &&
+                cleanTermDigits.length >= 7 &&
+                cleanPhoneDigits.slice(
+                  -Math.min(cleanPhoneDigits.length, cleanTermDigits.length, 9)
+                ) ===
+                  cleanTermDigits.slice(
+                    -Math.min(cleanPhoneDigits.length, cleanTermDigits.length, 9)
+                  )))))
+      );
+
       const matchesSearch =
         !term ||
+        matchesPhone ||
         [
           inv.invoice_number,
           inv.customer_name,
+          custObj?.customer_name,
           inv.company_name,
+          custObj?.company_name,
+          rawPhone,
+          inv.email,
+          inv.customer_email,
           inv.quotation_id,
+          inv.quotation_number,
           inv.status,
           inv.created_by_name,
           inv.notes,
@@ -288,6 +324,8 @@ export default function Invoices() {
           matchesStatus = payStatus === "Unpaid";
         } else if (statusFilter === "Partial") {
           matchesStatus = payStatus === "Partial" || payStatus === "Partially Paid";
+        } else if (statusFilter === "Advanced") {
+          matchesStatus = payStatus === "Advanced";
         } else if (statusFilter === "Pending Approval") {
           matchesStatus = appStatus === "Pending Approval";
         } else if (statusFilter === "Draft") {
@@ -338,7 +376,7 @@ export default function Invoices() {
 
       return matchesSearch && matchesStatus && matchesDate && matchesCustomRange;
     });
-  }, [invoices, searchTerm, statusFilter, dateFilter, customRange]);
+  }, [invoices, customers, searchTerm, statusFilter, dateFilter, customRange]);
 
   // Count items per status for dropdown badges
   const statusCounts = useMemo(() => {
@@ -347,6 +385,7 @@ export default function Invoices() {
       Paid: 0,
       Unpaid: 0,
       Partial: 0,
+      Advanced: 0,
       Overdue: 0,
       "Pending Approval": 0,
       Draft: 0,
@@ -360,6 +399,7 @@ export default function Invoices() {
       if (payStatus === "Paid") counts.Paid += 1;
       if (payStatus === "Unpaid") counts.Unpaid += 1;
       if (payStatus === "Partial" || payStatus === "Partially Paid") counts.Partial += 1;
+      if (payStatus === "Advanced") counts.Advanced += 1;
       if (appStatus === "Pending Approval") counts["Pending Approval"] += 1;
       if (appStatus === "Draft") counts.Draft += 1;
       if (appStatus === "Approved") counts.Approved += 1;
@@ -660,7 +700,7 @@ export default function Invoices() {
               <Search size={16} className="inv-search-icon" />
               <input
                 type="text"
-                placeholder="Search by Invoice #, Customer, Quotation Ref..."
+                placeholder="Search by Invoice #, Customer, Phone, Quotation Ref..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="inv-search-input"
@@ -1004,23 +1044,71 @@ export default function Invoices() {
                             </div>
                           </td>
                           <td>
-                            <div className="inv-cell-customer">
-                              <div className="inv-cust-avatar">
-                                {(inv.customer_name || "C")
-                                  .charAt(0)
-                                  .toUpperCase()}
-                              </div>
-                              <div className="inv-cust-info">
-                                <span className="inv-cust-name">
-                                  {inv.customer_name || "—"}
-                                </span>
-                                {inv.company_name && (
-                                  <span className="inv-cust-company">
-                                    {inv.company_name}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            {(() => {
+                              const custObj = inv.customer_id
+                                ? customers.find((c) => Number(c.customer_id) === Number(inv.customer_id))
+                                : null;
+                              const rawName = String(inv.customer_name || custObj?.customer_name || "").trim();
+                              const rawPhone = String(
+                                inv.phone || inv.customer_phone || inv.clientPhone || custObj?.phone || ""
+                              ).trim();
+                              const cleanName =
+                                rawName &&
+                                rawName !== "—" &&
+                                rawName.toLowerCase() !== "not specified" &&
+                                rawName.toLowerCase() !== "client"
+                                  ? rawName
+                                  : "";
+                              const hasPhone = Boolean(rawPhone);
+                              const hasRealName = Boolean(cleanName && cleanName !== rawPhone);
+
+                              let primaryText = "—";
+                              let secondaryText = null;
+                              let avatarContent = "?";
+
+                              if (hasRealName && hasPhone) {
+                                // Both Name and Phone entered: show Name on top, Phone below
+                                primaryText = cleanName;
+                                secondaryText = rawPhone;
+                                avatarContent = cleanName.charAt(0).toUpperCase();
+                              } else if (hasPhone && !hasRealName) {
+                                // Only Phone number entered: show Phone number only
+                                primaryText = rawPhone;
+                                secondaryText = null;
+                                avatarContent = <Phone size={13} />;
+                              } else if (hasRealName && !hasPhone) {
+                                // Only Name entered: show Name only
+                                primaryText = cleanName;
+                                secondaryText = null;
+                                avatarContent = cleanName.charAt(0).toUpperCase();
+                              } else if (rawName) {
+                                primaryText = rawName;
+                                avatarContent = rawName.charAt(0).toUpperCase();
+                              }
+
+                              return (
+                                <div className="inv-cell-customer">
+                                  <div className="inv-cust-avatar">
+                                    {avatarContent}
+                                  </div>
+                                  <div className="inv-cust-info">
+                                    <span className="inv-cust-name" title={primaryText}>
+                                      {primaryText}
+                                    </span>
+                                    {secondaryText && (
+                                      <span className="inv-cust-phone" title={secondaryText}>
+                                        {secondaryText}
+                                      </span>
+                                    )}
+                                    {inv.company_name && (
+                                      <span className="inv-cust-company" title={inv.company_name}>
+                                        {inv.company_name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td>
                             {inv.quotation_number || inv.quotation_id ? (
@@ -1219,7 +1307,31 @@ export default function Invoices() {
                         <div className="inv-mcard-row">
                           <span className="inv-mcard-lbl">Customer:</span>
                           <span className="inv-mcard-val bold">
-                            {inv.customer_name || "—"}
+                            {(() => {
+                              const custObj = inv.customer_id
+                                ? customers.find((c) => Number(c.customer_id) === Number(inv.customer_id))
+                                : null;
+                              const rawName = String(inv.customer_name || custObj?.customer_name || "").trim();
+                              const rawPhone = String(
+                                inv.phone || inv.customer_phone || inv.clientPhone || custObj?.phone || ""
+                              ).trim();
+                              const cleanName =
+                                rawName &&
+                                rawName !== "—" &&
+                                rawName.toLowerCase() !== "not specified" &&
+                                rawName.toLowerCase() !== "client"
+                                  ? rawName
+                                  : "";
+                              const hasPhone = Boolean(rawPhone);
+                              const hasRealName = Boolean(cleanName && cleanName !== rawPhone);
+
+                              if (hasRealName && hasPhone) {
+                                return `${cleanName} (${rawPhone})`;
+                              } else if (hasPhone && !hasRealName) {
+                                return rawPhone;
+                              }
+                              return cleanName || rawName || "—";
+                            })()}
                           </span>
                         </div>
 
@@ -1373,10 +1485,6 @@ export default function Invoices() {
         isOpen={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         invoice={viewingInvoice}
-        onEdit={(inv) => {
-          setIsDetailsOpen(false);
-          handleOpenEdit(inv);
-        }}
         onRecordPayment={(inv) => {
           setIsDetailsOpen(false);
           handleOpenPaymentModal(inv);

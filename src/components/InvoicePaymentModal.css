@@ -413,94 +413,162 @@
   color: #475569;
 }
 
-/* Modern Payment Method Dropdown */
+/* Modern Payment Method & Settlement Type Dropdowns */
 .ipm-dropdown-wrap {
   position: relative;
   width: 100%;
-  max-width: 220px;
 }
 
 .ipm-dropdown-btn {
   width: 100%;
-  height: 30px;
+  height: 33px;
   padding: 0 10px;
   border: 1px solid #cbd5e1;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #ffffff;
   color: #0f172a;
-  font-family: inherit;
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 11.5px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .ipm-dropdown-btn:hover {
   border-color: #94a3b8;
+  background: #fafafa;
 }
 
 .ipm-dropdown-btn.open {
   border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .ipm-dropdown-btn-left {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  color: #0f172a;
+  gap: 8px;
+  min-width: 0;
 }
 
-.ipm-dropdown-btn-left svg {
+.ipm-dropdown-text {
+  font-weight: 550;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Icon Badges */
+.ipm-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.ipm-dropdown-btn:hover .ipm-icon-badge {
+  transform: scale(1.05);
+}
+
+.ipm-icon-badge.blue {
+  background: #eff6ff;
   color: #2563eb;
 }
 
+.ipm-icon-badge.purple {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.ipm-icon-badge.green {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.ipm-icon-badge.cyan {
+  background: #ecfeff;
+  color: #0891b2;
+}
+
+.ipm-icon-badge.amber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.ipm-icon-badge.slate {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .ipm-dropdown-chevron {
-  color: #64748b;
-  transition: transform 0.15s ease;
+  color: #94a3b8;
+  flex-shrink: 0;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
 }
 
 .ipm-dropdown-chevron.open {
   transform: rotate(180deg);
+  color: #2563eb;
 }
 
+/* Dropdown Menu */
 .ipm-dropdown-menu {
   position: absolute;
   top: calc(100% + 5px);
   left: 0;
   right: 0;
-  z-index: 30;
+  z-index: 50;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 9px;
-  padding: 4px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+  border-radius: 10px;
+  padding: 5px;
+  box-shadow: 0 10px 25px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
   gap: 2px;
+  animation: ipmDropdownSlideDown 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ipmDropdownSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .ipm-dropdown-item {
   width: 100%;
-  padding: 5px 8px;
+  height: 32px;
+  padding: 0 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: #334155;
-  font-family: inherit;
-  font-size: 10.5px;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif;
+  font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: all 0.12s ease;
 }
 
 .ipm-dropdown-item:hover {
@@ -517,11 +585,19 @@
 .ipm-dropdown-item-left {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ipm-item-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ipm-dropdown-check {
   color: #2563eb;
+  flex-shrink: 0;
 }
 
 .ipm-grid-2 {
@@ -923,6 +999,57 @@ input[type="date"].ipm-input::-webkit-datetime-edit-year-field {
   border-color: #1e2c4a;
 }
 
+[data-theme="dark"] .ipm-header {
+  background: #111c34;
+  border-bottom-color: #1e2c4a;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-header-text h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-header-icon {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .ipm-close-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ipm-close-btn:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-pill.invoice {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="dark"] .ipm-pill.customer {
+  background: rgba(14, 165, 233, 0.18);
+  color: #7dd3fc;
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+[data-theme="dark"] .ipm-pill.quotation {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+[data-theme="dark"] .ipm-pill.direct {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
 [data-theme="dark"] .ipm-kpi-card.due {
   background: rgba(37, 99, 235, 0.15);
   border-color: rgba(59, 130, 246, 0.35);
@@ -956,6 +1083,10 @@ input[type="date"].ipm-input::-webkit-datetime-edit-year-field {
   color: #fda4af;
 }
 
+[data-theme="dark"] .ipm-kpi-preview {
+  color: #7dd3fc;
+}
+
 [data-theme="dark"] .ipm-progress-box,
 [data-theme="dark"] .ipm-history-head {
   background: #111c34;
@@ -973,13 +1104,57 @@ input[type="date"].ipm-input::-webkit-datetime-edit-year-field {
   background: #1e293b;
 }
 
+[data-theme="dark"] .ipm-pending-chip {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .ipm-pct-badge.done {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ipm-pct-badge.partial {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+}
+
+[data-theme="dark"] .ipm-pct-badge.zero {
+  background: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-alert.error {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .ipm-alert.success {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
 [data-theme="dark"] .ipm-form-card {
   background: #111c34;
   border-color: #1e2c4a;
 }
 
+[data-theme="dark"] .ipm-pay-full-btn {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .ipm-pay-full-btn:hover {
+  color: #93c5fd;
+}
+
 [data-theme="dark"] .ipm-label {
   color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-curr {
+  color: #94a3b8;
 }
 
 [data-theme="dark"] .ipm-method-pill {
@@ -994,19 +1169,199 @@ input[type="date"].ipm-input::-webkit-datetime-edit-year-field {
   color: #f8fafc;
 }
 
-[data-theme="dark"] .ipm-history-card {
-  background: #0f172a;
-  border-color: #1e2c4a;
+[data-theme="dark"] .ipm-date-icon {
+  color: #94a3b8;
 }
 
-[data-theme="dark"] .ipm-tx-row {
-  border-bottom-color: #1a2744;
+[data-theme="dark"] input[type="date"].ipm-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.85);
 }
 
 [data-theme="dark"] .ipm-upload-btn {
   background: rgba(37, 99, 235, 0.16);
   border-color: rgba(96, 165, 250, 0.45);
   color: #93c5fd;
+}
+
+[data-theme="dark"] .ipm-slip-chip {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+
+[data-theme="dark"] .ipm-slip-remove {
+  color: #86efac;
+}
+
+[data-theme="dark"] .ipm-slip-hint {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ipm-settled-banner {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ipm-history-card {
+  background: #0f172a;
+  border-color: #1e2c4a;
+}
+
+[data-theme="dark"] .ipm-history-count {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+}
+
+[data-theme="dark"] .ipm-history-loading,
+[data-theme="dark"] .ipm-history-empty {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ipm-tx-row {
+  border-bottom-color: #1a2744;
+}
+
+[data-theme="dark"] .ipm-tx-sub {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .ipm-tx-slip-link {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .ipm-tx-delete {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #f87171;
+}
+
+[data-theme="dark"] .ipm-tx-delete:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ipm-tx-amount.approved {
+  color: #34d399;
+}
+
+[data-theme="dark"] .ipm-tx-amount.pending {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .ipm-tx-amount.rejected {
+  color: #f87171;
+}
+
+[data-theme="dark"] .ipm-tx-method.blue {
+  background: rgba(37, 99, 235, 0.22);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ipm-tx-method.purple {
+  background: rgba(124, 58, 237, 0.22);
+  color: #c4b5fd;
+}
+
+[data-theme="dark"] .ipm-tx-method.green {
+  background: rgba(5, 150, 105, 0.22);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ipm-tx-method.cyan {
+  background: rgba(8, 145, 178, 0.22);
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .ipm-tx-method.slate {
+  background: rgba(100, 116, 139, 0.22);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-tx-status.approved {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .ipm-tx-status.pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .ipm-tx-status.rejected {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .ipm-dropdown-btn {
+  background: #0b1324;
+  border-color: #263554;
+  color: #f8fafc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .ipm-dropdown-btn:hover {
+  border-color: #3b5078;
+  background: #0f1a30;
+}
+
+[data-theme="dark"] .ipm-dropdown-btn.open {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.22);
+}
+
+[data-theme="dark"] .ipm-dropdown-text {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-dropdown-menu {
+  background: #0f172a;
+  border-color: #1e2c4a;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .ipm-dropdown-item {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ipm-dropdown-item:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ipm-dropdown-item.selected {
+  background: rgba(37, 99, 235, 0.22);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .ipm-icon-badge.blue {
+  background: rgba(37, 99, 235, 0.22);
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .ipm-icon-badge.purple {
+  background: rgba(124, 58, 237, 0.22);
+  color: #c4b5fd;
+}
+
+[data-theme="dark"] .ipm-icon-badge.green {
+  background: rgba(5, 150, 105, 0.22);
+  color: #34d399;
+}
+
+[data-theme="dark"] .ipm-icon-badge.cyan {
+  background: rgba(8, 145, 178, 0.22);
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .ipm-icon-badge.amber {
+  background: rgba(217, 119, 6, 0.22);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .ipm-icon-badge.slate {
+  background: rgba(100, 116, 139, 0.22);
+  color: #cbd5e1;
 }
 
 /* Responsive */

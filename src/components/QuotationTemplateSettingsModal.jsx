@@ -459,8 +459,8 @@ export default function QuotationTemplateSettingsModal({
                     quotations)
                   </label>
                   <textarea
-                    rows={3}
-                    placeholder="1. Payment terms as agreed upon...\n2. Quotation validity period..."
+                    rows={4}
+                    placeholder={"1. Payment terms as agreed.\n2. This quotation is valid until the stated expiry date."}
                     value={form.default_terms_and_conditions}
                     onChange={(e) =>
                       setForm({

@@ -7,7 +7,6 @@ import {
   FileText,
   Receipt,
   BarChart3,
-  Search,
   Bell,
   Menu,
   X,
@@ -802,120 +801,6 @@ export default function SuperAdminDashboard() {
         </div>
 
         <div className="sa-header-actions">
-          {/* Search bar */}
-          <div
-            className={`sa-search-container ${mobileSearchOpen ? "mobile-open" : ""}`}
-            ref={searchRef}
-          >
-            <form
-              className="sa-search-box"
-              onSubmit={handleSearchSubmit}
-              onClick={() => {
-                if (!mobileSearchOpen) {
-                  setMobileSearchOpen(true);
-                  setTimeout(() => searchInputRef.current?.focus(), 50);
-                }
-              }}
-            >
-              <button
-                type="button"
-                className="sa-search-btn"
-                title="Search dashboard"
-                aria-label="Search dashboard"
-                onClick={(e) => {
-                  if (!mobileSearchOpen) {
-                    e.preventDefault();
-                    setMobileSearchOpen(true);
-                    setTimeout(() => searchInputRef.current?.focus(), 50);
-                    return;
-                  }
-                  handleSearchSubmit(e);
-                }}
-              >
-                <Search size={16} />
-              </button>
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setIsSearchOpen(true);
-                }}
-                onFocus={() => {
-                  setMobileSearchOpen(true);
-                  if (search.trim()) setIsSearchOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleSearchSubmit(e);
-                  }
-                  if (e.key === "Escape") {
-                    setIsSearchOpen(false);
-                    setMobileSearchOpen(false);
-                  }
-                }}
-                placeholder="Search dashboard..."
-                aria-label="Search dashboard"
-              />
-              {(Boolean(search) || mobileSearchOpen) && (
-                <button
-                  type="button"
-                  className="sa-clear-search"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearch("");
-                    setIsSearchOpen(false);
-                    setMobileSearchOpen(false);
-                  }}
-                  aria-label="Close search"
-                  title="Close search"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </form>
-
-            {/* Live search results dropdown: only dashboard items */}
-            {isSearchOpen && search.trim() && (
-              <div className="sa-search-dropdown">
-                <div className="sa-search-group-title">Dashboard Pages &amp; Modules</div>
-                {matchingDashboardItems.length > 0 ? (
-                  matchingDashboardItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        type="button"
-                        key={item.path}
-                        className="sa-search-result-item"
-                        onClick={() => {
-                          navigateTo(item.path);
-                          setSearch("");
-                          setIsSearchOpen(false);
-                          setMobileSearchOpen(false);
-                        }}
-                      >
-                        <div className="sa-search-result-icon">
-                          <Icon size={16} />
-                        </div>
-                        <div className="sa-search-result-info">
-                          <strong>{item.name}</strong>
-                          <span>{item.description}</span>
-                        </div>
-                        <ChevronRight size={14} className="sa-search-result-arrow" />
-                      </button>
-                    );
-                  })
-                ) : (
-                  <div className="sa-search-no-results">
-                    <Search size={20} color="#94a3b8" />
-                    <p>No dashboard pages found matching &ldquo;{search}&rdquo;</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Notification icon */}
           <ThemeToggle />
           <NotificationBell filter="all" />

@@ -1978,17 +1978,14 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
   // Right-side Title & Status Pill
   const pdfHeading =
     valueOrEmpty(localInvSettings.pdf_heading) ||
-    valueOrEmpty(mergedCompany.pdf_heading) ||
     valueOrEmpty(mergedCompany.invoice_pdf_heading) ||
     "INVOICE";
 
   const pdfSubheading =
     localInvSettings.pdf_subheading !== undefined &&
-    localInvSettings.pdf_subheading !== null &&
-    String(localInvSettings.pdf_subheading).trim() !== ""
+    localInvSettings.pdf_subheading !== null
       ? String(localInvSettings.pdf_subheading).trim()
-      : valueOrEmpty(mergedCompany.pdf_subheading) ||
-        valueOrEmpty(mergedCompany.invoice_pdf_subheading) ||
+      : valueOrEmpty(mergedCompany.invoice_pdf_subheading) ||
         "OFFICIAL BILLING DOCUMENT";
 
   if (pdfSubheading) {
@@ -2150,7 +2147,6 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
     ["INVOICE NUMBER", invoiceNum, true],
     ["INVOICE DATE", invDateText, false],
     ["DUE DATE", dueDateText, false],
-    ["CURRENCY", currency, false],
     ...(valueOrEmpty(invoice.quotation_number)
       ? [["QUOTATION REF", String(invoice.quotation_number), false]]
       : []),
@@ -2456,15 +2452,15 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
   const quotationCompanyTerms = valueOrEmpty(mergedCompany.default_terms_and_conditions);
 
   let termsText = settingTerms || defaultInvoiceTerms;
-  if (
+  if (settingTerms) {
+    termsText = settingTerms;
+  } else if (
     rawInvoiceTerms &&
     rawInvoiceTerms !== defaultInvoiceTerms &&
     rawInvoiceTerms !== quotationCompanyTerms &&
     !rawInvoiceTerms.toLowerCase().includes("quotation is valid")
   ) {
     termsText = rawInvoiceTerms;
-  } else if (settingTerms) {
-    termsText = settingTerms;
   }
 
   const summaryBoxH = Math.max(28, neededNoteBoxH);
@@ -2478,17 +2474,13 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
 
   // Left Side: Payment / Bank Notes (rendered in a soft light blue box with bank icon)
   if (paymentNotesText) {
-    // 1. Soft light blue background
-    doc.setFillColor(240, 247, 255); // #F0F7FF (soft light blue fill)
-    doc.setDrawColor(191, 219, 254); // #BFDBFE (blue-200, clean soft blue border)
+    // 1. Soft light blue background (lighter soft blue)
+    doc.setFillColor(246, 250, 255); // #F6FAFF (lighter, softer blue fill)
+    doc.setDrawColor(219, 234, 254); // #DBEAFE (blue-100, clean lighter soft blue border)
     doc.setLineWidth(0.3);
     doc.roundedRect(PAGE_MARGIN, sectionStartY, noteBoxW, summaryBoxH, 1.8, 1.8, "FD");
 
-    // 2. Left vertical blue accent strip
-    doc.setFillColor(28, 86, 219); // #1C56DB (COLORS.blue)
-    doc.roundedRect(PAGE_MARGIN, sectionStartY, 2.2, summaryBoxH, 1.0, 1.0, "F");
-
-    // 3. Bank Icon badge (crisp canvas image or vector fallback)
+    // 2. Bank Icon badge (crisp canvas image or vector fallback)
     const bankIconUrl = createBankIconImage("#1c56db");
     const iconSize = 4.6;
     const iconX = PAGE_MARGIN + 5.0;
@@ -2638,35 +2630,30 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
   const thankYouTitle = valueOrEmpty(
     localInvSettings.thank_you_title ||
     mergedCompany.invoice_thank_you_title ||
-    mergedCompany.quotation_thank_you_title ||
     "Thank You"
   );
   const rawThankYou = valueOrEmpty(
-    localInvSettings.thank_you_message ||
-    mergedCompany.invoice_thank_you_message ||
-    mergedCompany.quotation_thank_you_message
+    localInvSettings.thank_you_message !== undefined && localInvSettings.thank_you_message !== null
+      ? localInvSettings.thank_you_message
+      : mergedCompany.invoice_thank_you_message
   );
-  const thankYouMessage =
-    rawThankYou && !rawThankYou.toLowerCase().includes("real estate")
-      ? rawThankYou
-      : defaultThankYouMessage;
+  const thankYouMessage = rawThankYou || defaultThankYouMessage;
 
   const preparedBy = valueOrEmpty(
     localInvSettings.prepared_by ||
     mergedCompany.invoice_prepared_by ||
-    mergedCompany.quotation_prepared_by ||
+    mergedCompany.name ||
+    mergedCompany.company_name ||
     "NetIT Technology"
   );
   const preparedByServices = valueOrEmpty(
     localInvSettings.prepared_by_services ||
     mergedCompany.invoice_prepared_by_services ||
-    mergedCompany.quotation_prepared_by_services ||
     "Web Development • Software Solutions • Digital Marketing"
   );
   const ceoName = valueOrEmpty(
     localInvSettings.ceo_name ||
     mergedCompany.invoice_ceo_name ||
-    mergedCompany.quotation_ceo_name ||
     mergedCompany.authorized_person ||
     mergedCompany.contact_person ||
     "D M N K DISSANAYAKA"
@@ -2674,7 +2661,6 @@ export async function createInvoicePdfDoc(invoice, company = {}) {
   const ceoDesignation = valueOrEmpty(
     localInvSettings.ceo_designation ||
     mergedCompany.invoice_ceo_designation ||
-    mergedCompany.quotation_ceo_designation ||
     mergedCompany.designation ||
     "CEO (NetIT Technology)"
   );

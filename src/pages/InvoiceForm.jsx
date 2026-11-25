@@ -281,7 +281,7 @@ export default function InvoiceForm({
   const [invoiceNumber, setInvoiceNumber] = useState(
     data?.invoice_number ||
     (data?.quotation_number
-      ? toInvoiceNumberFromQuotation(data.quotation_number)
+      ? toInvoiceNumberFromQuotation(data.quotation_number, defaultPrefix)
       : "") ||
     getNextInvoiceNumber([], defaultInvoiceDate, defaultPrefix)
   );
@@ -441,6 +441,35 @@ export default function InvoiceForm({
   const [companyDetails, setCompanyDetails] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
+
+  function scrollToTop() {
+    setTimeout(() => {
+      const errorEl = document.querySelector(".inv-alert-error");
+      if (errorEl) {
+        errorEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      const modalBody = document.querySelector(".inv-modal-body");
+      if (modalBody) {
+        modalBody.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      const modalOverlay = document.querySelector(".inv-modal-overlay");
+      if (modalOverlay) {
+        modalOverlay.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      const pageContainer = document.querySelector(".inv-form-page-container");
+      if (pageContainer) {
+        pageContainer.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 50);
+  }
+
+  useEffect(() => {
+    if (errorMessage) {
+      scrollToTop();
+    }
+  }, [errorMessage]);
 
   // Load registered customers, quotations, existing invoices, and company branding
   useEffect(() => {
@@ -791,6 +820,22 @@ export default function InvoiceForm({
     if (!trimmedNumber) {
       errors.invoiceNumber = true;
       if (!firstErrorMsg) firstErrorMsg = "Invoice number is required.";
+    } else if (Array.isArray(invoicesList)) {
+      const currentId = data?.invoice_id || data?.id;
+      const isDuplicate = invoicesList.some((inv) => {
+        const invId = inv.invoice_id || inv.id;
+        if (currentId && String(invId) === String(currentId)) return false;
+        return (
+          String(inv.invoice_number || "").trim().toLowerCase() ===
+          trimmedNumber.toLowerCase()
+        );
+      });
+      if (isDuplicate) {
+        errors.invoiceNumber = true;
+        if (!firstErrorMsg) {
+          firstErrorMsg = `Invoice number "${trimmedNumber}" already exists. Please choose a different invoice number.`;
+        }
+      }
     }
 
     if (!invoiceDate) {
@@ -818,11 +863,7 @@ export default function InvoiceForm({
 
     if (firstErrorMsg) {
       setErrorMessage(firstErrorMsg);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      const modalBody = document.querySelector(".inv-modal-body");
-      if (modalBody) {
-        modalBody.scrollTo({ top: 0, behavior: "smooth" });
-      }
+      scrollToTop();
       return false;
     }
 
@@ -1007,6 +1048,7 @@ export default function InvoiceForm({
       onClose();
     } catch (err) {
       setErrorMessage(err?.message || "Failed to save invoice.");
+      scrollToTop();
     } finally {
       setSaving(false);
     }
@@ -1089,6 +1131,7 @@ export default function InvoiceForm({
     } catch (err) {
       console.error("Invoice PDF generation failed:", err);
       setErrorMessage(err?.message || "Could not generate the invoice PDF.");
+      scrollToTop();
     } finally {
       setDownloadingPdf(false);
     }

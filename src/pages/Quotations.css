@@ -1347,8 +1347,8 @@
 .quotation-id,
 .quotation-app .quotation-id {
   color: #1d4ed8;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.2px;
   line-height: 1.25;
   transition: color 0.15s ease;
@@ -1368,8 +1368,8 @@
 
 [data-theme="dark"] .quotation-app .quotation-id {
   color: #60a5fa !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
 }
 
 [data-theme="dark"] .quotation-app .quotation-id:hover {

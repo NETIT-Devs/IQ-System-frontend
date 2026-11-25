@@ -521,6 +521,22 @@ export default function CompanySettings() {
       };
       setInvoiceSettings(cleaned);
       localStorage.setItem("iq_invoice_settings", JSON.stringify(cleaned));
+      try {
+        const rawBrand = localStorage.getItem("company_branding");
+        const brandObj = rawBrand ? JSON.parse(rawBrand) : {};
+        brandObj.invoice_pdf_heading = cleaned.pdf_heading;
+        brandObj.invoice_pdf_subheading = cleaned.pdf_subheading;
+        brandObj.invoice_default_terms = cleaned.default_terms;
+        brandObj.invoice_thank_you_title = cleaned.thank_you_title;
+        brandObj.invoice_thank_you_message = cleaned.thank_you_message;
+        brandObj.invoice_prepared_by = cleaned.prepared_by;
+        brandObj.invoice_prepared_by_services = cleaned.prepared_by_services;
+        brandObj.invoice_ceo_name = cleaned.ceo_name;
+        brandObj.invoice_ceo_designation = cleaned.ceo_designation;
+        localStorage.setItem("company_branding", JSON.stringify(brandObj));
+      } catch {
+        // ignore
+      }
       window.dispatchEvent(
         new CustomEvent("invoice-settings-updated", { detail: cleaned })
       );
@@ -827,6 +843,22 @@ export default function CompanySettings() {
         };
         setInvoiceSettings(cleanedInv);
         localStorage.setItem("iq_invoice_settings", JSON.stringify(cleanedInv));
+        try {
+          const rawBrand = localStorage.getItem("company_branding");
+          const brandObj = rawBrand ? JSON.parse(rawBrand) : {};
+          brandObj.invoice_pdf_heading = cleanedInv.pdf_heading;
+          brandObj.invoice_pdf_subheading = cleanedInv.pdf_subheading;
+          brandObj.invoice_default_terms = cleanedInv.default_terms;
+          brandObj.invoice_thank_you_title = cleanedInv.thank_you_title;
+          brandObj.invoice_thank_you_message = cleanedInv.thank_you_message;
+          brandObj.invoice_prepared_by = cleanedInv.prepared_by;
+          brandObj.invoice_prepared_by_services = cleanedInv.prepared_by_services;
+          brandObj.invoice_ceo_name = cleanedInv.ceo_name;
+          brandObj.invoice_ceo_designation = cleanedInv.ceo_designation;
+          localStorage.setItem("company_branding", JSON.stringify(brandObj));
+        } catch {
+          // ignore
+        }
         window.dispatchEvent(
           new CustomEvent("invoice-settings-updated", { detail: cleanedInv })
         );

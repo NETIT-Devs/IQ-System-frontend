@@ -844,6 +844,10 @@
   color: #94a3b8;
 }
 
+.qf-payment-stage-display-val.exceeded {
+  color: #dc2626 !important;
+}
+
 /* Dark theme for Payment Stage */
 [data-theme="dark"] .qf-payment-stage-title {
   color: #f1f5f9;
@@ -875,6 +879,10 @@
 
 [data-theme="dark"] .qf-payment-stage-display-val.empty {
   color: #64748b;
+}
+
+[data-theme="dark"] .qf-payment-stage-display-val.exceeded {
+  color: #ef4444 !important;
 }
 
 /* Alerts - Modern Curved */

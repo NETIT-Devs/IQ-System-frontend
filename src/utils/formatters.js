@@ -45,16 +45,17 @@ export function getNextInvoiceNumber(invoices = [], dateStr, prefix = "INV") {
   return getNextSequenceNumber(prefix, numbers, dateStr);
 }
 
-export function toInvoiceNumberFromQuotation(quotationNumber) {
+export function toInvoiceNumberFromQuotation(quotationNumber, prefix = "INV") {
   const trimmed = String(quotationNumber || "").trim();
   if (!trimmed) return "";
+  const cleanPrefix = String(prefix || "INV").trim().toUpperCase() || "INV";
   if (/^QUO-/i.test(trimmed)) {
-    return `INV-${trimmed.slice(4)}`;
+    return `${cleanPrefix}-${trimmed.slice(4)}`;
   }
-  if (/^INV-/i.test(trimmed)) {
+  if (new RegExp(`^${cleanPrefix}-`, "i").test(trimmed)) {
     return trimmed;
   }
-  return `INV-${trimmed}`;
+  return `${cleanPrefix}-${trimmed.replace(/^[A-Za-z]+-/, "")}`;
 }
 
 export const OVERVIEW_PERIOD_OPTIONS = [

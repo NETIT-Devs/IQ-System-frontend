@@ -1338,9 +1338,9 @@ export default function UserManagement() {
                     <AlertTriangle size={22} />
                   </div>
                   <div className="um-warning-text">
-                    <h4>අවධානයයි: ගිණුම සහ දත්ත මාරු කිරීම තහවුරු කරන්න</h4>
+                    <h4>Warning: Confirm Account and Data Transfer</h4>
                     <p className="um-warning-sinhala">
-                      මෙම Admin ට Super Admin / Admin ගේ දත්ත හා බලතල මාරු වූ පසු මෙම account එක deactivate වේ. සියලුම Invoices, Quotations සහ Dashboard දත්ත නව Admin වෙත මාරු වේ. මෙම ක්‍රියාව ආපසු හැරවිය නොහැක.
+                      Once data and permissions of this Super Admin / Admin are transferred to the new Admin, this account will be deactivated. All Invoices, Quotations, and Dashboard data will be transferred to the new Admin. This action cannot be undone.
                     </p>
                     <p className="um-warning-english">
                       All records (Invoices, Quotations, Customers, and Payments) will be permanently reassigned to the recipient. The source account will be deactivated immediately.

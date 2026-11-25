@@ -939,6 +939,10 @@ export default function QuotationForm({
     };
   }, [items, formData.discount_amount]);
 
+  const isAdvanceExceeded = Boolean(
+    formData.advance_price && Number(formData.advance_price) > totals.total
+  );
+
   // Format currency for display
   const formatMoney = (amount) => {
     return `${formData.currency} ${Number(amount || 0).toLocaleString(
@@ -1100,6 +1104,11 @@ export default function QuotationForm({
     if (totals.discount > totals.subtotal) {
       errors.discount_amount = "Discount amount cannot be greater than the subtotal.";
       if (!firstError) firstError = errors.discount_amount;
+    }
+
+    if (formData.advance_price && Number(formData.advance_price) > totals.total) {
+      errors.advance_price = "Advance payment cannot exceed the grand total.";
+      if (!firstError) firstError = errors.advance_price;
     }
 
     return {
@@ -2260,7 +2269,7 @@ export default function QuotationForm({
                     type="number"
                     min="0"
                     step="any"
-                    className="qf-input"
+                    className={`qf-input ${isAdvanceExceeded || fieldErrors.advance_price ? "qf-input-error" : ""}`}
                     placeholder="Enter advance price (e.g. 50000)"
                     value={formData.advance_price}
                     onChange={(e) => updateField("advance_price", e.target.value)}
@@ -2276,6 +2285,11 @@ export default function QuotationForm({
                       if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
                     }}
                   />
+                  {(isAdvanceExceeded || fieldErrors.advance_price) && (
+                    <span className="qf-error-text" style={{ marginTop: "4px" }}>
+                      {fieldErrors.advance_price || "Advance payment cannot exceed the grand total."}
+                    </span>
+                  )}
                 </div>
 
                 {/* Advance to Pay Display */}
@@ -2284,8 +2298,12 @@ export default function QuotationForm({
                     Advance to Pay:
                   </span>
                   <span
-                    className={`qf-payment-stage-display-val ${Number(formData.advance_price) > 0 ? "" : "empty"
-                      }`}
+                    className={`qf-payment-stage-display-val ${
+                      isAdvanceExceeded
+                        ? "exceeded"
+                        : Number(formData.advance_price) > 0 ? "" : "empty"
+                    }`}
+                    style={isAdvanceExceeded ? { color: "#dc2626" } : undefined}
                   >
                     {Number(formData.advance_price) > 0
                       ? formatMoney(formData.advance_price)
